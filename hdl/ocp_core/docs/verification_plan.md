@@ -3,9 +3,12 @@
 ## 1. Overview
 
 The testbench compresses the test image of a configuration twice in a row and compares both compressed images, byte by
-byte and including the last-byte marker, with the compressed image of the CNES reference software
-(`tb/golden/<configuration>/compressed.bin`). The error limit values of periodic updating come from the same file as
-for the CNES encoder. After the second image the output must stay idle and no memory error may be signalled.
+byte and including the last-word marker and the valid bytes of the last word, with the compressed image of the CNES
+reference software (`tb/golden/<configuration>/compressed.bin`). The interface width changes from configuration to
+configuration (8, 16, 32 and 64 bits in turn; 32 bits for the throughput configurations). The error limit values of
+periodic updating come from the same file as for the CNES encoder. After the second image the output must stay idle
+and no memory error may be signalled. For the throughput configurations the testbench compares the cycles between the
+first and the last accepted sample of both images with the throughput model (`tools/ocp_throughput.py`).
 
 ## 2. Test configuration
 
@@ -44,16 +47,23 @@ gaps and 60 % output stalls (suffix `_bp`). Simulator: GHDL.
 | `test_golden` c22_single_pixel_hybrid (TC-CO-22) | Image of one pixel per band with the hybrid coder: uncoded samples only, tail with the initial accumulators | CO-HD-02, CO-PK-02, EC-HY-02, EC-HY-04 |
 | `test_golden` c23_extreme_weights (TC-CO-23) | D = 3, Omega = 19, weight exponent offset table with -6 | CO-HD-04, EC-SA-01, EC-SA-03 |
 | `test_golden` c24_reduced_p0 (TC-CO-24) | Reduced prediction with P = 0, block-adaptive coder with J = 8 and r = 16 | CO-HD-04, EC-BA-01, EC-BA-03 |
-| `test_golden` c01_lossless_bip_bp (TC-CO-25) | As TC-CO-01 with input gaps and output stalls | CO-IF-01, CO-IF-02, CO-PK-03 |
-| `test_golden` c04_near_abs_hybrid_bp (TC-CO-26) | As TC-CO-04 with input gaps and output stalls | CO-IF-02, CO-PK-03 |
-| `test_golden` c06_near_both_block_bp (TC-CO-27) | As TC-CO-06 with input gaps and output stalls | CO-IF-02, CO-PK-03 |
-| `test_golden` c10_periodic_limits_bp (TC-CO-28) | As TC-CO-10 with input gaps and output stalls | CO-IF-01, CO-IF-02, CO-PK-03, EC-IF-02 |
+| `test_golden` c25_hp_bsq_lossless (TC-CO-25) | Throughput: BSQ with the sample-adaptive coder, one sample per cycle over two images | CO-TP-01, EC-TP-01 |
+| `test_golden` c26_hp_bil_near_abs (TC-CO-26) | Throughput: BIL with the hybrid coder, one sample per cycle over two images including the tail | CO-TP-01, EC-TP-01, EC-HY-04 |
+| `test_golden` c27_hp_bip_full (TC-CO-27) | Throughput: BIP with the block-adaptive coder (J = 16), one sample per cycle over two images | CO-TP-01, EC-TP-01, EC-BA-03 |
+| `test_golden` c28_hp_bsq_near_abs (TC-CO-28) | Throughput: BSQ near-lossless with the sample-adaptive coder, one sample per cycle over two images | CO-TP-01, EC-TP-01 |
+| `test_golden` c29_hp_bip_near_stride (TC-CO-29) | Stride order of the predictor with the sample-adaptive coder, two images | CO-PK-03, EC-SA-01 |
+| `test_golden` c30_hp_bip_both_stride (TC-CO-30) | Stride order with absolute and relative error limits and the hybrid coder, two images | CO-HD-05, EC-HY-01, EC-HY-04 |
+| `test_golden` c01_lossless_bip_bp (TC-CO-31) | As TC-CO-01 with input gaps and output stalls | CO-IF-01, CO-IF-02, CO-PK-03 |
+| `test_golden` c04_near_abs_hybrid_bp (TC-CO-32) | As TC-CO-04 with input gaps and output stalls | CO-IF-02, CO-PK-03 |
+| `test_golden` c06_near_both_block_bp (TC-CO-33) | As TC-CO-06 with input gaps and output stalls | CO-IF-02, CO-PK-03 |
+| `test_golden` c10_periodic_limits_bp (TC-CO-34) | As TC-CO-10 with input gaps and output stalls | CO-IF-01, CO-IF-02, CO-PK-03, EC-IF-02 |
 
 ## 4. Requirement coverage
 
 | Requirement | Test cases |
 | --- | --- |
-| CO-IF-01, CO-IF-02 | TC-CO-01, TC-CO-10, TC-CO-19 to TC-CO-28 |
+| CO-IF-01, CO-IF-02 | TC-CO-01, TC-CO-10, TC-CO-19 to TC-CO-34; interface widths of 8, 16, 32 and 64 bits |
 | CO-IF-03 | all (no error; error injection is an open item) |
 | CO-HD-01 to CO-HD-07 | TC-CO-01 to TC-CO-24 |
 | CO-PK-01 to CO-PK-03 | all (two images per test) |
+| CO-TP-01 | TC-CO-25 to TC-CO-28 |

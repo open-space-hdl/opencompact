@@ -6,6 +6,9 @@ The testbench feeds the test image of a configuration in the input order (and wi
 values) and compares every item of the entropy coder input sequence with the sequence of the reference model
 (`tb/golden/<configuration>/delta.txt`): kind, value, band, first-sample, init and last flags. The reference model
 produces the same compressed images as the CNES reference software for every configuration (`tools/golden.py`).
+Without back pressure the testbench also counts the cycles between the first and the last accepted sample and, in
+stride order, between the first and the last output item, and compares them with the throughput model
+(`tools/ocp_throughput.py`).
 
 ## 2. Test configuration
 
@@ -44,9 +47,15 @@ gaps and 40 % output stalls (suffix `_bp`). Simulator: GHDL.
 | `test_golden` c22_single_pixel_hybrid (TC-PR-22) | Image of one pixel per band: only samples with t = 0 | PR-IF-01, PR-IF-03, PR-MP-01 |
 | `test_golden` c23_extreme_weights (TC-PR-23) | D = 3, Omega = 19, vmin = vmax = -6, weight exponent offsets -6: weight increments beyond the weight range | PR-PD-01, PR-WU-01, PR-WU-02 |
 | `test_golden` c24_reduced_p0 (TC-PR-24) | Reduced prediction with P = 0: no local differences, prediction from the local sum | PR-LS-01, PR-LS-02, PR-PD-03 |
-| `test_golden` c01_lossless_bip_bp (TC-PR-25) | As TC-PR-01 with input gaps and output stalls | PR-IF-03 |
-| `test_golden` c05_near_rel_bi4_signed_bp (TC-PR-26) | As TC-PR-05 with input gaps and output stalls | PR-IF-03 |
-| `test_golden` c10_periodic_limits_bp (TC-PR-27) | As TC-PR-10 with input gaps and output stalls | PR-IF-03, PR-IF-04 |
+| `test_golden` c25_hp_bsq_lossless (TC-PR-25) | BSQ, lossless, reduced prediction with P = 3, narrow local sums, D = 16, Omega = 19, R = 48: one sample per cycle with the speculative weight loop | PR-IF-02, PR-TP-01, PR-TP-02 |
+| `test_golden` c26_hp_bil_near_abs (TC-PR-26) | BIL, absolute error limit with sample representatives, reduced prediction with P = 3, narrow column-oriented local sums: one sample per cycle with the speculative weight loop | PR-QU-02, PR-SR-01, PR-TP-01, PR-TP-02 |
+| `test_golden` c27_hp_bip_full (TC-PR-27) | BIP with 24 bands, full prediction with P = 3, Omega = 19, R = 64: one sample per cycle | PR-TP-01 |
+| `test_golden` c28_hp_bsq_near_abs (TC-PR-28) | BSQ, absolute error limit, reduced prediction with P = 2, narrow neighbor-oriented local sums: one sample per cycle with the speculative weight loop | PR-QU-02, PR-TP-01, PR-TP-02 |
+| `test_golden` c29_hp_bip_near_stride (TC-PR-29) | BIP with 40 bands, absolute error limit with sample representatives, full prediction with P = 3: stride order (S = 37) | PR-SR-01, PR-TP-01, PR-TP-03 |
+| `test_golden` c30_hp_bip_both_stride (TC-PR-30) | BIP with 48 bands, absolute and relative error limits, reduced prediction with P = 2, narrow column-oriented local sums: stride order with relative error limits | PR-QU-02, PR-TP-01, PR-TP-03 |
+| `test_golden` c01_lossless_bip_bp (TC-PR-31) | As TC-PR-01 with input gaps and output stalls | PR-IF-03, PR-IF-05 |
+| `test_golden` c05_near_rel_bi4_signed_bp (TC-PR-32) | As TC-PR-05 with input gaps and output stalls | PR-IF-03 |
+| `test_golden` c10_periodic_limits_bp (TC-PR-33) | As TC-PR-10 with input gaps and output stalls | PR-IF-03, PR-IF-04 |
 
 Every test also checks that no memory error is signalled (PR-FT-01, no error injection) and that no item follows the
 last one.
@@ -57,12 +66,16 @@ last one.
 | --- | --- |
 | PR-IF-01 | TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11 to TC-PR-13, TC-PR-18, TC-PR-19 |
 | PR-IF-02 | TC-PR-01 to TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-08, TC-PR-17 |
-| PR-IF-03 | TC-PR-01, TC-PR-14, TC-PR-25 to TC-PR-27 |
-| PR-IF-04 | TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-27 |
+| PR-IF-03 | TC-PR-01, TC-PR-14, TC-PR-31 to TC-PR-33 |
+| PR-IF-04 | TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-33 |
+| PR-IF-05 | TC-PR-31; in the core the header of every image (TC-CO-01 to TC-CO-34) |
 | PR-LS-01 to PR-LS-04 | TC-PR-01 to TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-11 to TC-PR-13 |
 | PR-PD-01 to PR-PD-03 | TC-PR-01, TC-PR-02, TC-PR-09, TC-PR-11, TC-PR-15 |
 | PR-QU-01 to PR-QU-03 | TC-PR-01, TC-PR-04 to TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19 |
 | PR-SR-01 | TC-PR-04, TC-PR-06 |
 | PR-WU-01, PR-WU-02 | TC-PR-01, TC-PR-03, TC-PR-09, TC-PR-11, TC-PR-15 |
 | PR-MP-01 | TC-PR-01 to TC-PR-06, TC-PR-11, TC-PR-16, TC-PR-19 (all test cases check the mapped quantizer indices) |
+| PR-TP-01 | all test cases without back pressure (cycles of the input against the throughput model), TC-PR-25 to TC-PR-30 |
+| PR-TP-02 | TC-PR-13, TC-PR-25, TC-PR-26, TC-PR-28 |
+| PR-TP-03 | TC-PR-04, TC-PR-06, TC-PR-16, TC-PR-29, TC-PR-30 (cycles of the output against the throughput model) |
 | PR-FT-01 | all (no error; error injection is an open item, see the roadmap) |

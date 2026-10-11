@@ -2,7 +2,7 @@
 
 Top level of OpenCompact (CO-1 to CO-3): header generator, predictor, the selected entropy coder and the bit packer.
 Compresses images according to CCSDS 123.0-B-2 with all options set by generics and outputs every compressed image as a
-byte stream.
+stream of words of 8 to 64 bits.
 
 | Document | Content |
 | --- | --- |

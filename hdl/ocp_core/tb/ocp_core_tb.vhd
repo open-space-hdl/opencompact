@@ -41,6 +41,11 @@ entity ocp_core_tb is
         -- Back pressure: probability (percent) of an idle cycle of the source and of the sink
         InGapPct_g             : natural  := 0;
         OutStallPct_g          : natural  := 0;
+        -- Largest number of cycles between the acceptance of the first and of the last sample of all
+        -- images (throughput model tools/ocp_throughput.py); 0: not checked
+        ExpCycles_g            : natural  := 0;
+        -- Width of the compressed image interface in bits
+        OutWidth_g             : positive := 8;
         -- Configuration
         XSize_g                : positive := 8;
         YSize_g                : positive := 8;
@@ -118,12 +123,18 @@ architecture sim of ocp_core_tb is
     signal Lim_Data  : std_logic_vector(15 downto 0)                 := (others => '0');
     signal Out_Valid : std_logic;
     signal Out_Ready : std_logic                                     := '0';
-    signal Out_Data  : std_logic_vector(7 downto 0);
+    signal Out_Data  : std_logic_vector(OutWidth_g - 1 downto 0);
+    signal Out_Keep  : std_logic_vector(OutWidth_g / 8 - 1 downto 0);
     signal Out_Last  : std_logic;
     signal Ecc_Sec   : std_logic;
     signal Ecc_Ded   : std_logic;
 
     signal SinkDone : boolean := false;
+
+    -- Throughput: cycles of the first and the last accepted sample, number of samples
+    signal RateFirst : natural := 0;
+    signal RateLast  : natural := 0;
+    signal RateCount : natural := 0;
 
 begin
 
@@ -185,7 +196,8 @@ begin
             HybridAccuInitHigh_g   => parseIntVec(HybridAccuInitHigh_g),
             BlockSize_g            => BlockSize_g,
             RestrictedCodes_g      => RestrictedCodes_g,
-            RefInterval_g          => RefInterval_g
+            RefInterval_g          => RefInterval_g,
+            OutWidth_g             => OutWidth_g
         )
         port map (
             Clk       => Clk,
@@ -199,6 +211,7 @@ begin
             Out_Valid => Out_Valid,
             Out_Ready => Out_Ready,
             Out_Data  => Out_Data,
+            Out_Keep  => Out_Keep,
             Out_Last  => Out_Last,
             Ecc_Sec   => Ecc_Sec,
             Ecc_Ded   => Ecc_Ded
@@ -221,6 +234,14 @@ begin
                 wait until rising_edge(Clk);
                 Rst <= '0';
                 wait until SinkDone;
+
+                -- Throughput
+                log(ID_SEQUENCER, "accepted " & to_string(RateCount) & " samples in " &
+                    to_string(RateLast - RateFirst + 1) & " cycles");
+                if ExpCycles_g > 0 then
+                    check_value(RateLast - RateFirst <= ExpCycles_g, ERROR,
+                                "cycles between the first and the last sample at most " & to_string(ExpCycles_g));
+                end if;
 
                 for i in 0 to 99 loop
                     wait until rising_edge(Clk);
@@ -273,6 +294,28 @@ begin
         wait;
     end process;
 
+    -- Throughput: cycle of the first and the last accepted sample
+    p_rate : process is
+        variable Cycle_v : natural := 0;
+        variable Count_v : natural := 0;
+    begin
+        wait until Rst = '0';
+
+        loop
+            wait until rising_edge(Clk);
+            if In_Valid = '1' and In_Ready = '1' then
+                if Count_v = 0 then
+                    RateFirst <= Cycle_v;
+                end if;
+                RateLast  <= Cycle_v;
+                Count_v   := Count_v + 1;
+                RateCount <= Count_v;
+            end if;
+            Cycle_v := Cycle_v + 1;
+        end loop;
+
+    end process;
+
     -- Periodic error limit values (16-bit big-endian), Images_g times
     p_limits : process is
         variable Hi_v  : natural;
@@ -305,13 +348,13 @@ begin
         wait;
     end process;
 
-    -- Compressed image of the CNES reference software
+    -- Compressed image of the CNES reference software: the valid bytes of every word, first byte in
+    -- the most significant bits; the last word of an image carries the last flag
     p_sink : process is
-        variable Exp_v   : natural;
-        variable Next_v  : natural;
-        variable Eof_v   : boolean;
-        variable NextE_v : boolean;
-        variable Cnt_v   : natural;
+        variable Exp_v : natural;
+        variable Eof_v : boolean;
+        variable Cnt_v : natural;
+        variable Hi_v  : natural;
 
         file Ref_f : ByteFile_t;
     begin
@@ -323,7 +366,6 @@ begin
             readByte(Ref_f, Exp_v, Eof_v);
 
             while not Eof_v loop
-                readByte(Ref_f, Next_v, NextE_v);
 
                 while random(0, 99) < OutStallPct_g loop
                     Out_Ready <= '0';
@@ -333,13 +375,20 @@ begin
                 Out_Ready <= '1';
                 wait until rising_edge(Clk) and Out_Valid = '1';
                 Out_Ready <= '0';
-                check_value(to_integer(unsigned(Out_Data)), Exp_v, ERROR,
-                            "image " & to_string(img) & " byte " & to_string(Cnt_v));
-                check_value(Out_Last, toSl(NextE_v), ERROR,
+
+                for b in 0 to OutWidth_g / 8 - 1 loop
+                    Hi_v := OutWidth_g - 1 - 8 * b;
+                    if Out_Keep(OutWidth_g / 8 - 1 - b) = '1' then
+                        check_value(not Eof_v, ERROR, "image " & to_string(img) & ": no byte beyond the end");
+                        check_value(to_integer(unsigned(Out_Data(Hi_v downto Hi_v - 7))), Exp_v, ERROR,
+                                    "image " & to_string(img) & " byte " & to_string(Cnt_v));
+                        Cnt_v := Cnt_v + 1;
+                        readByte(Ref_f, Exp_v, Eof_v);
+                    end if;
+                end loop;
+
+                check_value(Out_Last, toSl(Eof_v), ERROR,
                             "image " & to_string(img) & " byte " & to_string(Cnt_v) & ": last flag");
-                Cnt_v     := Cnt_v + 1;
-                Exp_v     := Next_v;
-                Eof_v     := NextE_v;
             end loop;
 
             file_close(Ref_f);

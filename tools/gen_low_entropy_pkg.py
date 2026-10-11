@@ -8,12 +8,18 @@ hybrid entropy coder (CCSDS 123.0-B-2 annex B) as ROM constants.
 Every low-entropy code i is a state machine whose states are the active prefixes (state 0 is the null prefix).
 The transition table holds one entry per state and input symbol (symbols 0 to L_i, then the escape symbol X):
 
+- bits 40..27   flush word of the resulting active prefix (bits 40..37 length, bits 36..27 word): the null
+                prefix after a complete input codeword, else the extended prefix
 - bit 26        '1' when the extended prefix is a complete input codeword
 - bits 25..21   length of the output codeword (complete) or 0
-- bits 20..0    output codeword, right-aligned (complete) or the next state (bits 7..0)
+- bits 20..0    output codeword, right-aligned (complete), or the address of the first entry of the next
+                state (bits 19..8) and the next state (bits 7..0)
 
-Entry address: LeTransBase_c(i) + state * (L_i + 2) + symbol. The flush table holds the flush word of every
-state: bits 13..10 length, bits 9..0 flush word, address LeFlushBase_c(i) + state.
+Entry address: LeTransBase_c(i) + state * S_i + symbol, with the row size S_i = 2^ceil(log2(L_i + 2)) (unused
+entries are zero) and every LeTransBase_c(i) a multiple of S_i. With the address of the next state in the entry, the
+next address is that address ORed with the next symbol, so one transition per clock cycle needs no adder; with the
+flush word in the entry, the flush words of all codes are at hand at the end of an image. The flush table holds the
+flush word of every state: bits 13..10 length, bits 9..0 flush word, address LeFlushBase_c(i) + state.
 
 Usage: python tools/gen_low_entropy_pkg.py [--check]
 """
@@ -32,15 +38,33 @@ def states(i):
     return sorted(FLUSH[i].keys(), key=lambda p: (len(p), [str(s) for s in p]))
 
 
+def flush_word(fw):
+    """Flush word with its length: bits 13..10 length, bits 9..0 word."""
+    return (len(fw) << 10) | int(fw, 2)
+
+
+def row_size(i):
+    """Entries per state of code i: the symbols 0 to L_i and X, rounded up to a power of two."""
+    size = 1
+    while size < LIMITS[i] + 2:
+        size *= 2
+    return size
+
+
 def build():
     trans = []
     flush = []
     tbase = []
     fbase = []
+    base = 0
+    for i in range(16):
+        assert base % row_size(i) == 0
+        tbase.append(base)
+        base += len(states(i)) * row_size(i)
     for i in range(16):
         st = states(i)
         index = {p: n for n, p in enumerate(st)}
-        tbase.append(len(trans))
+        assert len(trans) == tbase[i]
         fbase.append(len(flush))
         alphabet = list(range(LIMITS[i] + 1)) + ["X"]
         for p in st:
@@ -48,11 +72,13 @@ def build():
                 q = p + (s,)
                 if q in CODES[i]:
                     bits = CODES[i][q]
-                    trans.append((1 << 26) | (len(bits) << 21) | int(bits, 2))
+                    trans.append((flush_word(FLUSH[i][()]) << 27) | (1 << 26) | (len(bits) << 21) | int(bits, 2))
                 else:
-                    trans.append(index[q])
-            fw = FLUSH[i][p]
-            flush.append((len(fw) << 10) | int(fw, 2))
+                    row = tbase[i] + index[q] * row_size(i)
+                    assert row < 2 ** 12 and index[q] < 2 ** 8
+                    trans.append((flush_word(FLUSH[i][q]) << 27) | (row << 8) | index[q])
+            trans += [0] * (row_size(i) - len(alphabet))
+            flush.append(flush_word(FLUSH[i][p]))
     return trans, flush, tbase, fbase
 
 
@@ -87,9 +113,10 @@ def vhdl():
     w("-" * 99)
     w("package ocp_low_entropy_pkg is")
     w("")
-    w("    -- Transition table: bit 26 complete codeword, bits 25..21 output length, bits 20..0 output")
-    w("    -- codeword (complete) or next state (bits 7..0)")
-    w("    type LeTrans_t is array (natural range <>) of std_logic_vector(26 downto 0);")
+    w("    -- Transition table: bits 40..27 flush word of the resulting active prefix, bit 26 complete")
+    w("    -- codeword, bits 25..21 output length, bits 20..0 output codeword (complete) or address of the")
+    w("    -- next state (bits 19..8) and next state (bits 7..0)")
+    w("    type LeTrans_t is array (natural range <>) of std_logic_vector(40 downto 0);")
     w("")
     w("    -- Flush table: bits 13..10 length, bits 9..0 flush word")
     w("    type LeFlush_t is array (natural range <>) of std_logic_vector(13 downto 0);")
@@ -98,10 +125,10 @@ def vhdl():
     w("    constant LeFlushBase_c : LeNatArray_t := ({});".format(", ".join(str(b) for b in fbase)))
     w("")
     w("    constant LeTrans_c : LeTrans_t(0 to {}) := (".format(len(trans) - 1))
-    per = 4
+    per = 3
     for n in range(0, len(trans), per):
         chunk = trans[n:n + per]
-        items = ", ".join('"{:027b}"'.format(v) for v in chunk)
+        items = ", ".join('"{:041b}"'.format(v) for v in chunk)
         sep = "," if n + per < len(trans) else ""
         w("        {}{}".format(items, sep))
     w("    );")

@@ -90,7 +90,10 @@ entity ocp_core is
         BlockSize_g            : positive                  := 16;
         RestrictedCodes_g      : boolean                   := false;
         RefInterval_g          : positive range 1 to 4096  := 4096;
-        -- Implementation
+        -- Implementation: width of the compressed image interface in bits (8, 16, 32 or 64), speculative
+        -- weight loop of the predictor, memory style
+        OutWidth_g             : positive                  := 8;
+        Speculation_g          : boolean                   := true;
         RamStyle_g             : string                    := "auto"
     );
     port (
@@ -104,10 +107,12 @@ entity ocp_core is
         Lim_Valid : in    std_logic                     := '0';
         Lim_Ready : out   std_logic;
         Lim_Data  : in    std_logic_vector(15 downto 0) := (others => '0');
-        -- Compressed image
+        -- Compressed image: first byte in the most significant bits; the last word of an image marks its
+        -- valid bytes
         Out_Valid : out   std_logic;
         Out_Ready : in    std_logic;
-        Out_Data  : out   std_logic_vector(7 downto 0);
+        Out_Data  : out   std_logic_vector(OutWidth_g - 1 downto 0);
+        Out_Keep  : out   std_logic_vector(OutWidth_g / 8 - 1 downto 0);
         Out_Last  : out   std_logic;
         -- Memory errors (pulses): corrected single error, detected double error
         Ecc_Sec   : out   std_logic;
@@ -142,11 +147,12 @@ architecture rtl of ocp_core is
     signal Cw_Last   : std_logic;
 
     -- Header bytes
-    signal Hdr_Start : std_logic;
-    signal Hdr_Valid : std_logic;
-    signal Hdr_Ready : std_logic;
-    signal Hdr_Data  : std_logic_vector(7 downto 0);
-    signal Hdr_Last  : std_logic;
+    signal Hdr_Start  : std_logic;
+    signal Hdr_Valid  : std_logic;
+    signal Hdr_Ready  : std_logic;
+    signal Hdr_Data   : std_logic_vector(63 downto 0);
+    signal Hdr_Length : std_logic_vector(CwLenWidth_c - 1 downto 0);
+    signal Hdr_Last   : std_logic;
 
     -- Bit packer input
     signal Pk_Valid  : std_logic;
@@ -161,6 +167,8 @@ architecture rtl of ocp_core is
     -- Image sequencing: header first, then the body
     signal InBody    : std_logic;
     signal StartPend : std_logic;
+    signal ImgStart  : std_logic;
+    signal Waiting   : natural range 0 to 15;
     signal PredSec   : std_logic;
     signal PredDed   : std_logic;
     signal CoderSec  : std_logic;
@@ -168,13 +176,23 @@ architecture rtl of ocp_core is
 
 begin
 
+    assert OutWidth_g = 8 or OutWidth_g = 16 or OutWidth_g = 32 or OutWidth_g = 64
+        report "ocp_core: OutWidth_g must be 8, 16, 32 or 64"
+        severity failure;
+
     -----------------------------------------------------------------------------------------------
     -- Image sequencing
     -----------------------------------------------------------------------------------------------
     p_seq : process (Clk) is
     begin
         if rising_edge(Clk) then
-            -- Header of an image when its first sample or error limit value arrives
+            -- Header of an image once its first sample or error limit value has been accepted (the
+            -- images accepted at the input and still without a header are counted)
+            if ImgStart = '1' and Hdr_Start = '0' then
+                Waiting <= Waiting + 1;
+            elsif ImgStart = '0' and Hdr_Start = '1' then
+                Waiting <= Waiting - 1;
+            end if;
             if Hdr_Start = '1' then
                 StartPend <= '0';
             end if;
@@ -190,16 +208,17 @@ begin
             if Rst = '1' then
                 InBody    <= '0';
                 StartPend <= '1';
+                Waiting   <= 0;
             end if;
         end if;
     end process;
 
-    Hdr_Start <= StartPend and (In_Valid or Lim_Valid);
+    Hdr_Start <= StartPend and toSl(Waiting > 0);
 
     -- Bit packer input: header bytes, then the codewords of the entropy coder
     Pk_Valid  <= Cw_Valid when InBody = '1' else Hdr_Valid;
     Pk_Data   <= Cw_Data when InBody = '1' else std_logic_vector(resize(unsigned(Hdr_Data), CwWidth_c));
-    Pk_Length <= Cw_Length when InBody = '1' else std_logic_vector(to_unsigned(8, CwLenWidth_c));
+    Pk_Length <= Cw_Length when InBody = '1' else Hdr_Length;
     Pk_Last   <= Cw_Last when InBody = '1' else '0';
     Cw_Ready  <= Pk_Ready when InBody = '1' else '0';
     Hdr_Ready <= Pk_Ready when InBody = '0' else '0';
@@ -263,13 +282,14 @@ begin
             RefInterval_g          => RefInterval_g
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            Start     => Hdr_Start,
-            Out_Valid => Hdr_Valid,
-            Out_Ready => Hdr_Ready,
-            Out_Data  => Hdr_Data,
-            Out_Last  => Hdr_Last
+            Clk        => Clk,
+            Rst        => Rst,
+            Start      => Hdr_Start,
+            Out_Valid  => Hdr_Valid,
+            Out_Ready  => Hdr_Ready,
+            Out_Data   => Hdr_Data,
+            Out_Length => Hdr_Length,
+            Out_Last   => Hdr_Last
         );
 
     -----------------------------------------------------------------------------------------------
@@ -307,6 +327,7 @@ begin
             SampleRepResolution_g  => SampleRepResolution_g,
             Damping_g              => Damping_g,
             Offset_g               => Offset_g,
+            Speculation_g          => Speculation_g,
             RamStyle_g             => RamStyle_g
         )
         port map (
@@ -318,6 +339,7 @@ begin
             Lim_Valid => Lim_Valid,
             Lim_Ready => Lim_Ready,
             Lim_Data  => Lim_Data,
+            Img_Start => ImgStart,
             Out_Valid => Item_Valid,
             Out_Ready => Item_Ready,
             Out_Data  => Item_Data,
@@ -416,7 +438,8 @@ begin
                 DynamicRange_g    => DynamicRange_g,
                 BlockSize_g       => BlockSize_g,
                 RestrictedCodes_g => RestrictedCodes_g,
-                RefInterval_g     => RefInterval_g
+                RefInterval_g     => RefInterval_g,
+                RamStyle_g        => RamStyle_g
             )
             port map (
                 Clk       => Clk,
@@ -429,11 +452,10 @@ begin
                 Cw_Ready  => Cw_Ready,
                 Cw_Data   => Cw_Data,
                 Cw_Length => Cw_Length,
-                Cw_Last   => Cw_Last
+                Cw_Last   => Cw_Last,
+                Ecc_Sec   => CoderSec,
+                Ecc_Ded   => CoderDed
             );
-
-        CoderSec <= '0';
-        CoderDed <= '0';
 
     end generate;
 
@@ -442,7 +464,8 @@ begin
     -----------------------------------------------------------------------------------------------
     i_packer : entity work.ocp_bit_packer
         generic map (
-            OutputWordSize_g => OutputWordSize_g
+            OutputWordSize_g => OutputWordSize_g,
+            OutWidth_g       => OutWidth_g
         )
         port map (
             Clk       => Clk,
@@ -455,6 +478,7 @@ begin
             Out_Valid => OutValid,
             Out_Ready => Out_Ready,
             Out_Data  => Out_Data,
+            Out_Keep  => Out_Keep,
             Out_Last  => OutLast
         );
 

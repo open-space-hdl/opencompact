@@ -9,7 +9,7 @@ statement.
 
 | Library | Files | Content |
 | --- | --- | --- |
-| `olo` | `open-logic/src/base/vhdl/olo_base_pkg_*.vhd`, `olo_base_ram_sdp.vhd`, `open-logic/src/ft/vhdl/olo_ft_pkg_*.vhd`, `olo_ft_ecc_encode.vhd`, `olo_ft_ecc_decode.vhd`, `olo_ft_ram_sdp.vhd` (or all of `src/base` and `src/ft` in the order of `open-logic/compile_order.txt`) | Open Logic, fault-tolerant fork, tag `4.7.0-ft.1` |
+| `olo` | All of `open-logic/src/base` and `open-logic/src/ft` in the order of `open-logic/compile_order.txt` (used: `olo_ft_ram_sdp`, `olo_ft_fifo_sync`, `olo_base_pl_stage` and their dependencies) | Open Logic, fault-tolerant fork, tag `4.7.0-ft.1` |
 | `opencompact` | `hdl/ocp_pkg/src/ocp_pkg.vhd`, `hdl/ocp_pkg/src/ocp_low_entropy_pkg.vhd`, `hdl/ocp_predictor/src/*.vhd`, `hdl/ocp_entropy_coder/src/*.vhd`, `hdl/ocp_core/src/*.vhd` | OpenCompact; top level `ocp_core` |
 
 All sources are VHDL-2008 and contain no vendor primitive. `tools/synth_libero.py` shows a complete synthesis and
@@ -82,6 +82,14 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | `BlockSize_g` | 16 | 8, 16, 32, 64 | Block-adaptive coder: Block Size J |
 | `RestrictedCodes_g` | false | D <= 4 | Restricted Code Options Flag |
 | `RefInterval_g` | 4096 | 1 to 4096 | Reference Sample Interval r |
+
+### 2.5 Implementation
+
+| Generic | Default | Range | Description |
+| --- | --- | --- | --- |
+| `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits (section 4) |
+| `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 7) |
+| `Stride_g` | true | | Stride order of the predictor where it applies (section 7) |
 | `RamStyle_g` | "auto" | | Implementation of the memories (Open Logic) |
 
 The supplementary information tables are given as their encoded subpart: per table the 16 bits of table type, purpose,
@@ -100,7 +108,7 @@ of an image.
 | --- | --- | --- | --- |
 | `In_Valid`, `In_Ready`, `In_Data` | in, out, in | D | Samples, unsigned or two's complement, in the input order of the compressed image |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in, out, in | 16 | Error limit values for periodic updating (unused otherwise) |
-| `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Last` | out, in, out, out | 8 | Compressed image, first byte first; `Out_Last` on the last byte of an image |
+| `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out, in, out, out, out | `OutWidth_g`, `OutWidth_g` / 8 | Compressed image in words, first byte of the image in the most significant bits of the first word; `Out_Last` on the last word of an image, whose valid bytes `Out_Keep` marks (bit `OutWidth_g` / 8 - 1 for the most significant byte); all other words are complete |
 | `Ecc_Sec`, `Ecc_Ded` | out | 1 | One-cycle pulses: corrected single error, detected double error in a memory |
 
 All streams use the AXI4-Stream handshake: a transfer takes place in a cycle with valid and ready high.
@@ -119,9 +127,11 @@ relative limits (R*, or r_0 to r_(NZ-1)), each as a 16-bit value of which DA or 
 
 1. Release the reset.
 2. Send the samples of the image in the input order (and the error limit values when they are requested). The header
-   of the compressed image is output as soon as the first sample or error limit value arrives.
-3. Take the compressed image from `Out` until `Out_Last`. Its size is a multiple of the output word size B.
-4. Send the next image; it is compressed independently with the same parameters.
+   of the compressed image is output once the first sample or error limit value has been accepted.
+3. Take the compressed image from `Out` until `Out_Last`. Its size is a multiple of the output word size B; the next
+   image starts with a new word.
+4. Send the next image; it is compressed independently with the same parameters. The samples of the next image may
+   follow the last sample of an image without a gap.
 
 The output can be stalled at any time; the core then stops taking samples after its internal buffers are full.
 
@@ -137,32 +147,74 @@ The output can be stalled at any time; the core then stops taking samples after 
 
 ## 7. Resources and performance
 
-The predictor processes one sample in 16 + 2 C cycles (C = P + 3 in full, P in reduced prediction mode), plus
-max(D, 16) + 2 cycles for a sample with a non-zero maximum error. The memories grow with the image: two rows of every
-band (BI) or six rows and P bands of local differences (BSQ).
+### 7.1 Throughput
 
-Cycles per sample measured in simulation; resources and clock frequency with Libero SoC 2025.2 (Synplify Pro and
-SmartTime) for a PolarFire MPF100T (FCG484, STD speed grade, industrial range), with the configurations of the
-regression ([architecture](architecture.md), section 9). The place and route results are for a 100 MHz constraint;
-the synthesis estimates are the estimates of Synplify Pro.
+The predictor is a pipeline that starts one sample per clock cycle as long as dependent samples are far enough apart
+(see the [architecture of the predictor](../hdl/ocp_predictor/docs/architecture.md)). The rate depends on the
+configuration:
+
+| Configuration | Mechanism | Samples per clock cycle |
+| --- | --- | --- |
+| BI order with M at least the weight loop (7 to 11 cycles), lossless | Pipeline | 1 |
+| BSQ order or BI order with M = 1, at most three local differences (C <= 3); lossless, or absolute error limits with narrow local sums and reduced prediction | Speculative weight loop (`Speculation_g`) | 1 |
+| BI order with M = NZ, near-lossless with P > 0 or narrow local sums (no periodic updating) | Stride order (`Stride_g`) | 1 for NZ above about 33; NZ / 33 otherwise; plus about (NZ - 1) S cycles per image |
+| BSQ order or BI order with small M otherwise | Pipeline | M / (loop length): 1/8 to 1/11 in lossless, about 1/33 in near-lossless compression |
+
+The entropy coders take one item per clock cycle. The bit packer outputs `OutWidth_g` bits per clock cycle: with
+16-bit samples and an interface of 32 bits the output keeps up with one sample per cycle down to a compression ratio
+of 0.5. The header of the next image takes a few cycles that the codeword buffers absorb. `tools/ocp_throughput.py`
+computes the cycle in which the predictor takes every sample of a configuration:
+
+```shell
+python tools/ocp_throughput.py                     # all configurations of tools/ocp_configs.py
+python tools/ocp_throughput.py c25_hp_bsq_lossless
+```
+
+Cycles per sample of the predictor for the configurations of the regression (throughput model, checked by the
+testbenches cycle by cycle):
+
+| Configuration | Order, mode | Cycles per sample |
+| --- | --- | --- |
+| c01, c09, c11, c12, c15, c18, c22, c27 | BIP or BI with M >= 8, lossless | 1.00 |
+| c14, c20, c24 | BIP with 3 to 6 bands, lossless | 1.33 |
+| c23 | BIP with 4 bands and five local differences, lossless | 1.98 |
+| c13, c25 | One band (BI) or BSQ, lossless, speculative weight loop | 1.00 |
+| c26, c28 | BIL or BSQ, near-lossless, speculative weight loop | 1.00 |
+| c29, c30 | BIP with 40 and 48 bands, near-lossless, stride order | 1.00 per sample, plus (NZ - 1)(S - 1) cycles per image |
+| c04, c06, c16 | BIP with 10 to 16 bands, near-lossless, stride order | 2.3 to 3.8 |
+| c02, c03, c07, c08, c17 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
+| c05, c10, c19, c21 | BI with M = 4, 2, 3 and 1, near-lossless | 17.5 to 31.5 |
+
+### 7.2 Resources
+
+Resources and clock frequency with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a PolarFire MPF100T (FCG484,
+STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the place and route results
+for a 100 MHz constraint; the cycles per sample are those of the throughput model (section 7.1; for c29 and c30 the
+small test images make the per-image skew of the stride order visible).
 
 | Configuration | Cycles per sample | LUT | Flip-flops | LSRAM | uSRAM | Math blocks | Clock frequency |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| c01: 32 x 12 x 16, D = 16, lossless, P = 3 full, sample-adaptive | 28.0 | 4000 | 946 | 2 | 19 | 3 | 147 MHz (place and route) |
-| c03: 20 x 10 x 8, D = 8, BSQ, P = 2 full, sample-adaptive | 25.9 | 2998 | 740 | 3 | 3 | 5 | 96 MHz (synthesis estimate) |
-| c04: 24 x 12 x 12, D = 16, near-lossless, P = 3 full, hybrid | 45.9 | 10184 | 1506 | 2 | 20 | 24 | 128 MHz (place and route) |
-| c06: 24 x 12 x 10, D = 16, near-lossless, P = 4 full, block-adaptive | 46.1 | 5756 | 1550 | 1 | 23 | 12 | 103 MHz (place and route) |
-| c09: 20 x 12 x 10, D = 16, custom weights, P = 4 full, sample-adaptive | 30.0 | 5375 | 1080 | 1 | 23 | 8 | 94 MHz (synthesis estimate) |
-| c11: 12 x 8 x 18, D = 32, P = 15 full, sample-adaptive | 51.6 | 11327 | 2787 | 49 | 6 | 6 | 72 MHz (synthesis estimate) |
-| c16: 32 x 16 x 16, D = 12, near-lossless, P = 2 full, hybrid | 42.8 | 8830 | 1204 | 1 | 14 | 19 | 112 MHz (synthesis estimate) |
-| c18: 16 x 8 x 12, D = 24, lossless, P = 2 full, block-adaptive | 28.8 | 5668 | 1836 | 1 | 17 | 4 | 103 MHz (place and route) |
-| c20: 12 x 10 x 6, D = 28, lossless, P = 3 full, hybrid | 28.0 | 11366 | 1697 | 1 | 24 | 22 | 100 MHz (synthesis estimate) |
+| c01: 32 x 12 x 16, D = 16, BIP, lossless, P = 3 full, sample-adaptive | 1.00 | 11448 | 5425 | 1 | 34 | 13 | 125 MHz |
+| c03: 20 x 10 x 8, D = 8, BSQ, lossless, P = 2 full, narrow local sums, sample-adaptive | 7.93 | 11894 | 4221 | 1 | 17 | 7 | 120 MHz |
+| c04: 24 x 12 x 12, D = 16, BIP, absolute error limit, P = 3 full, hybrid (stride order) | 3.14 | 20848 | 13798 | 3 | 41 | 36 | 119 MHz |
+| c06: 24 x 12 x 10, D = 16, BIP, absolute and relative error limits, P = 4 full, block-adaptive (stride order) | 3.78 | 18468 | 15910 | 3 | 89 | 23 | 104 MHz |
+| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, sample-adaptive | 1.00 | 39241 | 15165 | 12 | 34 | 74 | 80 MHz |
+| c20: 12 x 10 x 6, D = 28, BIP, lossless, P = 3 full, hybrid | 1.33 | 22124 | 7309 | 1 | 41 | 31 | 119 MHz |
+| c25: 32 x 12 x 6, D = 16, BSQ, lossless, P = 3 reduced, narrow local sums, sample-adaptive (speculative weight loop) | 1.00 | 13002 | 4109 | 3 | 17 | 49 | 108 MHz |
+| c26: 40 x 8 x 6, D = 16, BIL, absolute error limit, P = 3 reduced, narrow column-oriented local sums, hybrid (speculative weight loop) | 1.00 | 23041 | 11610 | 1 | 34 | 68 | 105 MHz |
+| c27: 16 x 8 x 24, D = 16, BIP, lossless, P = 3 full, block-adaptive | 1.00 | 18909 | 6394 | 1 | 82 | 25 | 107 MHz |
+| c29: 12 x 6 x 40, D = 12, BIP, absolute error limit, P = 3 full, sample-adaptive (stride order) | 1.49 | 16360 | 11660 | 5 | 38 | 11 | 121 MHz |
+| c30: 10 x 5 x 48, D = 16, BIP, absolute and relative error limits, P = 2 reduced, hybrid (stride order) | 1.67 | 18595 | 10706 | 7 | 33 | 25 | 119 MHz |
 
-The logic grows with D and with the number of local differences C; the memories grow with the image (NX NZ D bits
-for the sample representatives in BI order) and with C (Omega + 3) bits per band for the weights. These are the
-figures of a demonstrator: the predictor processes one sample at a time, and the roadmap lists the steps to one sample
-per clock cycle. `python tools/synth_libero.py --config <configuration> [--impl]` repeats a run;
-`python tools/libero_summary.py` lists the results.
+All configurations reach 100 MHz except c11, which combines D = 32 with Omega = 19: the product of a 35-bit local
+difference and a 22-bit weight needs a cascade of four math blocks within one clock cycle. A second product stage for
+such widths is an open item of the [roadmap](roadmap.md).
+
+The logic grows with D, with the number of local differences C and, for the speculative weight loop, four times with
+C; the memories grow with the image (NX NZ D bits for the sample representatives in BI order, the input and output
+buffers of the stride order) and with C (Omega + 3) bits per band for the weights.
+`python tools/synth_libero.py --config <configuration> [--impl]` repeats a run; `python tools/libero_summary.py` lists
+the results.
 
 ## 8. Conformance statement
 

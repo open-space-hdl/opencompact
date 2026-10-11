@@ -7,8 +7,8 @@
 -- Description
 ---------------------------------------------------------------------------------------------------
 -- Header of the compressed image (CCSDS 123.0-B-2 5.3): image metadata, predictor metadata and
--- entropy coder metadata. The header is computed from the generics during elaboration and sent as
--- a byte stream after each Start pulse.
+-- entropy coder metadata. The header is computed from the generics during elaboration and sent in
+-- parts of up to 64 bits after each Start pulse.
 --
 -- Documentation: hdl/ocp_core/docs/specification.md
 
@@ -87,13 +87,16 @@ entity ocp_header is
         RefInterval_g          : positive range 1 to 4096  := 4096
     );
     port (
-        Clk       : in    std_logic;
-        Rst       : in    std_logic;
-        Start     : in    std_logic;
-        Out_Valid : out   std_logic;
-        Out_Ready : in    std_logic;
-        Out_Data  : out   std_logic_vector(7 downto 0);
-        Out_Last  : out   std_logic
+        Clk        : in    std_logic;
+        Rst        : in    std_logic;
+        Start      : in    std_logic;
+        Out_Valid  : out   std_logic;
+        Out_Ready  : in    std_logic;
+        -- Parts of the header: the Out_Length least significant bits of Out_Data, first bit in the
+        -- most significant of them
+        Out_Data   : out   std_logic_vector(63 downto 0);
+        Out_Length : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Out_Last   : out   std_logic
     );
 end entity;
 
@@ -382,10 +385,34 @@ architecture rtl of ocp_header is
 
     constant Header_c      : Buf_t    := headerBits;
     constant HeaderBytes_c : positive := headerBytes;
+    constant Parts_c       : positive := (HeaderBytes_c + 7) / 8;
+
+    -- Parts of 64 bits, the last one shorter
+    type PartArr_t is array (0 to Parts_c - 1) of std_logic_vector(63 downto 0);
+
+    function parts return PartArr_t is
+        variable P_v   : PartArr_t := (others => (others => '0'));
+        variable Len_v : natural;
+    begin
+
+        for i in 0 to Parts_c - 1 loop
+            Len_v := minimum(64, 8 * HeaderBytes_c - 64 * i);
+
+            for m in 0 to Len_v - 1 loop
+                P_v(i)(Len_v - 1 - m) := Header_c(64 * i + m);
+            end loop;
+
+        end loop;
+
+        return P_v;
+    end function;
+
+    constant PartRom_c : PartArr_t := parts;
+    constant LastLen_c : positive  := 8 * HeaderBytes_c - 64 * (Parts_c - 1);
 
     type TwoProcess_r is record
         Active : std_logic;
-        Index  : natural range 0 to HeaderBytes_c - 1;
+        Index  : natural range 0 to Parts_c - 1;
     end record;
 
     signal r, r_next : TwoProcess_r;
@@ -402,7 +429,7 @@ begin
                 v.Index  := 0;
             end if;
         elsif Out_Ready = '1' then
-            if r.Index = HeaderBytes_c - 1 then
+            if r.Index = Parts_c - 1 then
                 v.Active := '0';
             else
                 v.Index := r.Index + 1;
@@ -411,9 +438,11 @@ begin
         r_next <= v;
     end process;
 
-    Out_Valid <= r.Active;
-    Out_Data  <= Header_c(8 * r.Index to 8 * r.Index + 7);
-    Out_Last  <= toSl(r.Index = HeaderBytes_c - 1);
+    Out_Valid  <= r.Active;
+    Out_Data   <= PartRom_c(r.Index);
+    Out_Length <= std_logic_vector(to_unsigned(LastLen_c, CwLenWidth_c)) when r.Index = Parts_c - 1 else
+                  std_logic_vector(to_unsigned(64, CwLenWidth_c));
+    Out_Last   <= toSl(r.Index = Parts_c - 1);
 
     p_seq : process (Clk) is
     begin

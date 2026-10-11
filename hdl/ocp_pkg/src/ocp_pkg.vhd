@@ -26,7 +26,7 @@ package ocp_pkg is
 
     -- Codeword stream (entropy coders and header to the bit packer): the Length least significant
     -- bits of Data are appended to the compressed image, most significant bit first
-    constant CwWidth_c    : positive := 64;
+    constant CwWidth_c    : positive := 96;
     constant CwLenWidth_c : positive := 7;
 
     -- Entropy coder input sequence (CCSDS 5.4.1): mapped quantizer index or error limit value

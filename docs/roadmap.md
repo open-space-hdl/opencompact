@@ -6,9 +6,9 @@ every module; a module is done when its verification report is written and its r
 ## Technology readiness
 
 The core is at **TRL 2**: a demonstrator in development with first performance estimates. It compresses the test
-images of 24 configurations, which cover every option of CCSDS 123.0-B-2, identically to the CNES reference software;
-it is not yet fully verified by simulation, not tested on hardware and has no flight heritage. The
-[TRL page](https://openspacehdl.org/trl/) explains what the levels mean for an IP core.
+images of 30 configurations, which cover every option of CCSDS 123.0-B-2, identically to the CNES reference software,
+at up to one sample per clock cycle; it is not yet fully verified by simulation, not tested on hardware and has no
+flight heritage. The [TRL page](https://openspacehdl.org/trl/) explains what the levels mean for an IP core.
 
 | Next level | What is needed | State |
 | --- | --- | --- |
@@ -29,10 +29,11 @@ it is not yet fully verified by simulation, not tested on hardware and has no fl
 
 | Item | State |
 | --- | --- |
-| Throughput | Open: the predictor processes one sample at a time (16 + 2 C cycles per sample). Next steps: overlap the processing of consecutive samples of different bands (BIP order, lossless), parallel dot product and weight update, double buffer in the block-adaptive coder; target one sample per cycle |
+| Throughput | One sample per clock cycle in BI order with enough bands, with the speculative weight loop (BSQ, BIL; C <= 3) and in stride order (BIP, near-lossless); the entropy coders take one item per cycle ([user guide](user_guide.md#7-resources-and-performance)). Open: BIL input with encoding in BI order with several bands (a buffer of some lines) for configurations with more than three local differences; more than one sample per clock cycle (several datapaths for the bands of a pixel, or several cores on parts of an image) |
 | Error injection into the memories | Open: the FT memories have error injection ports that the core does not yet expose |
 | Unit testbenches of the entropy coders, header generator and bit packer | Open: verified through the core testbench only |
 | QuestaSim regression and code coverage | Regression passes in QuestaSim; coverage measured, not closed ([coverage.md](coverage.md)) |
 | Run-time configuration | Open: all parameters are generics; a register interface for the image size, the error limits and the tables would allow one bitstream for several instrument modes |
 | External memory for large images in BSQ order | Open: BSQ order keeps the local differences of a band in an internal memory of NX NY words |
-| Synthesis and timing on a radiation-tolerant target (RTG4, RT PolarFire, NG-Ultra, Versal XQR) | Open; first estimates on PolarFire in the [user guide](user_guide.md#7-resources-and-performance) |
+| Products of wide operands | Open: with D = 32 and Omega >= 16 the products of the predictor need a cascade of four math blocks in one clock cycle (80 MHz on PolarFire); a second product stage for such widths |
+| Synthesis and timing on a radiation-tolerant target (RTG4, RT PolarFire, NG-Ultra, Versal XQR) | Open; on PolarFire every measured configuration except one with D = 32 reaches 100 MHz after place and route ([user guide](user_guide.md#7-resources-and-performance)) |

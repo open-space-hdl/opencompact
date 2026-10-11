@@ -11,12 +11,19 @@ header with all optional tables and the sample-adaptive, hybrid and block-adapti
 generics. The memories use the fault-tolerant entities of [Open Logic](https://github.com/open-logic/open-logic)
 (SECDED ECC).
 
+The predictor is a pipeline that takes one sample per clock cycle where the configuration allows it: in
+band-interleaved order with enough bands, with a speculative weight update for band-sequential order and single
+bands, and in a stride order for near-lossless compression of band-interleaved images. The entropy coders take one
+sample per clock cycle, and the compressed image leaves the core in words of 8 to 64 bits. The
+[user guide](docs/user_guide.md#7-resources-and-performance) lists the throughput of every configuration.
+
 ## Status
 
 **Technology readiness level: TRL 2** (in development, first performance estimates). The core is a demonstrator: it
-compresses the test images of 24 configurations, which together cover every option of the standard, byte for byte
+compresses the test images of 30 configurations, which together cover every option of the standard, byte for byte
 identically to the CNES reference software for CCSDS 123.0-B-2, in GHDL and in QuestaSim, and it synthesizes for
-every configuration. It has not been tested on hardware and has no flight heritage; see
+every configuration. The testbenches check the throughput of every configuration cycle by cycle against the
+throughput model `tools/ocp_throughput.py`. It has not been tested on hardware and has no flight heritage; see
 [what the levels mean](https://openspacehdl.org/trl/) and the steps to the next level in the
 [roadmap](docs/roadmap.md#technology-readiness).
 
@@ -78,6 +85,7 @@ python lint/synth_check.py                  # synthesizability of every configur
 python tools/compliance.py --check          # traceability of every clause
 python tools/gen_low_entropy_pkg.py --check # low-entropy code tables up to date
 python tools/check_model_testvectors.py <dir>   # reference model against the CCSDS test data set
+python tools/ocp_throughput.py              # cycles per sample of every configuration
 ```
 
 ## Licence

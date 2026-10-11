@@ -28,7 +28,7 @@ block owns and the Open Logic entities each block is built from.
   The verification decompresses the compressed images of the testbenches with the decoder of the CNES reference
   software.
 - The transport of the compressed image (Space Packets, file systems). The compressed image leaves the core as a
-  byte stream with an end-of-image marker; the user packs it into the transport format of the mission (CCSDS
+  stream of words with an end-of-image marker; the user packs it into the transport format of the mission (CCSDS
   123.0-B-2 2.4).
 - The encoding of supplementary information tables from their values: the core inserts the tables into the header
   as the user encodes them (tools/ocp_generics.py shows the encoding).
@@ -146,7 +146,7 @@ Three properties of the standard shape the architecture more than any single fea
                  +------------------------------------------------------------------------------+
                  |                    CO-1 header generator --+                                 |
                  |                                            v                                 |
- In  (samples) ->| PR-1 sequencer --> PR-2..PR-6 predictor --> EC-1 | EC-2 | EC-3 --> CO-2 bit -->|-> Out (bytes)
+ In  (samples) ->| PR-1 sequencer --> PR-2..PR-6 predictor --> EC-1 | EC-2 | EC-3 --> CO-2 bit -->|-> Out (words)
  Lim (limits)  ->|   input order       quantizer, mapper      entropy coder        packer       |
                  |                                                                  CO-3        |
                  |   FT memories: sample representatives, local differences, weights,           |
@@ -155,10 +155,12 @@ Three properties of the standard shape the architecture more than any single fea
 ```
 
 The samples enter in the input order of the compressed image (BI with sub-frame interleaving depth M, or BSQ). The
-predictor processes one sample at a time: it reads the neighbours and the weights, predicts, quantizes, computes the
-sample representative, updates the weights and writes the state back. Its output is the entropy coder input
-sequence. The entropy coder selected by `EntropyCoder_g` turns it into codewords; the bit packer appends the header
-and the codewords to the compressed image, adds the fill bits after the last codeword and outputs bytes.
+predictor is a pipeline: it reads the neighbours and the weights, predicts, quantizes, computes the sample
+representative, updates the weights and writes the state back, one stage per clock cycle, and starts a sample as soon
+as the samples it depends on have left the feedback loops. Its output is the entropy coder input sequence. The entropy
+coder selected by `EntropyCoder_g` turns it into codewords, one item per clock cycle; the bit packer appends the
+header and the codewords to the compressed image, adds the fill bits after the last codeword and outputs words of
+8 to 64 bits.
 
 ### Architecture decisions
 
@@ -167,11 +169,13 @@ and the codewords to the compressed image, adds the fill bits after the last cod
 | D1 | One clock domain `Clk`, synchronous high-active reset `Rst` | The core is a stream processor; crossings belong to the integration |
 | D2 | All image and compression parameters are generics of `ocp_core`; the header is a constant computed at elaboration and streamed before the body of every image | The parameters of a compressor are fixed for a mission or an instrument mode; constants remove the logic of unused options and make the header exact by construction |
 | D3 | The entropy coder is chosen by `EntropyCoder_g`; only the selected coder is instantiated | The three coders share no state; one per configuration keeps the footprint small |
-| D4 | The predictor processes one sample completely (prediction, quantization, sample representative, mapping, weight update, write back) before it accepts the next sample | Near-lossless prediction of a band needs the quantized result of the preceding band at the same position and of the preceding sample in the same band; a sequential datapath is exact for every input order and every option. Throughput is a function of the configuration (section 6, performance) |
+| D4 | The predictor is a pipeline without internal stalls; its issue stage starts a sample once the samples it depends on (previous sample of the band, sample of the previous band at the same pixel) have left the feedback loops | The dependencies of the standard limit the throughput, not the arithmetic: with enough distance between dependent samples every configuration runs at one sample per clock cycle, and the same datapath is exact for every input order and every option. Throughput is a function of the configuration (section 6, performance) |
+| D11 | The error sign of the weight update is computed from the high-resolution sum by comparisons with thresholds of the sample; when consecutive samples belong to the same band the weight loop speculates over the signs of the two samples ahead (four weight vectors); in BI order with M = NZ near-lossless compression processes the samples of a pixel in stride order | The weight update depends on one bit per sample, so the loop closes after the dot product and can be unrolled over the unknown signs; the stride order makes the bands of a pixel independent of each other in the pipeline |
+| D12 | The entropy coders concatenate their codewords into words of up to 96 bits before an output FIFO | The FIFO then absorbs the header of the next image, and the bit packer catches up with several codewords per clock cycle |
 | D5 | Widths of the datapath derived from D, Omega and R: the dot product is computed without overflow and wrapped to R bits as (37) requires; weight increments are saturated to the weight range before clipping | The predicted values are exact for every allowed parameter, including D = 32, Omega = 19 and R = 64 |
-| D6 | Neighbours are kept in a memory of two rows per band (BI) or of row 0 and two further rows of the current and the previous band (BSQ); the central local differences of the P preceding bands in one word per pixel of a row (BI) or of a band (BSQ); the weight vector of every band in one word | One read and one write per memory and sample; memories sized by the image |
+| D6 | Neighbours are kept in a memory of the current row of every band (BI) or of row 0 of the current and the previous band and the current row (BSQ), the window of the previous row and the previous sample per band; the central local differences of the P preceding bands in one word per pixel of a row (BI with M < NZ) or of a band (BSQ); the weight vector of every band in one word | One read and one write per memory and sample; memories sized by the image |
 | D7 | Error limits for periodic updating enter on their own stream in the order of the entropy coder input sequence and are forwarded into it | The user supplies them every 2^u frames (CCSDS 4.8.2.4.2) from any source |
-| D8 | The image ends with the last codeword: the bit packer adds the fill bits up to the output word boundary of the whole compressed image and marks the last byte; the header of the next image starts with its first sample | Consecutive compressed images on one byte stream, each self-delimiting by the end-of-image marker |
+| D8 | The image ends with the last codeword: the bit packer adds the fill bits up to the output word boundary of the whole compressed image and marks the last interface word with its valid bytes; the header of the next image starts once its first sample is accepted | Consecutive compressed images on one stream, each self-delimiting by the end-of-image marker |
 | D9 | The low-entropy codes of the hybrid coder are state machines whose states are the active prefixes; their code and flush tables (CCSDS annex B) are ROM constants generated from the tables of the standard | Exact transcription of the 32 normative tables; one table lookup per low-entropy symbol |
 | D10 | Supplementary information tables are given as their encoded header bits (`SupTableData_g`) | Tables are data for the user of the image, not used by the compression |
 
@@ -187,19 +191,26 @@ synchronises it to `Clk`, for example with `olo_ft_reset_gen`.
 | Samples | User to PR-1 | D-bit sample, unsigned or two's complement | Valid / ready |
 | Error limits | User to PR-1 | 16-bit error limit value | Valid / ready |
 | Entropy coder input | Predictor to EC-1, EC-2, EC-3 | Value (mapped quantizer index or error limit), kind, band, first sample of the band (t = 0), first coded sample (t = 1), last item of the image | Valid / ready |
-| Codewords | CO-1, EC-1, EC-2, EC-3 to CO-2 | Up to 64 bits, length, last codeword of the image | Valid / ready |
-| Compressed image | CO-2 to user | Byte, last byte of the image | Valid / ready |
+| Codewords | CO-1, EC-1, EC-2, EC-3 to CO-2 | Up to 96 bits, length, last codeword of the image | Valid / ready |
+| Compressed image | CO-2 to user | Word of 8, 16, 32 or 64 bits, valid bytes, last word of the image | Valid / ready |
 
 ### Performance
 
-The predictor needs 16 + 2 C cycles per sample, where C = P + 3 in full and C = P in reduced prediction mode (the
-number of local differences, CCSDS 4.3.2), and further max(D, 16) + 2 cycles for a sample whose maximum error is not
-zero (the division of the quantizer). The entropy coders and the bit packer are faster than the predictor, except that
-the block-adaptive coder stops taking values while it outputs a block. Measured in simulation (configurations of
-section 9): lossless with P = 3 in full mode 28.0 cycles per sample (c01); near-lossless with D = 16 and P = 3 45.9
-cycles per sample (c04); P = 15 in full mode 51.6 cycles per sample (c11); block-adaptive coder with D = 24 and J = 32
-28.8 cycles per sample, of which 2.8 are stalls of the coder (c18). The roadmap ([roadmap.md](roadmap.md)) lists the
-steps to one sample per cycle.
+The predictor is a pipeline that takes one sample per clock cycle as long as dependent samples are far enough apart:
+the previous sample of a band at least the length of the weight loop (7 to 11 cycles) and, in near-lossless
+compression, of the sample representative loop (about 33 cycles), the sample of the previous band at the same pixel
+in near-lossless compression also about 33 cycles. Three mechanisms provide that distance:
+
+- BI order spreads the samples of a band M samples apart: BIP (M = NZ) with enough bands runs at one sample per cycle.
+- When consecutive samples belong to the same band (BSQ, BI with M = 1), the weight loop speculates over the error
+  signs (at most three local differences; lossless, or absolute error limits with narrow local sums and reduced
+  prediction): one sample per cycle.
+- In BI order with M = NZ, near-lossless compression processes the samples of a pixel in stride order, the bands S
+  slots apart: one sample per cycle for NZ above about 33, and still a gain of a factor of ten for fewer bands.
+
+The entropy coders take one item per cycle; the bit packer outputs `OutWidth_g` bits per cycle. The throughput model
+`tools/ocp_throughput.py` gives the cycle in which the predictor issues every sample; the testbenches check the RTL
+against it cycle by cycle. The user guide lists the throughput of the configurations of section 9.
 
 ## 7 Building block specifications
 
@@ -210,7 +221,7 @@ built from and the clauses it owns (P1: no clause is owned twice).
 
 | ID | Block | Responsibility | Open Logic | CCSDS |
 | --- | --- | --- | --- | --- |
-| PR-1 | Sequencer | Position (x, y, z, t) of the next sample in BI or BSQ order, flags of the first sample of a band (t = 0) and of the last sample, periodic error limit updating: read the limits at the start of every 2^u-th frame and forward them | `olo_ft_ram_sdp` (band-dependent limits) | 3.2, 3.3, 3.4, 4.8.2.3, 4.8.2.4, 5.4.2 |
+| PR-1 | Sequencer | Position (x, y, z, t) of the next sample in BI or BSQ order or in stride order, flags of the first sample of a band (t = 0) and of the last sample, start of a sample once its dependencies have left the feedback loops, periodic error limit updating: read the limits at the start of every 2^u-th frame and forward them; output FIFO, in stride order input and output buffers | `olo_ft_ram_sdp` (band-dependent limits, stride buffers), `olo_ft_fifo_sync` (output) | 3.2, 3.3, 3.4, 4.8.2.3, 4.8.2.4, 5.4.2 |
 | PR-2 | Local sums and differences | Neighbour memory, local sum of the four types, central and directional local differences, local difference vector | `olo_ft_ram_sdp` (neighbours, central differences) | 4.2, 4.3, 4.4, 4.5 |
 | PR-3 | Prediction | Weight memory, initial weights (default and custom), predicted central local difference, high-resolution, double-resolution and predicted sample values | `olo_ft_ram_sdp` (weights) | 4.6, 4.7 |
 | PR-4 | Quantizer | Prediction residual, maximum error from absolute and relative error limits, quantizer index, clipped bin center | none | 4.8.1, 4.8.2.1, 4.8.2.2 |
@@ -221,16 +232,16 @@ built from and the clauses it owns (P1: no clause is owned twice).
 
 | ID | Block | Responsibility | Open Logic | CCSDS |
 | --- | --- | --- | --- | --- |
-| EC-1 | Sample-adaptive coder | Accumulator and counter per band, code selection, length-limited GPO2 codewords, uncoded first sample, error limit values | `olo_ft_ram_sdp` (statistics) | 5.4.3.2 |
-| EC-2 | Hybrid coder | High-resolution accumulator and counter per band with rescaling bit, high-entropy reversed GPO2 codewords, 16 low-entropy codes, compressed image tail | `olo_ft_ram_sdp` (statistics) | 5.4.3.3, annex B |
-| EC-3 | Block-adaptive coder | Blocks of J values, zero padding, option selection (no compression, second extension, fundamental sequence, split samples, zero block with remainder of segment), coded data sets | none | 5.4.3.4, LDC 3, LDC 5.2 |
+| EC-1 | Sample-adaptive coder | Accumulator and counter per band, code selection, length-limited GPO2 codewords, uncoded first sample, error limit values | `olo_ft_ram_sdp` (statistics), `olo_ft_fifo_sync` (codeword buffer) | 5.4.3.2 |
+| EC-2 | Hybrid coder | High-resolution accumulator and counter per band with rescaling bit, high-entropy reversed GPO2 codewords, 16 low-entropy codes, compressed image tail | `olo_ft_ram_sdp` (statistics), `olo_ft_fifo_sync` (codeword buffer) | 5.4.3.3, annex B |
+| EC-3 | Block-adaptive coder | Blocks of J values, zero padding, option selection (no compression, second extension, fundamental sequence, split samples, zero block with remainder of segment), coded data sets | `olo_ft_fifo_sync` (codeword buffer) | 5.4.3.4, LDC 3, LDC 5.2 |
 
 ### 7.3 Core (`ocp_core`)
 
 | ID | Block | Responsibility | Open Logic | CCSDS |
 | --- | --- | --- | --- | --- |
 | CO-1 | Header generator | Image metadata with supplementary information tables, predictor metadata with weight, quantization and sample representative subparts, entropy coder metadata | none | 3.5, 5.3 |
-| CO-2 | Bit packer | Codewords to bytes, fill bits up to the output word boundary, end of the compressed image | none | 5.2 |
+| CO-2 | Bit packer | Codewords to interface words, fill bits up to the output word boundary, end of the compressed image | none | 5.2 |
 | CO-3 | Image sequencer | Header before the body of every image, end of the image after the last codeword, ECC events of all memories | none | 5.2.1 |
 
 ### 7.4 Common definitions (`ocp_pkg`)
@@ -244,14 +255,16 @@ built from and the clauses it owns (P1: no clause is owned twice).
 
 | Open Logic entity | Used in | Purpose |
 | --- | --- | --- |
-| `olo_ft_ram_sdp` | PR-1, PR-2, PR-3, EC-1, EC-2 | Simple dual-port memories with SECDED ECC: sample representatives, central local differences, weights, error limits, coder statistics |
+| `olo_ft_ram_sdp` | PR-1, PR-2, PR-3, EC-1, EC-2 | Simple dual-port memories with SECDED ECC: sample representatives, central local differences, weights, error limits, stride buffers, coder statistics |
+| `olo_ft_fifo_sync` | PR-1, EC-1, EC-2, EC-3 | FIFOs with SECDED ECC: output of the predictor, codeword buffers of the entropy coders |
+| `olo_base_pl_stage` | PR-1 | Register stage at the output of the predictor |
 | `olo_base_pkg_math` | all | `log2ceil` for the widths of addresses and counters |
 
 ### Gaps in Open Logic
 
 | Gap | Resolution in this architecture |
 | --- | --- |
-| No sequential divider | The quantizer divides by 2 m + 1 with a restoring division, one quotient bit per cycle, inside PR-4 |
+| No pipelined divider | The quantizer divides by 2 m + 1 with a restoring division, one quotient bit per pipeline stage, inside PR-4 |
 | No bit packer for variable-length codewords | CO-2 |
 
 ## 9 Verification architecture
@@ -264,8 +277,8 @@ section 10 is checked by `tools/compliance.py`.
 
 | Level | Scope | Bench | Checks |
 | --- | --- | --- | --- |
-| Unit | Predictor | `ocp_predictor_tb`: test image of a configuration in input order, periodic error limits | Entropy coder input sequence (values, kinds, bands, flags) against the reference model |
-| Core | Header, predictor, entropy coders and bit packer | `ocp_core_tb`: two images in sequence, optional back pressure | Compressed images byte by byte, including the end-of-image marker, against the CNES reference software |
+| Unit | Predictor | `ocp_predictor_tb`: test image of a configuration in input order, periodic error limits | Entropy coder input sequence (values, kinds, bands, flags) against the reference model; cycles of the input (and in stride order of the output) against the throughput model |
+| Core | Header, predictor, entropy coders and bit packer | `ocp_core_tb`: two images in sequence, interface widths of 8 to 64 bits, optional back pressure | Compressed images byte by byte, including the end-of-image marker and the valid bytes, against the CNES reference software; for the throughput configurations the cycles of the input of both images against the throughput model |
 
 ### Reference data
 
@@ -313,6 +326,12 @@ cover all options of the standard:
 | c22_single_pixel_hybrid | Image of one pixel per band: uncoded samples only, hybrid coder tail with the initial accumulators |
 | c23_extreme_weights | D = 3, Omega = 19, vmin = vmax = -6, weight exponent offsets -6: weight increments beyond the weight range |
 | c24_reduced_p0 | Reduced prediction with P = 0 (no weights), block-adaptive coder with J = 8 |
+| c25_hp_bsq_lossless | Throughput: BSQ, lossless, reduced prediction with P = 3, narrow local sums, D = 16, Omega = 19, R = 48: speculative weight loop |
+| c26_hp_bil_near_abs | Throughput: BIL, absolute error limit with sample representatives, reduced prediction with P = 3, narrow column-oriented local sums, hybrid coder: speculative weight loop |
+| c27_hp_bip_full | Throughput: BIP with 24 bands, full prediction with P = 3, block-adaptive coder |
+| c28_hp_bsq_near_abs | Throughput: BSQ, absolute error limit, reduced prediction with P = 2, narrow neighbour-oriented local sums: speculative weight loop |
+| c29_hp_bip_near_stride | Throughput: BIP with 40 bands, absolute error limit with sample representatives, full prediction with P = 3: stride order |
+| c30_hp_bip_both_stride | Throughput: BIP with 48 bands, absolute and relative error limits, reduced prediction with P = 2, narrow column-oriented local sums, hybrid coder: stride order |
 
 ### Framework
 

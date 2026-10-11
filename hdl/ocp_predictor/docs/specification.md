@@ -17,6 +17,7 @@ with periodic error limit updating, the error limit values at the start of every
 | PR-IF-02 | The predictor shall accept the samples in band-interleaved order with a sub-frame interleaving depth M from 1 to NZ and in band-sequential order. | 5.4.2.1, 5.4.2.2.1, 5.4.2.3 |
 | PR-IF-03 | The predictor shall output the entropy coder input sequence in the input order with, for every mapped quantizer index, the band z, a flag for t = 0, a flag for t = 1 and a flag for the last sample of the image. | 3.4, 5.4.1, 5.4.2.2.2 |
 | PR-IF-04 | With periodic error limit updating the predictor shall read the error limit values (A\* or a_z for every band, then R\* or r_z for every band) at the start of every frame y with y mod 2^u = 0, use them for the frames of the update period and insert them into the entropy coder input sequence before the first sample of the frame. | 4.8.2.4, 5.4.2.2.2 |
+| PR-IF-05 | The predictor shall signal with a pulse on `Img_Start` that it has accepted the first item (sample or error limit value) of an image. | none |
 
 ### 2.2 Local sums and local differences (PR-2)
 
@@ -57,7 +58,15 @@ with periodic error limit updating, the error limit values at the start of every
 | --- | --- | --- |
 | PR-MP-01 | The predictor shall map every quantizer index to the mapped quantizer index. | 4.11 |
 
-### 2.7 Fault tolerance
+### 2.7 Throughput
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| PR-TP-01 | The predictor shall start a sample in the first clock cycle in which the samples it depends on (the previous sample of its band; in near-lossless compression, or when the local differences of the previous bands come from memory, the sample of the previous band at the same pixel) have left the feedback loops and the output has room for every item in flight; it shall then process one sample per clock cycle (throughput model `tools/ocp_throughput.py`). | none |
+| PR-TP-02 | When consecutive samples belong to the same band (BSQ order, BI order with M = 1) and C <= 3, the predictor shall continue the weight update of the band from one sample to the next without waiting (speculative weight loop, `Speculation_g`) in lossless compression and in near-lossless compression with absolute error limits, narrow local sums and reduced prediction. | none |
+| PR-TP-03 | In BI order with M = NZ and near-lossless compression with dependencies between the bands of a pixel (P > 0 or narrow local sums), without periodic error limit updating, the predictor shall process the samples of an image in stride order (`Stride_g`) and output the entropy coder input sequence in the input order. | 5.4.2.2 |
+
+### 2.8 Fault tolerance
 
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
@@ -86,6 +95,8 @@ with periodic error limit updating, the error limit values at the start of every
 | `AbsBandDependent_g`, `AbsErrorLimits_g` | false, (0) | | Absolute error limits (fixed limits) |
 | `RelBandDependent_g`, `RelErrorLimits_g` | false, (0) | | Relative error limits (fixed limits) |
 | `SampleRepResolution_g`, `Damping_g`, `Offset_g` | 0, (0), (0) | Theta: 0 to 4 | Sample representatives |
+| `Speculation_g` | true | | Speculative weight loop where it applies (PR-TP-02) |
+| `Stride_g` | true | | Stride order where it applies (PR-TP-03) |
 | `RamStyle_g` | "auto" | | Memory implementation (Open Logic) |
 
 Per-band tables are `integer_vector` generics; the last element repeats for the remaining bands.

@@ -45,6 +45,12 @@ entity ocp_predictor_tb is
         -- Back pressure: probability (percent) of an idle cycle of the source and of the sink
         InGapPct_g             : natural  := 0;
         OutStallPct_g          : natural  := 0;
+        -- Expected cycles between the acceptance of the first and of the last sample (throughput
+        -- model tools/ocp_throughput.py); 0: not checked
+        ExpCycles_g            : natural  := 0;
+        -- Expected cycles between the first and the last item at the output (stride order, throughput
+        -- model); 0: not checked
+        ExpOutCycles_g         : natural  := 0;
         -- Configuration
         XSize_g                : positive := 8;
         YSize_g                : positive := 8;
@@ -111,6 +117,13 @@ architecture sim of ocp_predictor_tb is
 
     signal SinkDone : boolean := false;
 
+    -- Throughput: cycles of the first and the last accepted sample, number of samples
+    signal RateFirst : natural := 0;
+    signal RateLast  : natural := 0;
+    signal RateCount : natural := 0;
+    signal OutFirstC : natural := 0;
+    signal OutLastC  : natural := 0;
+
 begin
 
     -----------------------------------------------------------------------------------------------
@@ -158,6 +171,7 @@ begin
             Lim_Valid => Lim_Valid,
             Lim_Ready => Lim_Ready,
             Lim_Data  => Lim_Data,
+            Img_Start => open,
             Out_Valid => Out_Valid,
             Out_Ready => Out_Ready,
             Out_Data  => Out_Data,
@@ -187,6 +201,19 @@ begin
                 wait until rising_edge(Clk);
                 Rst <= '0';
                 wait until SinkDone;
+
+                -- Throughput
+                log(ID_SEQUENCER, "accepted " & to_string(RateCount) & " samples in " &
+                    to_string(RateLast - RateFirst + 1) & " cycles");
+                if ExpCycles_g > 0 then
+                    check_value(RateLast - RateFirst, ExpCycles_g, ERROR,
+                                "cycles between the first and the last sample (throughput model)");
+                end if;
+                log(ID_SEQUENCER, "output in " & to_string(OutLastC - OutFirstC + 1) & " cycles");
+                if ExpOutCycles_g > 0 then
+                    check_value(OutLastC - OutFirstC, ExpOutCycles_g, ERROR,
+                                "cycles between the first and the last item at the output (throughput model)");
+                end if;
 
                 -- No memory error and no further output
                 for i in 0 to 99 loop
@@ -234,6 +261,36 @@ begin
 
         file_close(Img_f);
         wait;
+    end process;
+
+    -- Throughput: cycle of the first and the last accepted sample and output item
+    p_rate : process is
+        variable Cycle_v  : natural := 0;
+        variable Count_v  : natural := 0;
+        variable OutCnt_v : natural := 0;
+    begin
+        wait until Rst = '0';
+
+        loop
+            wait until rising_edge(Clk);
+            if Out_Valid = '1' and Out_Ready = '1' then
+                if OutCnt_v = 0 then
+                    OutFirstC <= Cycle_v;
+                end if;
+                OutLastC <= Cycle_v;
+                OutCnt_v := OutCnt_v + 1;
+            end if;
+            if In_Valid = '1' and In_Ready = '1' then
+                if Count_v = 0 then
+                    RateFirst <= Cycle_v;
+                end if;
+                RateLast  <= Cycle_v;
+                Count_v   := Count_v + 1;
+                RateCount <= Count_v;
+            end if;
+            Cycle_v := Cycle_v + 1;
+        end loop;
+
     end process;
 
     -- Periodic error limit values (16-bit big-endian)

@@ -18,8 +18,8 @@ is the null prefix), the inputs are the symbols 0 to L_i and the escape symbol X
 
 | Constant | Entries | Entry |
 | --- | --- | --- |
-| `LeTrans_c` | 2740 (one per state and symbol) | bit 26: complete input codeword; bits 25 to 21: length of the output codeword; bits 20 to 0: output codeword (complete) or the next state |
-| `LeTransBase_c` | 16 | First entry of code i; entry address base + state (L_i + 2) + symbol |
+| `LeTrans_c` | 3004 (one per state and symbol, rows of a power of two of entries) | bits 40 to 27: flush word of the resulting active prefix; bit 26: complete input codeword; bits 25 to 21: length of the output codeword; bits 20 to 0: output codeword (complete) or the address of the next state (bits 19 to 8) and the next state (bits 7 to 0) |
+| `LeTransBase_c` | 16 | First entry of code i, a multiple of the row size S_i = 2^ceil(log2(L_i + 2)); entry address base + state S_i + symbol, unused entries zero |
 | `LeFlush_c` | 630 (one per state) | bits 13 to 10: length; bits 9 to 0: flush word |
 | `LeFlushBase_c` | 16 | First entry of code i |
 

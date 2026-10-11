@@ -243,6 +243,59 @@ CONFIGS = {
         v_max=2,
         entropy_coder_type=2, large_j=8, r=16,
         image="scene", seed=24),
+    # Throughput: BSQ order, lossless, reduced prediction with P = 3 and narrow local sums, 16-bit samples, Omega = 19,
+    # R = 48: one sample per clock cycle with the speculative weight loop
+    "c25_hp_bsq_lossless": cfg(
+        large_n_x=32, large_n_y=12, large_n_z=6, large_d=16, sample_encoding_order=1, large_m=0, large_b=4,
+        large_p=3, prediction_mode=1, local_sum_type=1, large_omega=19, large_r=48, log_two_t_inc=6, v_min=-1,
+        v_max=3,
+        large_u_max=18, gamma_star=6, gamma_0=1, k_prime_prime_vector=[5],
+        image="scene", seed=25),
+    # Throughput: BIL order (M = 1), near-lossless with an absolute error limit and sample representatives, reduced
+    # prediction with P = 3, narrow column-oriented local sums, hybrid coder: one sample per clock cycle with the
+    # speculative weight loop
+    "c26_hp_bil_near_abs": cfg(
+        large_n_x=40, large_n_y=8, large_n_z=6, large_d=16, large_m=1, large_b=4,
+        large_p=3, prediction_mode=1, local_sum_type=3, large_omega=19, large_r=48, log_two_t_inc=6, v_min=-1,
+        v_max=3,
+        quantizer_fidelity_control_method=1, large_d_large_a=10, a_vector=[12],
+        sample_representative_flag=1, large_theta=2, phi_vector=[2], psi_vector=[1],
+        entropy_coder_type=1, large_u_max=16, gamma_star=6, gamma_0=2, hybrid_initial_accumulator=[300],
+        image="scene", seed=26),
+    # Throughput: BIP with 24 bands, full prediction with P = 3, wide neighbor-oriented local sums, block-adaptive
+    # coder: one sample per clock cycle through the weight memory
+    "c27_hp_bip_full": cfg(
+        large_n_x=16, large_n_y=8, large_n_z=24, large_d=16, large_m=24, large_b=4,
+        large_p=3, large_omega=19, large_r=64, log_two_t_inc=6, v_min=-1, v_max=3,
+        entropy_coder_type=2, large_j=16, r=32,
+        image="scene", seed=27),
+    # Throughput: BSQ order, near-lossless with an absolute error limit, reduced prediction with P = 2 and narrow
+    # neighbor-oriented local sums, 12-bit samples: one sample per clock cycle with the speculative weight loop
+    "c28_hp_bsq_near_abs": cfg(
+        large_n_x=40, large_n_y=6, large_n_z=4, large_d=12, sample_encoding_order=1, large_m=0, large_b=2,
+        large_p=2, prediction_mode=1, local_sum_type=1, large_omega=15, large_r=48, log_two_t_inc=5, v_min=-2,
+        v_max=3,
+        quantizer_fidelity_control_method=1, large_d_large_a=6, a_vector=[3],
+        large_u_max=16, gamma_star=6, gamma_0=1, k_prime_prime_vector=[3],
+        image="scene", seed=28),
+    # Throughput: BIP with 40 bands, near-lossless with an absolute error limit and sample representatives, full
+    # prediction with P = 3: the stride order processes the bands of a pixel S bands apart
+    "c29_hp_bip_near_stride": cfg(
+        large_n_x=12, large_n_y=6, large_n_z=40, large_d=12, large_m=40, large_b=2,
+        large_p=3, large_omega=14, large_r=48, log_two_t_inc=5, v_min=-1, v_max=3,
+        quantizer_fidelity_control_method=1, large_d_large_a=4, a_vector=[2],
+        sample_representative_flag=1, large_theta=2, phi_vector=[1], psi_vector=[2],
+        large_u_max=16, gamma_star=6, gamma_0=1, k_prime_prime_vector=[3],
+        image="scene", seed=29),
+    # Throughput: BIP with 48 bands, absolute and relative error limits, reduced prediction with P = 2, narrow
+    # column-oriented local sums, hybrid coder: stride order with relative error limits
+    "c30_hp_bip_both_stride": cfg(
+        large_n_x=10, large_n_y=5, large_n_z=48, large_d=16, large_m=48, large_b=4,
+        large_p=2, prediction_mode=1, local_sum_type=3, large_omega=13, large_r=48, log_two_t_inc=5, v_min=-1,
+        v_max=3,
+        quantizer_fidelity_control_method=3, large_d_large_a=6, a_vector=[20], large_d_large_r=8, r_vector=[30],
+        entropy_coder_type=1, large_u_max=16, gamma_star=6, gamma_0=2, hybrid_initial_accumulator=[500],
+        image="scene", seed=30),
 }
 
 

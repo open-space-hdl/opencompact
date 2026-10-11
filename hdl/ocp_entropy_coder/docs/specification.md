@@ -13,7 +13,8 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
-| EC-IF-01 | Every coder shall take the entropy coder input sequence (value, kind, band, t = 0, t = 1, last item) and output codewords of up to 64 bits with their length, and mark the last codeword of the image. | 5.4.1 |
+| EC-IF-01 | Every coder shall take the entropy coder input sequence (value, kind, band, t = 0, t = 1, last item) and output codewords of up to 96 bits with their length, and mark the last codeword of the image. | 5.4.1 |
+| EC-TP-01 | The sample-adaptive and the hybrid coder shall take one item per clock cycle while their output buffer has room; the block-adaptive coder one value per clock cycle while a block buffer is free; every coder shall concatenate consecutive codewords into codewords of up to 96 bits before its output buffer. | none |
 | EC-IF-02 | The sample-adaptive and the hybrid coder shall encode every error limit value of periodic error limit updating as a DA-bit (absolute) or DR-bit (relative) unsigned integer without changing their statistics. | 5.4.3.2.4.1, 5.4.3.3.5.1.1 |
 
 ### 2.2 Sample-adaptive coder (EC-1)
@@ -45,7 +46,7 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
-| EC-FT-01 | The statistics of the sample-adaptive and the hybrid coder shall be stored in memories with SECDED ECC; corrected single and detected double errors shall be signalled on `Ecc_Sec` and `Ecc_Ded`. | none |
+| EC-FT-01 | The statistics of the sample-adaptive and the hybrid coder and the codeword buffers of all coders shall be stored in memories with SECDED ECC; corrected single and detected double errors shall be signalled on `Ecc_Sec` and `Ecc_Ded`. | none |
 
 ## 3. Configuration parameters
 

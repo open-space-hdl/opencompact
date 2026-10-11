@@ -70,7 +70,9 @@ def tcl(out, device, clk_mhz, impl):
     ]
     if impl:
         st = out / "smarttime.tcl"
-        st.write_text("report -type timing -analysis max -format text {}\n".format((out / "max_timing.rpt").as_posix()))
+        # The 20 worst paths, the first 3 of them expanded
+        st.write_text("report -type timing -analysis max -format text -max_paths 20 -max_expanded_paths 3 {}\n".format(
+            (out / "max_timing.rpt").as_posix()))
         lines += [
             f"organize_tool_files -tool {{PLACEROUTE}} -file {{{sdc.as_posix()}}} -module {{ocp_synth_top::work}} "
             "-input_type {constraint}",

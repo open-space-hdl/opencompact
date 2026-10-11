@@ -5,7 +5,7 @@
 `ocp_core` is the top level of OpenCompact: the header generator (CO-1, `ocp_header`), the predictor
 (`ocp_predictor`), the entropy coder selected by `EntropyCoder_g` (`ocp_entropy_coder`), the bit packer (CO-2,
 `ocp_bit_packer`) and the image sequencer (CO-3). It compresses images according to CCSDS 123.0-B-2 with all options of
-the standard set by generics and outputs every compressed image as a byte stream.
+the standard set by generics and outputs every compressed image as a stream of words of 8 to 64 bits.
 
 ## 2. Requirements
 
@@ -14,7 +14,7 @@ the standard set by generics and outputs every compressed image as a byte stream
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | CO-IF-01 | The core shall take the samples of an image in the input order (BI or BSQ) on a valid / ready stream of D-bit samples and, with periodic error limit updating, the error limit values on a valid / ready stream of 16-bit values. | 5.4.2 |
-| CO-IF-02 | The core shall output every compressed image as a valid / ready byte stream, first byte of the compressed image first, with a marker on the last byte. | 5.2.1 |
+| CO-IF-02 | The core shall output every compressed image as a valid / ready stream of words of `OutWidth_g` bits (8, 16, 32 or 64), first byte of the compressed image in the most significant bits of the first word, with a marker on the last word of the image and its valid bytes. | 5.2.1 |
 | CO-IF-03 | The core shall signal corrected single and detected double memory errors of all its memories on `Ecc_Sec` and `Ecc_Ded`. | none |
 
 ### 2.2 Header generator (CO-1)
@@ -36,6 +36,7 @@ the standard set by generics and outputs every compressed image as a byte stream
 | CO-PK-01 | The compressed image shall be the header followed by the body. | 5.2.1 |
 | CO-PK-02 | After the last codeword of the body, fill bits (zeros) shall be appended up to the next output word boundary so that the size of the compressed image is a multiple of the output word size B, from 1 to 8 bytes. | 5.2.2, 5.4.3.2.4.4, 5.4.3.3.5.4.5, 5.4.3.4.3.2 |
 | CO-PK-03 | Images shall be compressed one after the other; every image shall start with the initial state of the standard and with its own header. | 5.2.1 |
+| CO-TP-01 | The bit packer shall take one codeword (or header part) per clock cycle while the compressed image needs on average at most `OutWidth_g` bits per clock cycle, so that the core takes the samples of consecutive images in the cycles of the predictor. | none |
 
 ## 3. Configuration parameters
 
@@ -52,6 +53,8 @@ predictor or the entropy coders use are described in their specifications. Gener
 | `AbsBitDepth_g`, `RelBitDepth_g` | 1 | 1 to min(D - 1, 16) | DA, DR |
 | `DampingBandVarying_g`, `DampingTable_g`, `OffsetBandVarying_g`, `OffsetTable_g` | false | | Sample representative subpart flags |
 | `AccuInitTable_g` | false | | Accumulator initialisation table in the header |
+| `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits |
+| `Speculation_g`, `Stride_g` | true | | Speculative weight loop and stride order of the predictor where they apply |
 
 ## 4. Interpretation of the standard
 
@@ -65,5 +68,5 @@ predictor or the entropy coders use are described in their specifications. Gener
 
 | Constraint | Reason |
 | --- | --- |
-| The header of an image is output when its first sample (or error limit value) arrives | Consecutive images on one stream; no header without image |
+| The header of an image is output once its first sample (or error limit value) is accepted | Consecutive images on one stream; no header without image |
 | The last codeword of the body is never empty | The bit packer marks the last byte when it outputs the bits of the last codeword |

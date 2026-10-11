@@ -1,0 +1,22 @@
+# VUnit / simulator output
+vunit_out*/
+*.wlf
+transcript
+modelsim.ini
+*.vcd
+*.ghw
+# Python
+__pycache__/
+*.pyc
+.venv/
+# Vivado
+.Xil/
+*.jou
+*.log
+vivado_out/
+# UVVM log files
+*_Alert.txt
+*_Log.txt
+coverage/
+# Libero
+libero_out/

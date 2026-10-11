@@ -1,0 +1,5 @@
+# OpenCompact modules in dependency order (compiled into the library opencompact by run.py)
+hdl/ocp_pkg
+hdl/ocp_predictor
+hdl/ocp_entropy_coder
+hdl/ocp_core

@@ -1,0 +1,68 @@
+# ocp_predictor: Verification Plan
+
+## 1. Overview
+
+The testbench feeds the test image of a configuration in the input order (and with periodic updating the error limit
+values) and compares every item of the entropy coder input sequence with the sequence of the reference model
+(`tb/golden/<configuration>/delta.txt`): kind, value, band, first-sample, init and last flags. The reference model
+produces the same compressed images as the CNES reference software for every configuration (`tools/golden.py`).
+
+## 2. Test configuration
+
+| Testbench | DUT and environment |
+| --- | --- |
+| `ocp_predictor_tb` | `ocp_predictor` at 100 MHz with the generics of a configuration of `tools/ocp_configs.py`; file-based source of the samples and of the error limits, sink with optional random gaps and stalls |
+
+Every configuration is a VUnit configuration of the test `test_golden`; three configurations also run with 30 % input
+gaps and 40 % output stalls (suffix `_bp`). Simulator: GHDL.
+
+## 3. Test cases
+
+| Test ID | Description | Requirements |
+| --- | --- | --- |
+| `test_golden` c01_lossless_bip (TC-PR-01) | Lossless, BIP, full prediction, wide neighbor-oriented local sums, P = 3 | PR-IF-01, PR-IF-02, PR-IF-03, PR-LS-01, PR-LS-02, PR-LS-03, PR-LS-04, PR-PD-01, PR-PD-02, PR-PD-03, PR-QU-01, PR-QU-02, PR-WU-01, PR-WU-02, PR-MP-01, PR-FT-01 |
+| `test_golden` c02_lossless_bil_column (TC-PR-02) | BIL, reduced prediction, wide column-oriented local sums, P = 5, D = 12 | PR-IF-02, PR-LS-01, PR-LS-02, PR-LS-03, PR-PD-03, PR-LS-04, PR-MP-01 |
+| `test_golden` c03_lossless_bsq_narrow (TC-PR-03) | BSQ, narrow neighbor-oriented local sums, D = 8, weight exponent offsets | PR-IF-02, PR-LS-03, PR-WU-02, PR-LS-04, PR-MP-01 |
+| `test_golden` c04_near_abs_hybrid (TC-PR-04) | Band-independent absolute error limit, sample representatives with damping and offset | PR-QU-01, PR-QU-02, PR-QU-03, PR-SR-01, PR-MP-01 |
+| `test_golden` c05_near_rel_bi4_signed (TC-PR-05) | Signed samples, BI with M = 4, band-dependent relative error limits, narrow column-oriented local sums, reduced prediction with weight exponent offsets | PR-IF-01, PR-IF-02, PR-LS-03, PR-QU-02, PR-QU-03, PR-LS-04, PR-MP-01 |
+| `test_golden` c06_near_both_block (TC-PR-06) | Absolute and relative error limits, band-dependent absolute limits, band-varying damping and offset | PR-QU-02, PR-QU-03, PR-SR-01, PR-MP-01 |
+| `test_golden` c07_lossless_block_bsq (TC-PR-07) | BSQ with P = 1, low-entropy image | PR-IF-02, PR-LS-01 |
+| `test_golden` c08_restricted_d4 (TC-PR-08) | D = 4, BIL | PR-IF-01, PR-IF-02 |
+| `test_golden` c09_custom_weights (TC-PR-09) | Custom weight initialisation (Q = 10), weight exponent offsets | PR-PD-02, PR-WU-02 |
+| `test_golden` c10_periodic_limits (TC-PR-10) | Periodic error limit updating every two frames, BI with M = 2 | PR-IF-04, PR-QU-02, PR-QU-03 |
+| `test_golden` c11_wide_d32 (TC-PR-11) | D = 32, P = 15, Omega = 19, R = 64, vmin = -6, vmax = 9 | PR-IF-01, PR-LS-01, PR-PD-01, PR-PD-03, PR-WU-01, PR-MP-01 |
+| `test_golden` c12_single_column (TC-PR-12) | NX = 1, reduced prediction, narrow column-oriented local sums | PR-IF-01, PR-LS-02, PR-LS-03, PR-LS-04 |
+| `test_golden` c13_single_band_hybrid (TC-PR-13) | NZ = 1, P = 0 | PR-IF-01, PR-LS-01 |
+| `test_golden` c14_supplementary_tables (TC-PR-14) | Small image with P = 2 | PR-IF-03 |
+| `test_golden` c15_noise_escape (TC-PR-15) | Uncorrelated noise: wrap to R bits, clipping of the prediction, saturated weight increments | PR-PD-03, PR-WU-02 |
+| `test_golden` c16_hybrid_low_entropy (TC-PR-16) | Band-dependent absolute error limits from 0 to 255 (DA = 8) | PR-QU-01, PR-QU-02, PR-QU-03, PR-MP-01 |
+| `test_golden` c17_block_zero_runs (TC-PR-17) | BSQ, constant bands with outliers | PR-IF-02, PR-PD-03 |
+| `test_golden` c18_block_d24_mixed (TC-PR-18) | D = 24 signed, noise in every second band | PR-IF-01, PR-PD-03, PR-WU-02 |
+| `test_golden` c19_block_restricted_d2 (TC-PR-19) | D = 2, periodic band-dependent absolute error limits of one bit every four frames, vmax = 9 with Omega = 4: vanishing weight increments | PR-IF-01, PR-IF-04, PR-QU-03, PR-MP-01 |
+| `test_golden` c20_hybrid_d28 (TC-PR-20) | D = 28, P = 3, Omega = 14, R = 50 | PR-IF-01, PR-PD-03, PR-MP-01 |
+| `test_golden` c21_sample_periodic (TC-PR-21) | Periodic updating every frame with band-independent absolute and band-dependent relative error limits, BIL, reduced prediction | PR-IF-04, PR-QU-02, PR-QU-03, PR-MP-01 |
+| `test_golden` c22_single_pixel_hybrid (TC-PR-22) | Image of one pixel per band: only samples with t = 0 | PR-IF-01, PR-IF-03, PR-MP-01 |
+| `test_golden` c23_extreme_weights (TC-PR-23) | D = 3, Omega = 19, vmin = vmax = -6, weight exponent offsets -6: weight increments beyond the weight range | PR-PD-01, PR-WU-01, PR-WU-02 |
+| `test_golden` c24_reduced_p0 (TC-PR-24) | Reduced prediction with P = 0: no local differences, prediction from the local sum | PR-LS-01, PR-LS-02, PR-PD-03 |
+| `test_golden` c01_lossless_bip_bp (TC-PR-25) | As TC-PR-01 with input gaps and output stalls | PR-IF-03 |
+| `test_golden` c05_near_rel_bi4_signed_bp (TC-PR-26) | As TC-PR-05 with input gaps and output stalls | PR-IF-03 |
+| `test_golden` c10_periodic_limits_bp (TC-PR-27) | As TC-PR-10 with input gaps and output stalls | PR-IF-03, PR-IF-04 |
+
+Every test also checks that no memory error is signalled (PR-FT-01, no error injection) and that no item follows the
+last one.
+
+## 4. Requirement coverage
+
+| Requirement | Test cases |
+| --- | --- |
+| PR-IF-01 | TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11 to TC-PR-13, TC-PR-18, TC-PR-19 |
+| PR-IF-02 | TC-PR-01 to TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-08, TC-PR-17 |
+| PR-IF-03 | TC-PR-01, TC-PR-14, TC-PR-25 to TC-PR-27 |
+| PR-IF-04 | TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-27 |
+| PR-LS-01 to PR-LS-04 | TC-PR-01 to TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-11 to TC-PR-13 |
+| PR-PD-01 to PR-PD-03 | TC-PR-01, TC-PR-02, TC-PR-09, TC-PR-11, TC-PR-15 |
+| PR-QU-01 to PR-QU-03 | TC-PR-01, TC-PR-04 to TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19 |
+| PR-SR-01 | TC-PR-04, TC-PR-06 |
+| PR-WU-01, PR-WU-02 | TC-PR-01, TC-PR-03, TC-PR-09, TC-PR-11, TC-PR-15 |
+| PR-MP-01 | TC-PR-01 to TC-PR-06, TC-PR-11, TC-PR-16, TC-PR-19 (all test cases check the mapped quantizer indices) |
+| PR-FT-01 | all (no error; error injection is an open item, see the roadmap) |

@@ -1,0 +1,1007 @@
+# ---------------------------------------------------------------------------------------------------
+# Copyright (c) 2026 by Julian Schneider
+# Authors: Julian Schneider
+# ---------------------------------------------------------------------------------------------------
+"""Bit-exact reference model of a CCSDS 123.0-B-2 compressor.
+
+The model implements the compressor of CCSDS 123.0-B-2 (Issue 2, Technical Corrigendum 3) from the clause text:
+header (5.3), predictor and quantizer (4), the three entropy coders (5.4.3) and the input orders (5.4.2). It is
+the source of the intermediate reference data of the OpenCompact unit testbenches (mapped quantizer indices,
+codewords). The compressed images of the testbenches come from the CNES reference software (tools/golden.py).
+
+A configuration is a dict with the parameter names of the CNES header tool (large_n_x, large_d, ...); see
+`default_config()`. Vector parameters (a_vector, phi_vector, ...) repeat their last element as needed.
+"""
+
+import sys
+
+from ocp_low_entropy_codes import CODES, FLUSH, LIMITS, THRESHOLDS
+
+
+# ------------------------------------------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------------------------------------------
+def default_config():
+    """Lossless, full prediction, BIP, sample-adaptive coder (the defaults of the testbench configurations)."""
+    return {
+        "user_defined_data": 0,
+        "large_n_x": 8, "large_n_y": 8, "large_n_z": 4,
+        "sample_type": 0, "large_d": 16,
+        "sample_encoding_order": 0, "large_m": 4,
+        "large_b": 1,
+        "entropy_coder_type": 0,
+        "quantizer_fidelity_control_method": 0,
+        "supplementary_information_tables": [],
+        # predictor
+        "large_p": 3, "prediction_mode": 0, "local_sum_type": 0,
+        "large_r": 64, "large_omega": 19, "log_two_t_inc": 6, "v_min": -1, "v_max": 3,
+        "weight_exponent_offset_flag": 0, "weight_exponent_offset_table_flag": 0, "zeta_vector": [0],
+        "weight_initialization_method": 0, "weight_initialization_table_flag": 0, "large_q": 0,
+        "large_lambda_vector": [0],
+        # quantizer
+        "periodic_updating_flag": 0, "u": 0,
+        "absolute_error_limit_assignment_method": 0, "large_d_large_a": 1, "a_vector": [0],
+        "relative_error_limit_assignment_method": 0, "large_d_large_r": 1, "r_vector": [0],
+        # sample representatives
+        "sample_representative_flag": 0, "large_theta": 0,
+        "band_varying_damping_flag": 0, "damping_table_flag": 0, "phi_vector": [0],
+        "band_varying_offset_flag": 0, "offset_table_flag": 0, "psi_vector": [0],
+        # sample-adaptive and hybrid coder
+        "large_u_max": 16, "gamma_star": 6, "gamma_0": 1,
+        "band_varying_k_flag": 0, "accumulator_initialization_table_flag": 0, "k_prime_prime_vector": [3],
+        "hybrid_initial_accumulator": [0],
+        # block-adaptive coder
+        "large_j": 16, "restricted_code_options_flag": 0, "r": 4096,
+    }
+
+
+def vec(cfg, name, n):
+    """Vector parameter extended to n elements by repeating the last element."""
+    v = list(cfg[name])
+    if not v:
+        v = [0]
+    return (v + [v[-1]] * n)[:n]
+
+
+class Params:
+    """Derived quantities of a configuration."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.nx = cfg["large_n_x"]
+        self.ny = cfg["large_n_y"]
+        self.nz = cfg["large_n_z"]
+        self.d = cfg["large_d"]
+        self.signed = cfg["sample_type"] == 1
+        if self.signed:
+            self.smin, self.smax, self.smid = -(1 << (self.d - 1)), (1 << (self.d - 1)) - 1, 0
+        else:
+            self.smin, self.smax, self.smid = 0, (1 << self.d) - 1, 1 << (self.d - 1)
+        self.bsq = cfg["sample_encoding_order"] == 1
+        self.m = cfg["large_m"]
+        self.p = cfg["large_p"]
+        self.full = cfg["prediction_mode"] == 0
+        self.ls = cfg["local_sum_type"]
+        self.reg = cfg["large_r"]
+        self.om = cfg["large_omega"]
+        self.tinc_log = cfg["log_two_t_inc"]
+        self.vmin = cfg["v_min"]
+        self.vmax = cfg["v_max"]
+        self.wmin = -(1 << (self.om + 2))
+        self.wmax = (1 << (self.om + 2)) - 1
+        self.fid = cfg["quantizer_fidelity_control_method"]
+        self.use_abs = self.fid in (1, 3)
+        self.use_rel = self.fid in (2, 3)
+        self.periodic = self.fid != 0 and cfg["periodic_updating_flag"] == 1
+        self.u = cfg["u"]
+        self.theta = cfg["large_theta"] if cfg["sample_representative_flag"] else 0
+        nz = self.nz
+        self.a = vec(cfg, "a_vector", nz)
+        self.rr = vec(cfg, "r_vector", nz)
+        self.phi = vec(cfg, "phi_vector", nz) if self.theta else [0] * nz
+        self.psi = vec(cfg, "psi_vector", nz) if self.theta else [0] * nz
+        # weight exponent offsets: per band [zeta_star (full mode only), zeta(1) .. zeta(Pz*)]
+        self.zeta_star = [0] * nz
+        self.zeta = [[0] * (self.p + 1) for _ in range(nz)]
+        if cfg["weight_exponent_offset_flag"]:
+            flat = self.band_table(cfg["zeta_vector"], 1)
+            for z in range(nz):
+                row = flat[z]
+                if self.full:
+                    self.zeta_star[z] = row[0]
+                    row = row[1:]
+                for i in range(1, self.pz(z) + 1):
+                    self.zeta[z][i] = row[i - 1]
+        self.custom_weights = cfg["weight_initialization_method"] == 1
+        if self.custom_weights:
+            self.lam = self.band_table(cfg["large_lambda_vector"], 3)
+
+    def pz(self, z):
+        return min(z, self.p)
+
+    def cz(self, z):
+        return self.pz(z) + (3 if self.full else 0)
+
+    def band_table(self, values, full_extra):
+        """Splits a flat per-band table (as in the header: per band Pz* (+ full_extra in full mode) entries)."""
+        v = list(values) if values else [0]
+        out = []
+        pos = 0
+        for z in range(self.nz):
+            n = self.pz(z) + (full_extra if self.full else 0)
+            row = []
+            for _ in range(n):
+                row.append(v[pos] if pos < len(v) else v[-1])
+                pos += 1
+            out.append(row)
+        return out
+
+
+# ------------------------------------------------------------------------------------------------
+# Bit writer
+# ------------------------------------------------------------------------------------------------
+class BitWriter:
+    def __init__(self):
+        self.acc = 0
+        self.n = 0
+
+    def put(self, value, width):
+        if width == 0:
+            return
+        assert 0 <= value < (1 << width), (value, width)
+        self.acc = (self.acc << width) | value
+        self.n += width
+
+    def put_signed(self, value, width):
+        self.put(value & ((1 << width) - 1), width)
+
+    def put_bits(self, bits):
+        for b in bits:
+            self.put(1 if b == "1" else 0, 1)
+
+    def align(self, unit_bits=8):
+        rem = self.n % unit_bits
+        if rem:
+            self.put(0, unit_bits - rem)
+
+    def to_bytes(self):
+        assert self.n % 8 == 0
+        return self.acc.to_bytes(self.n // 8, "big") if self.n else b""
+
+
+# ------------------------------------------------------------------------------------------------
+# Header (5.3)
+# ------------------------------------------------------------------------------------------------
+def header(cfg):
+    """Returns the header bytes."""
+    pr = Params(cfg)
+    w = BitWriter()
+    d = pr.d
+    # Image metadata, essential subpart (table 5-3)
+    w.put(cfg["user_defined_data"], 8)
+    w.put(pr.nx % 65536, 16)
+    w.put(pr.ny % 65536, 16)
+    w.put(pr.nz % 65536, 16)
+    w.put(cfg["sample_type"], 1)
+    w.put(0, 1)
+    w.put(1 if d > 16 else 0, 1)
+    w.put(d % 16, 4)
+    w.put(cfg["sample_encoding_order"], 1)
+    w.put(0 if pr.bsq else pr.m % 65536, 16)
+    w.put(0, 2)
+    w.put(cfg["large_b"] % 8, 3)
+    w.put(cfg["entropy_coder_type"], 2)
+    w.put(0, 1)
+    w.put(pr.fid, 2)
+    w.put(0, 2)
+    sits = cfg["supplementary_information_tables"]
+    w.put(len(sits), 4)
+    # Supplementary information tables (5.3.2.3)
+    for t in sits:
+        w.put(t["type"], 2)
+        w.put(0, 2)
+        w.put(t["purpose"], 4)
+        w.put(0, 1)
+        w.put(t["structure"], 2)
+        w.put(0, 1)
+        w.put(t["user_data"], 4)
+        n = {0: 1, 1: pr.nz, 2: pr.nz * pr.nx, 3: pr.ny * pr.nx}[t["structure"]]
+        if t["type"] in (0, 1):
+            di = t["di"]
+            w.put(di % 32, 5)
+            for e in t["data"][:n]:
+                w.put_signed(e, di) if t["type"] == 1 else w.put(e, di)
+        else:
+            df, de, beta = t["df"], t["de"], t["beta"]
+            w.put(df, 5)
+            w.put(de % 8, 3)
+            w.put(beta, de)
+            for (b, ex, j) in t["data"][:n]:
+                w.put(b, 1)
+                w.put(ex, de)
+                w.put(j, df)
+        w.align()
+    # Predictor metadata, primary subpart (table 5-6)
+    w.put(0, 1)
+    w.put(cfg["sample_representative_flag"], 1)
+    w.put(pr.p, 4)
+    w.put(cfg["prediction_mode"], 1)
+    w.put(cfg["weight_exponent_offset_flag"], 1)
+    w.put(pr.ls, 2)
+    w.put(pr.reg % 64, 6)
+    w.put(pr.om - 4, 4)
+    w.put(pr.tinc_log - 4, 4)
+    w.put(pr.vmin + 6, 4)
+    w.put(pr.vmax + 6, 4)
+    w.put(cfg["weight_exponent_offset_table_flag"], 1)
+    w.put(cfg["weight_initialization_method"], 1)
+    w.put(cfg["weight_initialization_table_flag"], 1)
+    w.put(cfg["large_q"] if pr.custom_weights else 0, 5)
+    # Weight tables subpart (5.3.3.3)
+    if cfg["weight_initialization_table_flag"]:
+        q = cfg["large_q"]
+        for z in range(pr.nz):
+            for j in range(pr.cz(z)):
+                w.put_signed(pr.lam[z][j], q)
+        w.align()
+    if cfg["weight_exponent_offset_table_flag"]:
+        for z in range(pr.nz):
+            if pr.full:
+                w.put_signed(pr.zeta_star[z], 4)
+            for i in range(1, pr.pz(z) + 1):
+                w.put_signed(pr.zeta[z][i], 4)
+        w.align()
+    # Quantization subpart (5.3.3.4)
+    if pr.fid != 0:
+        if not pr.bsq:
+            w.put(0, 1)
+            w.put(1 if pr.periodic else 0, 1)
+            w.put(0, 2)
+            w.put(pr.u if pr.periodic else 0, 4)
+        if pr.use_abs:
+            dep = cfg["absolute_error_limit_assignment_method"]
+            da = cfg["large_d_large_a"]
+            w.put(0, 1)
+            w.put(dep, 1)
+            w.put(0, 2)
+            w.put(da % 16, 4)
+            if not pr.periodic:
+                for v in (pr.a if dep else pr.a[:1]):
+                    w.put(v, da)
+                w.align()
+        if pr.use_rel:
+            dep = cfg["relative_error_limit_assignment_method"]
+            dr = cfg["large_d_large_r"]
+            w.put(0, 1)
+            w.put(dep, 1)
+            w.put(0, 2)
+            w.put(dr % 16, 4)
+            if not pr.periodic:
+                for v in (pr.rr if dep else pr.rr[:1]):
+                    w.put(v, dr)
+                w.align()
+    # Sample representative subpart (5.3.3.5)
+    if cfg["sample_representative_flag"]:
+        th = cfg["large_theta"]
+        bvd = cfg["band_varying_damping_flag"]
+        bvo = cfg["band_varying_offset_flag"]
+        w.put(0, 5)
+        w.put(th, 3)
+        w.put(0, 1)
+        w.put(bvd, 1)
+        w.put(cfg["damping_table_flag"], 1)
+        w.put(0, 1)
+        w.put(0 if bvd else pr.phi[0], 4)
+        w.put(0, 1)
+        w.put(bvo, 1)
+        w.put(cfg["offset_table_flag"], 1)
+        w.put(0, 1)
+        w.put(0 if bvo else pr.psi[0], 4)
+        if cfg["damping_table_flag"]:
+            for v in pr.phi:
+                w.put(v, th)
+            w.align()
+        if cfg["offset_table_flag"]:
+            for v in pr.psi:
+                w.put(v, th)
+            w.align()
+    # Entropy coder metadata (5.3.4)
+    ec = cfg["entropy_coder_type"]
+    if ec == 0:
+        w.put(cfg["large_u_max"] % 32, 5)
+        w.put(cfg["gamma_star"] - 4, 3)
+        w.put(cfg["gamma_0"] % 8, 3)
+        if cfg["band_varying_k_flag"]:
+            w.put(15, 4)
+        else:
+            w.put(cfg["k_prime_prime_vector"][0], 4)
+        w.put(cfg["accumulator_initialization_table_flag"], 1)
+        if cfg["accumulator_initialization_table_flag"]:
+            for v in vec(cfg, "k_prime_prime_vector", pr.nz):
+                w.put(v, 4)
+            w.align()
+    elif ec == 1:
+        w.put(cfg["large_u_max"] % 32, 5)
+        w.put(cfg["gamma_star"] - 4, 3)
+        w.put(cfg["gamma_0"] % 8, 3)
+        w.put(0, 5)
+    else:
+        w.put(0, 1)
+        w.put({8: 0, 16: 1, 32: 2, 64: 3}[cfg["large_j"]], 2)
+        w.put(cfg["restricted_code_options_flag"], 1)
+        w.put(cfg["r"] % 4096, 12)
+    return w.to_bytes()
+
+
+# ------------------------------------------------------------------------------------------------
+# Predictor and quantizer (4)
+# ------------------------------------------------------------------------------------------------
+def sgn(v):
+    return (v > 0) - (v < 0)
+
+
+def clip(v, lo, hi):
+    return lo if v < lo else hi if v > hi else v
+
+
+def mod_r(v, reg):
+    """mod*_R: R-bit two's complement wrap (1.6.1)."""
+    half = 1 << (reg - 1)
+    return ((v + half) % (1 << reg)) - half
+
+
+class ErrorLimits:
+    """Current absolute and relative error limits per band (fixed or updated every 2^u frames, 4.8.2.4)."""
+
+    def __init__(self, pr, updates):
+        self.pr = pr
+        self.updates = list(updates) if updates is not None else []
+        self.pos = 0
+        self.a = list(pr.a)
+        self.r = list(pr.rr)
+
+    def update(self):
+        """Reads the next set of error limits; returns them in entropy coder input order (5.4.2.2.2)."""
+        pr = self.pr
+        cfg = pr.cfg
+        out = []
+        if pr.use_abs:
+            n = pr.nz if cfg["absolute_error_limit_assignment_method"] else 1
+            vals = self.take(n)
+            self.a = vals if n > 1 else vals * pr.nz
+            out += [("a", v) for v in vals]
+        if pr.use_rel:
+            n = pr.nz if cfg["relative_error_limit_assignment_method"] else 1
+            vals = self.take(n)
+            self.r = vals if n > 1 else vals * pr.nz
+            out += [("r", v) for v in vals]
+        return out
+
+    def take(self, n):
+        vals = self.updates[self.pos:self.pos + n]
+        assert len(vals) == n, "not enough periodic error limit values"
+        self.pos += n
+        return vals
+
+
+def predict(cfg, img, error_limit_updates=None, trace=None):
+    """Runs the predictor and quantizer.
+
+    img[z][y][x] holds the samples. Returns (delta, limits) where delta[z][y][x] are the mapped quantizer indices and
+    limits[y] is the list of error limit values entered into the entropy coder before frame y (periodic updating).
+    trace, when given, is a dict that receives per-sample intermediate values keyed by (z, y, x).
+    """
+    pr = Params(cfg)
+    nx, ny, nz, d = pr.nx, pr.ny, pr.nz, pr.d
+    smin, smax, smid = pr.smin, pr.smax, pr.smid
+    om, reg, th = pr.om, pr.reg, pr.theta
+    sr = [[[0] * nx for _ in range(ny)] for _ in range(nz)]      # sample representatives s''
+    dc = [[[0] * nx for _ in range(ny)] for _ in range(nz)]      # central local differences
+    delta = [[[0] * nx for _ in range(ny)] for _ in range(nz)]
+    weights = [init_weights(pr, z) for z in range(nz)]
+    lim = ErrorLimits(pr, error_limit_updates)
+    limits = {}
+    for y in range(ny):
+        if pr.periodic and y % (1 << pr.u) == 0:
+            limits[y] = lim.update()
+        for x in range(nx):
+            t = y * nx + x
+            for z in range(nz):
+                s = img[z][y][x]
+                assert smin <= s <= smax, (z, y, x, s)
+                pz = pr.pz(z)
+                if t == 0:
+                    # 4.7.3: double-resolution predicted sample value for t = 0
+                    s_dbl = 2 * img[z - 1][y][x] if (pr.p > 0 and z > 0) else 2 * smid
+                    s_hat = s_dbl >> 1
+                    q = s - s_hat                                  # (41), t = 0
+                    sr[z][y][x] = s                                # (46), t = 0
+                    theta_m = min(s_hat - smin, smax - s_hat)      # (56), t = 0
+                    delta[z][y][x] = map_index(q, theta_m, s_dbl)
+                    if trace is not None:
+                        trace[(z, y, x)] = dict(s_hat=s_hat, q=q, m=0, delta=delta[z][y][x])
+                    continue
+                sigma = local_sum(pr, sr, z, y, x)
+                # local difference vector U (4.5.3)
+                u = []
+                if pr.full:
+                    n_ = 4 * sr[z][y - 1][x] - sigma if y > 0 else 0
+                    if y > 0:
+                        w_ = 4 * (sr[z][y][x - 1] if x > 0 else sr[z][y - 1][x]) - sigma
+                        nw_ = 4 * (sr[z][y - 1][x - 1] if x > 0 else sr[z][y - 1][x]) - sigma
+                    else:
+                        w_ = nw_ = 0
+                    u += [n_, w_, nw_]
+                for i in range(1, pz + 1):
+                    u.append(dc[z - i][y][x])
+                wv = weights[z]
+                d_pred = sum(wi * ui for wi, ui in zip(wv, u))     # (36); 0 for z = 0 in reduced mode
+                s_tilde = clip(mod_r(d_pred + (1 << om) * (sigma - 4 * smid), reg) + (1 << (om + 2)) * smid
+                               + (1 << (om + 1)),
+                               (1 << (om + 2)) * smin, (1 << (om + 2)) * smax + (1 << (om + 1)))   # (37)
+                s_dbl = s_tilde >> (om + 1)                         # (38)
+                s_hat = s_dbl >> 1                                  # (39)
+                res = s - s_hat                                     # (40)
+                # maximum error (4.8.2.1)
+                if pr.fid == 0:
+                    m = 0
+                elif pr.fid == 1:
+                    m = lim.a[z]
+                elif pr.fid == 2:
+                    m = (lim.r[z] * abs(s_hat)) >> d
+                else:
+                    m = min(lim.a[z], (lim.r[z] * abs(s_hat)) >> d)
+                q = sgn(res) * ((abs(res) + m) // (2 * m + 1))      # (41)
+                s_clip = clip(s_hat + q * (2 * m + 1), smin, smax)   # (48)
+                phi, psi = pr.phi[z], pr.psi[z]
+                num = (4 * ((1 << th) - phi) * ((s_clip << om) - ((sgn(q) * m * psi) << om >> th))
+                       + phi * s_tilde - (phi << (om + 1)))
+                s_rep_dbl = num >> (om + th + 1)                    # (47)
+                s_rep = (s_rep_dbl + 1) >> 1                        # (46)
+                sr[z][y][x] = s_rep
+                dc[z][y][x] = 4 * s_rep - sigma                     # (24)
+                # weight update (4.10)
+                e = 2 * s_clip - s_dbl                              # (49)
+                rho = clip(pr.vmin + ((t - nx) >> pr.tinc_log), pr.vmin, pr.vmax) + d - om   # (50)
+                sp = 1 if e >= 0 else -1
+                for j in range(len(wv)):
+                    if pr.full and j < 3:
+                        zo = pr.zeta_star[z]
+                    else:
+                        zo = pr.zeta[z][j - (3 if pr.full else 0) + 1]
+                    wv[j] = clip(wv[j] + weight_increment(sp, u[j], rho + zo), pr.wmin, pr.wmax)
+                theta_m = min((s_hat - smin + m) // (2 * m + 1), (smax - s_hat + m) // (2 * m + 1))   # (56)
+                delta[z][y][x] = map_index(q, theta_m, s_dbl)
+                if trace is not None:
+                    trace[(z, y, x)] = dict(sigma=sigma, d_pred=d_pred, s_tilde=s_tilde, s_hat=s_hat, q=q, m=m,
+                                            s_rep=s_rep, delta=delta[z][y][x])
+    return delta, limits
+
+
+def weight_increment(sp, dval, shift):
+    """floor(1/2 (sgn+(e) 2^-(shift) d + 1)) of (51)-(54), computed exactly."""
+    if shift >= 0:
+        return (sp * dval + (1 << shift)) >> (shift + 1)
+    return (sp * dval * (1 << -shift) + 1) >> 1
+
+
+def init_weights(pr, z):
+    """Initial weight vector W_z(1) (4.6.3)."""
+    pz = pr.pz(z)
+    cz = pr.cz(z)
+    om = pr.om
+    if pr.custom_weights:
+        q = pr.cfg["large_q"]
+        rem = om + 3 - q
+        low = ((1 << (rem - 1)) - 1) if rem >= 1 else 0
+        return [(lam << rem) + low for lam in pr.lam[z][:cz]]    # (35)
+    w = []
+    if pr.full:
+        w += [0, 0, 0]                                           # (34)
+    if pz > 0:
+        cur = 7 * (1 << om) // 8                                 # (33)
+        w.append(cur)
+        for _ in range(2, pz + 1):
+            cur = cur // 8
+            w.append(cur)
+    return w
+
+
+def local_sum(pr, sr, z, y, x):
+    """Local sum sigma_z,y,x (4.4)."""
+    nx = pr.nx
+    smid = pr.smid
+    ls = pr.ls
+    if ls == 0:   # wide neighbor-oriented (20)
+        if y > 0 and 0 < x < nx - 1:
+            return sr[z][y][x - 1] + sr[z][y - 1][x - 1] + sr[z][y - 1][x] + sr[z][y - 1][x + 1]
+        if y == 0:
+            return 4 * sr[z][y][x - 1]
+        if x == 0:
+            return 2 * (sr[z][y - 1][x] + sr[z][y - 1][x + 1])
+        return sr[z][y][x - 1] + sr[z][y - 1][x - 1] + 2 * sr[z][y - 1][x]
+    if ls == 1:   # narrow neighbor-oriented (21)
+        if y > 0 and 0 < x < nx - 1:
+            return sr[z][y - 1][x - 1] + 2 * sr[z][y - 1][x] + sr[z][y - 1][x + 1]
+        if y == 0:
+            return 4 * sr[z - 1][y][x - 1] if z > 0 else 4 * smid
+        if x == 0:
+            return 2 * (sr[z][y - 1][x] + sr[z][y - 1][x + 1])
+        return 2 * (sr[z][y - 1][x - 1] + sr[z][y - 1][x])
+    if ls == 2:   # wide column-oriented (22)
+        return 4 * sr[z][y - 1][x] if y > 0 else 4 * sr[z][y][x - 1]
+    # narrow column-oriented (23)
+    if y > 0:
+        return 4 * sr[z][y - 1][x]
+    return 4 * sr[z - 1][y][x - 1] if z > 0 else 4 * smid
+
+
+def map_index(q, theta_m, s_dbl):
+    """Mapped quantizer index (55)."""
+    aq = abs(q)
+    if aq > theta_m:
+        return aq + theta_m
+    par = -q if (s_dbl & 1) else q
+    if 0 <= par <= theta_m:
+        return 2 * aq
+    return 2 * aq - 1
+
+
+# ------------------------------------------------------------------------------------------------
+# Entropy coder input order (5.4.2)
+# ------------------------------------------------------------------------------------------------
+def input_sequence(cfg, delta, limits):
+    """Yields ('limit', kind, value) and ('sample', z, t, delta) in entropy coder input order."""
+    pr = Params(cfg)
+    nx, ny, nz = pr.nx, pr.ny, pr.nz
+    if pr.bsq:
+        for z in range(nz):
+            for y in range(ny):
+                for x in range(nx):
+                    yield ("sample", z, y * nx + x, delta[z][y][x])
+        return
+    m = pr.m
+    for y in range(ny):
+        for kind, v in limits.get(y, []):
+            yield ("limit", kind, v)
+        for i in range((nz + m - 1) // m):
+            for x in range(nx):
+                for z in range(i * m, min((i + 1) * m, nz)):
+                    yield ("sample", z, y * nx + x, delta[z][y][x])
+
+
+# ------------------------------------------------------------------------------------------------
+# GPO2 codewords (5.4.3.2.2, 5.4.3.3.3.2)
+# ------------------------------------------------------------------------------------------------
+def gpo2(w, j, k, umax, d):
+    u = j >> k
+    if u < umax:
+        w.put(0, u)
+        w.put(1, 1)
+        w.put(j & ((1 << k) - 1), k)
+    else:
+        w.put(0, umax)
+        w.put(j, d)
+
+
+def gpo2_reversed(w, j, k, umax, d):
+    u = j >> k
+    if u < umax:
+        w.put(j & ((1 << k) - 1), k)
+        w.put(1, 1)
+        w.put(0, u)
+    else:
+        w.put(j, d)
+        w.put(0, umax)
+
+
+def limit_width(cfg, kind):
+    return cfg["large_d_large_a"] if kind == "a" else cfg["large_d_large_r"]
+
+
+# ------------------------------------------------------------------------------------------------
+# Sample-adaptive entropy coder (5.4.3.2)
+# ------------------------------------------------------------------------------------------------
+def encode_sample_adaptive(cfg, seq, w, header_bits=0, trace=None):
+    pr = Params(cfg)
+    d = pr.d
+    umax, gs, g0 = cfg["large_u_max"], cfg["gamma_star"], cfg["gamma_0"]
+    kpp = vec(cfg, "k_prime_prime_vector", pr.nz)
+    acc = []
+    for z in range(pr.nz):
+        kp = kpp[z] if kpp[z] <= 30 - d else 2 * kpp[z] + d - 30          # (59)
+        acc.append(((3 * (1 << (kp + 6)) - 49) << g0) >> 7)                # (58), Gamma(1) = 2^g0
+    cnt = [1 << g0] * pr.nz
+    last = [None] * pr.nz
+    for item in seq:
+        if item[0] == "limit":
+            w.put(item[2], limit_width(cfg, item[1]))
+            continue
+        _, z, t, dl = item
+        if t == 0:
+            w.put(dl, d)                                                   # 5.4.3.2.4.2
+            continue
+        if t > 1:
+            # statistics update with the previous mapped quantizer index of the band (60), (61)
+            if cnt[z] < (1 << gs) - 1:
+                acc[z] += last[z]
+                cnt[z] += 1
+            else:
+                acc[z] = (acc[z] + last[z] + 1) >> 1
+                cnt[z] = (cnt[z] + 1) >> 1
+        g, a = cnt[z], acc[z]
+        if 2 * g > a + ((49 * g) >> 7):
+            k = 0
+        else:
+            k = 0
+            for kk in range(1, d - 1):
+                if (g << kk) <= a + ((49 * g) >> 7):
+                    k = kk
+        if trace is not None:
+            trace.append((z, t, dl, k))
+        gpo2(w, dl, k, umax, d)
+        last[z] = dl
+    pad_to_word(cfg, w, header_bits)                                       # 5.4.3.2.4.4
+
+
+# ------------------------------------------------------------------------------------------------
+# Hybrid entropy coder (5.4.3.3)
+# ------------------------------------------------------------------------------------------------
+def encode_hybrid(cfg, seq, w, header_bits=0, trace=None):
+    pr = Params(cfg)
+    d = pr.d
+    umax, gs, g0 = cfg["large_u_max"], cfg["gamma_star"], cfg["gamma_0"]
+    acc = vec(cfg, "hybrid_initial_accumulator", pr.nz)
+    cnt = [1 << g0] * pr.nz
+    prefix = [()] * 16
+    for item in seq:
+        if item[0] == "limit":
+            w.put(item[2], limit_width(cfg, item[1]))
+            continue
+        _, z, t, dl = item
+        if t == 0:
+            w.put(dl, d)
+            continue
+        if cnt[z] < (1 << gs) - 1:
+            acc[z] += 4 * dl
+            cnt[z] += 1
+        else:
+            w.put(acc[z] & 1, 1)                                           # 5.4.3.3.5.1.2
+            acc[z] = (acc[z] + 4 * dl + 1) >> 1
+            cnt[z] = (cnt[z] + 1) >> 1
+        g, a = cnt[z], acc[z]
+        if a * (1 << 14) >= THRESHOLDS[0] * g:
+            k = 2
+            for kk in range(2, max(d - 2, 2) + 1):
+                if (g << (kk + 2)) <= a + ((49 * g) >> 5):
+                    k = kk
+            if trace is not None:
+                trace.append((z, t, dl, "H", k))
+            gpo2_reversed(w, dl, k, umax, d)
+        else:
+            i = 0
+            for c in range(16):
+                if a * (1 << 14) < g * THRESHOLDS[c]:
+                    i = c
+            if trace is not None:
+                trace.append((z, t, dl, "L", i))
+            if dl > LIMITS[i]:
+                sym = "X"
+                gpo2_reversed(w, dl - LIMITS[i] - 1, 0, umax, d)
+            else:
+                sym = dl
+            p = prefix[i] + (sym,)
+            if p in CODES[i]:
+                w.put_bits(CODES[i][p])
+                prefix[i] = ()
+            else:
+                prefix[i] = p
+    # compressed image tail (5.4.3.3.5.4)
+    for i in range(16):
+        w.put_bits(FLUSH[i][prefix[i]])
+    for z in range(pr.nz):
+        w.put(acc[z], 2 + d + gs)
+    w.put(1, 1)
+    unit = 8 * cfg["large_b"]
+    rem = (header_bits + w.n) % unit
+    if rem:
+        w.put(0, unit - rem)
+
+
+# ------------------------------------------------------------------------------------------------
+# Block-adaptive entropy coder (5.4.3.4, CCSDS 121.0-B-3 with the preprocessor bypassed)
+# ------------------------------------------------------------------------------------------------
+def block_options(n, restricted):
+    """Option identifier width and largest split-sample parameter (CCSDS 121.0-B-3 table 5-1).
+
+    Returns (id_bits, kmax); kmax = -1 when neither FS nor split-sample options exist (restricted, n <= 2).
+    """
+    if restricted and n <= 2:
+        return 1, -1
+    if restricted and n <= 4:
+        return 2, 1
+    if n <= 8:
+        return 3, 5
+    if n <= 16:
+        return 4, 13
+    return 5, 29
+
+
+def fs(w, v):
+    """Fundamental sequence codeword: v zeros followed by a one."""
+    w.put(0, v)
+    w.put(1, 1)
+
+
+def encode_block_adaptive(cfg, seq, w, header_bits=0, trace=None):
+    n = cfg["large_d"]
+    jsz = cfg["large_j"]
+    restricted = cfg["restricted_code_options_flag"] == 1
+    ref = cfg["r"]
+    idb, kmax = block_options(n, restricted)
+    values = [item[2] if item[0] == "limit" else item[3] for item in seq]
+    while len(values) % jsz:                                                # 5.4.3.4.2.7
+        values.append(0)
+    blocks = [values[i:i + jsz] for i in range(0, len(values), jsz)]
+    nblk = len(blocks)
+    i = 0
+    while i < nblk:
+        if not any(blocks[i]):
+            # zero-block option: run of all-zeros blocks inside a 64-block segment of a reference interval
+            start = (i // ref) * ref
+            seg_end = min(start + ((i - start) // 64 + 1) * 64, start + ref, nblk)
+            j = i
+            while j < seg_end and not any(blocks[j]):
+                j += 1
+            run = j - i
+            w.put(0, idb + 1)
+            if j == seg_end and run >= 5:
+                fs(w, 4)                                                    # remainder of segment
+            else:
+                fs(w, run - 1 if run <= 4 else run)
+            if trace is not None:
+                trace.append(("zero", i, run))
+            i = j
+            continue
+        encode_block(w, blocks[i], n, idb, kmax, trace, i)
+        i += 1
+    pad_to_word(cfg, w, header_bits)                                        # 5.4.3.4.3.2
+
+
+def encode_block(w, blk, n, idb, kmax, trace=None, index=0):
+    """Single-block options with the selection rules of CCSDS 121.0-B-3 3.7.3 and 3.7.4."""
+    jsz = len(blk)
+    gam = [((blk[2 * i] + blk[2 * i + 1]) * (blk[2 * i] + blk[2 * i + 1] + 1)) // 2 + blk[2 * i + 1]
+           for i in range(jsz // 2)]
+    best_len = n * jsz + idb
+    best = ("nc", None)
+    se_len = sum(g + 1 for g in gam) + idb + 1
+    if se_len < best_len:
+        best_len, best = se_len, ("se", None)
+    for k in range(0, kmax + 1):
+        ln = sum((v >> k) + 1 + k for v in blk) + idb
+        if ln < best_len:
+            best_len, best = ln, ("k", k)
+    if trace is not None:
+        trace.append((best[0], index, best[1]))
+    if best[0] == "nc":
+        w.put((1 << idb) - 1, idb)
+        for v in blk:
+            w.put(v, n)
+    elif best[0] == "se":
+        w.put(0, idb)
+        w.put(1, 1)
+        for g in gam:
+            fs(w, g)
+    else:
+        k = best[1]
+        w.put(k + 1, idb)
+        for v in blk:
+            fs(w, v >> k)
+        for v in blk:
+            w.put(v & ((1 << k) - 1), k)
+
+
+def pad_to_word(cfg, w, header_bits):
+    """Fill bits up to the next output word boundary of the compressed image (header and body)."""
+    unit = 8 * cfg["large_b"]
+    rem = (header_bits + w.n) % unit
+    if rem:
+        w.put(0, unit - rem)
+
+
+# ------------------------------------------------------------------------------------------------
+# Compressor
+# ------------------------------------------------------------------------------------------------
+def compress(cfg, img, error_limit_updates=None):
+    """Returns the compressed image (header and body) as bytes."""
+    hdr = header(cfg)
+    delta, limits = predict(cfg, img, error_limit_updates)
+    seq = input_sequence(cfg, delta, limits)
+    body = BitWriter()
+    hb = 8 * len(hdr)
+    ec = cfg["entropy_coder_type"]
+    if ec == 0:
+        encode_sample_adaptive(cfg, seq, body, header_bits=hb)
+    elif ec == 1:
+        encode_hybrid(cfg, seq, body, header_bits=hb)
+    else:
+        encode_block_adaptive(cfg, seq, body, header_bits=hb)
+    return hdr + body.to_bytes()
+
+
+# ------------------------------------------------------------------------------------------------
+# Header parser (for the validation of the model with externally produced compressed images)
+# ------------------------------------------------------------------------------------------------
+class BitReader:
+    def __init__(self, data):
+        self.data = data
+        self.pos = 0
+
+    def get(self, width):
+        v = 0
+        for _ in range(width):
+            byte = self.data[self.pos >> 3]
+            v = (v << 1) | ((byte >> (7 - (self.pos & 7))) & 1)
+            self.pos += 1
+        return v
+
+    def get_signed(self, width):
+        v = self.get(width)
+        return v - (1 << width) if v >> (width - 1) else v
+
+    def align(self):
+        self.pos = (self.pos + 7) & ~7
+
+
+def parse_header(data, optional_tables=b""):
+    """Returns (cfg, header length in bytes). Tables not present in the header are read from optional_tables."""
+    cfg = default_config()
+    r = BitReader(data)
+    opt = BitReader(optional_tables)
+    cfg["user_defined_data"] = r.get(8)
+    cfg["large_n_x"] = r.get(16) or 65536
+    cfg["large_n_y"] = r.get(16) or 65536
+    cfg["large_n_z"] = r.get(16) or 65536
+    cfg["sample_type"] = r.get(1)
+    r.get(1)
+    large = r.get(1)
+    dmod = r.get(4)
+    cfg["large_d"] = dmod + 16 if large else (dmod or 16)
+    if large and dmod == 0:
+        cfg["large_d"] = 32
+    cfg["sample_encoding_order"] = r.get(1)
+    m = r.get(16)
+    cfg["large_m"] = (m or 65536) if cfg["sample_encoding_order"] == 0 else 0
+    r.get(2)
+    cfg["large_b"] = r.get(3) or 8
+    cfg["entropy_coder_type"] = r.get(2)
+    r.get(1)
+    cfg["quantizer_fidelity_control_method"] = r.get(2)
+    r.get(2)
+    nsit = r.get(4)
+    nx, ny, nz = cfg["large_n_x"], cfg["large_n_y"], cfg["large_n_z"]
+    sits = []
+    for _ in range(nsit):
+        t = {"type": r.get(2)}
+        r.get(2)
+        t["purpose"] = r.get(4)
+        r.get(1)
+        t["structure"] = r.get(2)
+        r.get(1)
+        t["user_data"] = r.get(4)
+        n = {0: 1, 1: nz, 2: nz * nx, 3: ny * nx}[t["structure"]]
+        if t["type"] in (0, 1):
+            di = r.get(5) or 32
+            t["di"] = di
+            t["data"] = [r.get_signed(di) if t["type"] == 1 else r.get(di) for _ in range(n)]
+        else:
+            t["df"] = r.get(5)
+            t["de"] = r.get(3) or 8
+            t["beta"] = r.get(t["de"])
+            t["data"] = [(r.get(1), r.get(t["de"]), r.get(t["df"])) for _ in range(n)]
+        r.align()
+        sits.append(t)
+    cfg["supplementary_information_tables"] = sits
+    # predictor primary
+    r.get(1)
+    cfg["sample_representative_flag"] = r.get(1)
+    cfg["large_p"] = r.get(4)
+    cfg["prediction_mode"] = r.get(1)
+    cfg["weight_exponent_offset_flag"] = r.get(1)
+    cfg["local_sum_type"] = r.get(2)
+    cfg["large_r"] = r.get(6) or 64
+    cfg["large_omega"] = r.get(4) + 4
+    cfg["log_two_t_inc"] = r.get(4) + 4
+    cfg["v_min"] = r.get(4) - 6
+    cfg["v_max"] = r.get(4) - 6
+    cfg["weight_exponent_offset_table_flag"] = r.get(1)
+    cfg["weight_initialization_method"] = r.get(1)
+    cfg["weight_initialization_table_flag"] = r.get(1)
+    cfg["large_q"] = r.get(5)
+    pr = Params(cfg)
+    if cfg["weight_initialization_method"]:
+        src = r if cfg["weight_initialization_table_flag"] else opt
+        lam = []
+        for z in range(nz):
+            for _ in range(pr.cz(z)):
+                lam.append(src.get_signed(cfg["large_q"]))
+        src.align()
+        cfg["large_lambda_vector"] = lam
+    if cfg["weight_exponent_offset_flag"]:
+        src = r if cfg["weight_exponent_offset_table_flag"] else opt
+        zv = []
+        for z in range(nz):
+            for _ in range(pr.pz(z) + (1 if pr.full else 0)):
+                zv.append(src.get_signed(4))
+        src.align()
+        cfg["zeta_vector"] = zv
+    fid = cfg["quantizer_fidelity_control_method"]
+    if fid != 0:
+        if cfg["sample_encoding_order"] == 0:
+            r.get(1)
+            cfg["periodic_updating_flag"] = r.get(1)
+            r.get(2)
+            cfg["u"] = r.get(4)
+        for kind, meth, depth, vname in (("abs", "absolute_error_limit_assignment_method", "large_d_large_a",
+                                          "a_vector"),
+                                         ("rel", "relative_error_limit_assignment_method", "large_d_large_r",
+                                          "r_vector")):
+            if (kind == "abs" and fid in (1, 3)) or (kind == "rel" and fid in (2, 3)):
+                r.get(1)
+                cfg[meth] = r.get(1)
+                r.get(2)
+                cfg[depth] = r.get(4) or 16
+                if not cfg["periodic_updating_flag"]:
+                    cnt = nz if cfg[meth] else 1
+                    cfg[vname] = [r.get(cfg[depth]) for _ in range(cnt)]
+                    r.align()
+    if cfg["sample_representative_flag"]:
+        r.get(5)
+        th = r.get(3)
+        cfg["large_theta"] = th
+        r.get(1)
+        cfg["band_varying_damping_flag"] = r.get(1)
+        cfg["damping_table_flag"] = r.get(1)
+        r.get(1)
+        fixed_phi = r.get(4)
+        r.get(1)
+        cfg["band_varying_offset_flag"] = r.get(1)
+        cfg["offset_table_flag"] = r.get(1)
+        r.get(1)
+        fixed_psi = r.get(4)
+        cfg["phi_vector"] = [fixed_phi]
+        cfg["psi_vector"] = [fixed_psi]
+        if cfg["band_varying_damping_flag"]:
+            src = r if cfg["damping_table_flag"] else opt
+            cfg["phi_vector"] = [src.get(th) for _ in range(nz)]
+            src.align()
+        if cfg["band_varying_offset_flag"]:
+            src = r if cfg["offset_table_flag"] else opt
+            cfg["psi_vector"] = [src.get(th) for _ in range(nz)]
+            src.align()
+    ec = cfg["entropy_coder_type"]
+    if ec in (0, 1):
+        cfg["large_u_max"] = r.get(5) or 32
+        cfg["gamma_star"] = r.get(3) + 4
+        cfg["gamma_0"] = r.get(3) or 8
+        if ec == 0:
+            k = r.get(4)
+            cfg["accumulator_initialization_table_flag"] = r.get(1)
+            if k == 15:
+                cfg["band_varying_k_flag"] = 1
+                src = r if cfg["accumulator_initialization_table_flag"] else opt
+                cfg["k_prime_prime_vector"] = [src.get(4) for _ in range(nz)]
+                src.align()
+            else:
+                cfg["band_varying_k_flag"] = 0
+                cfg["k_prime_prime_vector"] = [k]
+        else:
+            r.get(5)
+    else:
+        r.get(1)
+        cfg["large_j"] = 8 << r.get(2)
+        cfg["restricted_code_options_flag"] = r.get(1)
+        cfg["r"] = r.get(12) or 4096
+    assert r.pos % 8 == 0
+    return cfg, r.pos // 8

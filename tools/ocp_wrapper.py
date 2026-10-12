@@ -48,21 +48,24 @@ library opencompact;
 
 entity {name} is
     port (
-        Clk       : in    std_logic;
-        Rst       : in    std_logic;
-        In_Valid  : in    std_logic;
-        In_Ready  : out   std_logic;
-        In_Data   : in    std_logic_vector({dm1} downto 0);
-        Lim_Valid : in    std_logic;
-        Lim_Ready : out   std_logic;
-        Lim_Data  : in    std_logic_vector(15 downto 0);
-        Out_Valid : out   std_logic;
-        Out_Ready : in    std_logic;
-        Out_Data  : out   std_logic_vector({owm1} downto 0);
-        Out_Keep  : out   std_logic_vector({okm1} downto 0);
-        Out_Last  : out   std_logic;
-        Ecc_Sec   : out   std_logic;
-        Ecc_Ded   : out   std_logic
+        Clk            : in    std_logic;
+        Rst            : in    std_logic;
+        In_Valid       : in    std_logic;
+        In_Ready       : out   std_logic;
+        In_Data        : in    std_logic_vector({dm1} downto 0);
+        Lim_Valid      : in    std_logic;
+        Lim_Ready      : out   std_logic;
+        Lim_Data       : in    std_logic_vector(15 downto 0);
+        Out_Valid      : out   std_logic;
+        Out_Ready      : in    std_logic;
+        Out_Data       : out   std_logic_vector({owm1} downto 0);
+        Out_Keep       : out   std_logic_vector({okm1} downto 0);
+        Out_Last       : out   std_logic;
+        Ecc_Sec        : out   std_logic;
+        Ecc_Ded        : out   std_logic;
+        ErrInj_Channel : in    std_logic_vector(3 downto 0);
+        ErrInj_Double  : in    std_logic;
+        ErrInj_Valid   : in    std_logic
     );
 end entity;
 
@@ -74,21 +77,24 @@ begin
 {maps}
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            In_Valid  => In_Valid,
-            In_Ready  => In_Ready,
-            In_Data   => In_Data,
-            Lim_Valid => Lim_Valid,
-            Lim_Ready => Lim_Ready,
-            Lim_Data  => Lim_Data,
-            Out_Valid => Out_Valid,
-            Out_Ready => Out_Ready,
-            Out_Data  => Out_Data,
-            Out_Keep  => Out_Keep,
-            Out_Last  => Out_Last,
-            Ecc_Sec   => Ecc_Sec,
-            Ecc_Ded   => Ecc_Ded
+            Clk            => Clk,
+            Rst            => Rst,
+            In_Valid       => In_Valid,
+            In_Ready       => In_Ready,
+            In_Data        => In_Data,
+            Lim_Valid      => Lim_Valid,
+            Lim_Ready      => Lim_Ready,
+            Lim_Data       => Lim_Data,
+            Out_Valid      => Out_Valid,
+            Out_Ready      => Out_Ready,
+            Out_Data       => Out_Data,
+            Out_Keep       => Out_Keep,
+            Out_Last       => Out_Last,
+            Ecc_Sec        => Ecc_Sec,
+            Ecc_Ded        => Ecc_Ded,
+            ErrInj_Channel => ErrInj_Channel,
+            ErrInj_Double  => ErrInj_Double,
+            ErrInj_Valid   => ErrInj_Valid
         );
 
 end architecture;

@@ -30,6 +30,7 @@ library ieee;
 
 library olo;
     use olo.olo_base_pkg_math.all;
+    use olo.olo_ft_pkg_ecc.all;
 
 library work;
     use work.ocp_pkg.all;
@@ -54,26 +55,31 @@ entity ocp_hybrid_coder is
         RamStyle_g           : string                    := "auto"
     );
     port (
-        Clk       : in    std_logic;
-        Rst       : in    std_logic;
+        Clk           : in    std_logic;
+        Rst           : in    std_logic;
         -- Entropy coder input sequence
-        In_Valid  : in    std_logic;
-        In_Ready  : out   std_logic;
-        In_Data   : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
-        In_Kind   : in    std_logic_vector(1 downto 0);
-        In_Band   : in    std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
-        In_First  : in    std_logic;
-        In_Init   : in    std_logic;
-        In_Last   : in    std_logic;
+        In_Valid      : in    std_logic;
+        In_Ready      : out   std_logic;
+        In_Data       : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
+        In_Kind       : in    std_logic_vector(1 downto 0);
+        In_Band       : in    std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
+        In_First      : in    std_logic;
+        In_Init       : in    std_logic;
+        In_Last       : in    std_logic;
         -- Codewords
-        Cw_Valid  : out   std_logic;
-        Cw_Ready  : in    std_logic;
-        Cw_Data   : out   std_logic_vector(CwWidth_c - 1 downto 0);
-        Cw_Length : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Cw_Last   : out   std_logic;
+        Cw_Valid      : out   std_logic;
+        Cw_Ready      : in    std_logic;
+        Cw_Data       : out   std_logic_vector(CwWidth_c - 1 downto 0);
+        Cw_Length     : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Cw_Last       : out   std_logic;
         -- Memory errors (pulses)
-        Ecc_Sec   : out   std_logic;
-        Ecc_Ded   : out   std_logic
+        Ecc_Sec       : out   std_logic;
+        Ecc_Ded       : out   std_logic;
+        -- Error injection into the next write of the statistics memory or of the codeword buffer: a
+        -- single or a double bit error
+        ErrInj_Stats  : in    std_logic := '0';
+        ErrInj_Buffer : in    std_logic := '0';
+        ErrInj_Double : in    std_logic := '0'
     );
 end entity;
 
@@ -203,6 +209,7 @@ architecture rtl of ocp_hybrid_coder is
     signal FifoInLast   : std_logic;
     signal FifoLevel    : std_logic_vector(log2ceil(FifoDepth_c + 2) - 1 downto 0);
     signal EccSecVec    : std_logic_vector(1 downto 0);
+    signal StatsUse     : std_logic;
     signal EccDedVec    : std_logic_vector(1 downto 0);
 
     -- Reversed length-limited GPO2 codeword of j with code index k (5.4.3.3.3.2)
@@ -313,6 +320,9 @@ begin
                 Fwd_v := true;
             end if;
         end loop;
+
+        StatsUse <= toSl(I_v.Valid = '1' and I_v.Kind = ItemSample_c and I_v.First = '0' and I_v.Init = '0' and
+                         not Fwd_v);
 
         if I_v.Init = '1' then
             Acc_v := AccRom_c(to_integer(I_v.Band));
@@ -512,6 +522,7 @@ begin
                 end if;
                 if r.TailV(2) = '1' then
                     TailV_v      := true;
+                    StatsUse     <= toSl(not OnePixel_c);
                     FifoInLength <= std_logic_vector(to_unsigned(AccW_c, CwLenWidth_c));
                     if OnePixel_c then
                         FifoInData <= std_logic_vector(resize(AccRom_c(r.TailIdx mod ZSize_g), CwWidth_c));
@@ -550,8 +561,9 @@ begin
         r_next <= v;
     end process;
 
-    Ecc_Sec <= or(EccSecVec);
-    Ecc_Ded <= or(EccDedVec);
+    -- Memory errors: statistics read for a sample or the tail that uses them, codeword buffer
+    Ecc_Sec <= (EccSecVec(0) and StatsUse) or EccSecVec(1);
+    Ecc_Ded <= (EccDedVec(0) and StatsUse) or EccDedVec(1);
 
     p_seq : process (Clk) is
     begin
@@ -585,16 +597,18 @@ begin
             EccPipeline_g => 1
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            Wr_Addr   => WrAddr,
-            Wr_Ena    => WrEna,
-            Wr_Data   => WrData,
-            Rd_Addr   => RdAddr,
-            Rd_Data   => RdData,
-            Rd_Valid  => open,
-            Rd_EccSec => EccSecVec(0),
-            Rd_EccDed => EccDedVec(0)
+            Clk            => Clk,
+            Rst            => Rst,
+            Wr_Addr        => WrAddr,
+            Wr_Ena         => WrEna,
+            Wr_Data        => WrData,
+            Rd_Addr        => RdAddr,
+            Rd_Data        => RdData,
+            Rd_Valid       => open,
+            Rd_EccSec      => EccSecVec(0),
+            Rd_EccDed      => EccDedVec(0),
+            ErrInj_BitFlip => injPattern(eccCodewordWidth(AccW_c + CntW_c), ErrInj_Double),
+            ErrInj_Valid   => ErrInj_Stats
         );
 
     i_cw_buffer : entity work.ocp_cw_buffer
@@ -603,21 +617,23 @@ begin
             RamStyle_g => RamStyle_g
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            In_Valid  => FifoInValid,
-            In_Ready  => FifoInReady,
-            In_Data   => FifoInData,
-            In_Length => FifoInLength,
-            In_Last   => FifoInLast,
-            In_Level  => FifoLevel,
-            Cw_Valid  => Cw_Valid,
-            Cw_Ready  => Cw_Ready,
-            Cw_Data   => Cw_Data,
-            Cw_Length => Cw_Length,
-            Cw_Last   => Cw_Last,
-            Ecc_Sec   => EccSecVec(1),
-            Ecc_Ded   => EccDedVec(1)
+            Clk           => Clk,
+            Rst           => Rst,
+            In_Valid      => FifoInValid,
+            In_Ready      => FifoInReady,
+            In_Data       => FifoInData,
+            In_Length     => FifoInLength,
+            In_Last       => FifoInLast,
+            In_Level      => FifoLevel,
+            Cw_Valid      => Cw_Valid,
+            Cw_Ready      => Cw_Ready,
+            Cw_Data       => Cw_Data,
+            Cw_Length     => Cw_Length,
+            Cw_Last       => Cw_Last,
+            Ecc_Sec       => EccSecVec(1),
+            Ecc_Ded       => EccDedVec(1),
+            ErrInj_Double => ErrInj_Double,
+            ErrInj_Valid  => ErrInj_Buffer
         );
 
 end architecture;

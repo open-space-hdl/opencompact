@@ -8,7 +8,7 @@ preprocessor). `ocp_core` instantiates the coder selected by `EntropyCoder_g`.
 | --- | --- |
 | [Specification](docs/specification.md) | Requirements, configuration, interpretation of the standard, integration constraints |
 | [Architecture](docs/architecture.md) | State machines, statistics memories, low-entropy code tables, option selection |
-| [Verification plan](docs/verification_plan.md) | Test cases (core level) |
+| [Verification plan](docs/verification_plan.md) | Test cases (unit testbench and core level) |
 | [Verification report](docs/verification_report.md) | Results and findings |
 
-Tests: `python run.py "*ocp_core*"`
+Tests: `python run.py "*ocp_entropy_coder*"` (unit testbench) and `python run.py "*ocp_core*"`

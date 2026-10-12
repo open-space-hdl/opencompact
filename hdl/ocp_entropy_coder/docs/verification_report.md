@@ -2,20 +2,25 @@
 
 ## 1. Test results
 
-Run on 2026-10-11 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) as part of `ocp_core_tb`
-(`python run.py "*ocp_core*"`).
+Run on 2026-10-12 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b):
+`python run.py "*ocp_entropy_coder*"`; the coders are also part of every test of `ocp_core_tb`
+([ocp_core verification report](../../ocp_core/docs/verification_report.md)).
+The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code coverage is in
+[coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL on 2026-10-12
+(`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
-| Coder | Test cases | Passed |
+| Testbench | Tests | Passed |
 | --- | --- | --- |
-| Sample-adaptive | 14 | 14 |
-| Hybrid | 11 | 11 |
-| Block-adaptive | 9 | 9 |
+| `ocp_entropy_coder_tb` | 63 (61 configurations: 24 sample-adaptive, 17 hybrid, 20 block-adaptive, every second with back pressure; 2 hybrid configurations also with strong sink stalls) | 63 |
+| `ocp_entropy_coder_tb` with the CCSDS test data set | 300 (99 sample-adaptive, 54 hybrid, 147 block-adaptive; every second with back pressure) | 300 |
 
 ## 2. Summary
 
-Every compressed image of the core tests equals the compressed image of the CNES reference software, byte by byte, for
-two consecutive images. Each coder takes one item per clock cycle (TC-CO-25 to TC-CO-28). Every requirement of the
-specification is covered; the error injection into the statistics memories (EC-FT-01) is not yet tested.
+The bit stream of every coder equals the body of the compressed image of the CNES reference software (or of the CCSDS
+test data set) byte by byte, including the tail and the fill bits, for two consecutive images; so does every
+compressed image of the core tests. Each coder takes one item per clock cycle (TC-CO-25 to TC-CO-28). Every
+requirement of the specification is covered; the error injection into the statistics memories and the codeword
+buffers (EC-FT-01, EC-FT-02) runs in the core testbench (TC-CO-37).
 
 Findings:
 
@@ -26,3 +31,5 @@ Findings:
 | Hybrid coder: the tail of an image took one cycle per low-entropy code and stalled the next image (TC-CO-26) | Flush word of every code state in the code table; two flush words per cycle |
 | Codeword buffer: bits beyond the length of a codeword reached the joined codeword | Input masked to the codeword length |
 | Timing (place and route at 100 MHz): the block buffer read, the fundamental sequence lengths and the codeword decision formed one path of 11 ns (block-adaptive coder); the code index, the input symbol, an adder and the code table formed the loop of the low-entropy codes (hybrid coder) | Fundamental sequence lengths read one cycle ahead; rows of the code table aligned to a power of two (address by OR) and the escape comparisons one stage earlier |
+| Synthesis inferred the block buffers of the block-adaptive coder as memories without ECC (uSRAM on PolarFire) | Synthesis attributes keep the block buffers in registers |
+| The error flags of the statistics memory were raised for reads in cycles without a coded sample (TC-CO-37) | A flag counts only when a coded sample or the tail of the hybrid coder takes the statistics |

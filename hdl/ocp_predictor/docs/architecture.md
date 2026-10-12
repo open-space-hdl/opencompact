@@ -7,7 +7,10 @@ soon as the samples it depends on have left the feedback loops and the output ha
 following stage takes one clock cycle. The pipeline registers are records of the two-process pattern; the memories
 are SECDED-protected (`olo_ft_ram_sdp`, read latency two cycles), the output is a SECDED-protected FIFO
 (`olo_ft_fifo_sync`) followed by a register stage (`olo_base_pl_stage`), so that the SECDED correction of the FIFO
-and the first stage of the entropy coder are in different clock cycles.
+and the first stage of the entropy coder are in different clock cycles. The memories are read in every cycle, also
+without an item; an error flag of a memory counts only in a cycle in which an item takes the read data (the item in
+the stage that uses the data, the handshake at the output of the FIFO), so that an upset of a word that is not used
+does not raise an alarm.
 
 | Stage | Function | CCSDS |
 | --- | --- | --- |
@@ -36,8 +39,8 @@ A sample depends on earlier samples through four feedback loops:
 | --- | --- | --- |
 | Weights | Previous sample of the band | update stage - 1 (7 to 11) |
 | Window of the previous line | Previous sample of the band (unless the window is forwarded, see below) | 4 |
-| Sample representatives (near-lossless only) | Previous sample of the band (W neighbour), first sample of the line, previous line | RepSum + 2 (about 33) |
-| Central local differences and sample representatives of the previous band (near-lossless, or local differences kept in memory) | Sample of the previous band at the same pixel (at x - 1 in row 0 with narrow local sums) | RepSum + 2 (lossless: 1) |
+| Sample representatives (near-lossless, or lossless with damping) | Previous sample of the band (W neighbour), first sample of the line, previous line | RepSum + 2 (about 33) |
+| Central local differences and sample representatives of the previous band (near-lossless or lossless with damping, or local differences kept in memory) | Sample of the previous band at the same pixel (at x - 1 in row 0 with narrow local sums) | RepSum + 2 (lossless without damping: 1) |
 
 The issue stage keeps the band and the column of the samples issued in the last cycles (scoreboard). A sample waits
 while a sample of its band was issued less than the distance of its loops ago, or a sample of the previous band at its
@@ -93,9 +96,11 @@ all slots of the image have passed and its output has been read.
 | Input, output buffer, local differences per band | Stride order only | D, D, P (D + 3) | See section 4 |
 
 Within a sub-frame (BI) the local differences of the previous bands come from the previous sample through a
-register; in lossless compression the sample representatives are the samples and are written when the sample is
-issued. At t = 1 the weights come from the initial weight vector (a constant table of the generics); no memory is
-initialised.
+register; in lossless compression without damping (all phi_z = 0) the sample representatives are the samples and are
+written when the sample is issued. With damping the sample representative depends on the high-resolution predicted
+sample also in lossless compression (CCSDS 4.9.2), so lossless compression with damping uses the path of near-lossless
+compression with m_z = 0 and no divider stages. At t = 1 the weights come from the initial weight vector (a constant
+table of the generics); no memory is initialised.
 
 ## 6. Arithmetic
 
@@ -123,3 +128,4 @@ q (2 m + 1) = sgn(residual) (|residual| + m - remainder).
 | `Out_Kind` | out | `ItemSample_c`, `ItemAbsLimit_c` or `ItemRelLimit_c` |
 | `Out_Band`, `Out_First`, `Out_Init`, `Out_Last` | out | Band, t = 0, t = 1, last sample of the image |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events |
+| `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | Error injection into the next write of a memory: channel n is the memory whose error flags are bit n of the internal error vector (0 line, 1 window, 2 previous representative, 3 first representative of the line, 4 local differences, 5 weights, 6 and 7 error limits, 8 output FIFO, 9 to 11 stride buffers) |

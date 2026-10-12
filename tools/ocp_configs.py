@@ -245,7 +245,7 @@ CONFIGS = {
         image="scene", seed=24),
     # Throughput: BSQ order, lossless, reduced prediction with P = 3 and narrow local sums, 16-bit samples, Omega = 19,
     # R = 48: one sample per clock cycle with the speculative weight loop
-    "c25_hp_bsq_lossless": cfg(
+    "c25_tp_bsq_lossless": cfg(
         large_n_x=32, large_n_y=12, large_n_z=6, large_d=16, sample_encoding_order=1, large_m=0, large_b=4,
         large_p=3, prediction_mode=1, local_sum_type=1, large_omega=19, large_r=48, log_two_t_inc=6, v_min=-1,
         v_max=3,
@@ -254,7 +254,7 @@ CONFIGS = {
     # Throughput: BIL order (M = 1), near-lossless with an absolute error limit and sample representatives, reduced
     # prediction with P = 3, narrow column-oriented local sums, hybrid coder: one sample per clock cycle with the
     # speculative weight loop
-    "c26_hp_bil_near_abs": cfg(
+    "c26_tp_bil_near_abs": cfg(
         large_n_x=40, large_n_y=8, large_n_z=6, large_d=16, large_m=1, large_b=4,
         large_p=3, prediction_mode=1, local_sum_type=3, large_omega=19, large_r=48, log_two_t_inc=6, v_min=-1,
         v_max=3,
@@ -264,14 +264,14 @@ CONFIGS = {
         image="scene", seed=26),
     # Throughput: BIP with 24 bands, full prediction with P = 3, wide neighbor-oriented local sums, block-adaptive
     # coder: one sample per clock cycle through the weight memory
-    "c27_hp_bip_full": cfg(
+    "c27_tp_bip_full": cfg(
         large_n_x=16, large_n_y=8, large_n_z=24, large_d=16, large_m=24, large_b=4,
         large_p=3, large_omega=19, large_r=64, log_two_t_inc=6, v_min=-1, v_max=3,
         entropy_coder_type=2, large_j=16, r=32,
         image="scene", seed=27),
     # Throughput: BSQ order, near-lossless with an absolute error limit, reduced prediction with P = 2 and narrow
     # neighbor-oriented local sums, 12-bit samples: one sample per clock cycle with the speculative weight loop
-    "c28_hp_bsq_near_abs": cfg(
+    "c28_tp_bsq_near_abs": cfg(
         large_n_x=40, large_n_y=6, large_n_z=4, large_d=12, sample_encoding_order=1, large_m=0, large_b=2,
         large_p=2, prediction_mode=1, local_sum_type=1, large_omega=15, large_r=48, log_two_t_inc=5, v_min=-2,
         v_max=3,
@@ -280,7 +280,7 @@ CONFIGS = {
         image="scene", seed=28),
     # Throughput: BIP with 40 bands, near-lossless with an absolute error limit and sample representatives, full
     # prediction with P = 3: the stride order processes the bands of a pixel S bands apart
-    "c29_hp_bip_near_stride": cfg(
+    "c29_tp_bip_near_stride": cfg(
         large_n_x=12, large_n_y=6, large_n_z=40, large_d=12, large_m=40, large_b=2,
         large_p=3, large_omega=14, large_r=48, log_two_t_inc=5, v_min=-1, v_max=3,
         quantizer_fidelity_control_method=1, large_d_large_a=4, a_vector=[2],
@@ -289,14 +289,194 @@ CONFIGS = {
         image="scene", seed=29),
     # Throughput: BIP with 48 bands, absolute and relative error limits, reduced prediction with P = 2, narrow
     # column-oriented local sums, hybrid coder: stride order with relative error limits
-    "c30_hp_bip_both_stride": cfg(
+    "c30_tp_bip_both_stride": cfg(
         large_n_x=10, large_n_y=5, large_n_z=48, large_d=16, large_m=48, large_b=4,
         large_p=2, prediction_mode=1, local_sum_type=3, large_omega=13, large_r=48, log_two_t_inc=5, v_min=-1,
         v_max=3,
         quantizer_fidelity_control_method=3, large_d_large_a=6, a_vector=[20], large_d_large_r=8, r_vector=[30],
         entropy_coder_type=1, large_u_max=16, gamma_star=6, gamma_0=2, hybrid_initial_accumulator=[500],
         image="scene", seed=30),
+    # Small images for the error injection and the reset tests; together they have every memory of the core.
+    # BI order with M = 2, periodic band-dependent absolute error limits, sample-adaptive coder
+    "c31_small_bi_periodic_abs": cfg(
+        large_n_x=6, large_n_y=4, large_n_z=6, large_d=12, large_m=2, large_b=2,
+        large_p=2, large_omega=12, large_r=40, log_two_t_inc=4, v_min=-1, v_max=3,
+        quantizer_fidelity_control_method=1, periodic_updating_flag=1, u=0,
+        absolute_error_limit_assignment_method=1, large_d_large_a=3,
+        large_u_max=16, gamma_star=6, gamma_0=1, k_prime_prime_vector=[3],
+        image="scene", seed=31),
+    # BIP, periodic band-dependent relative error limits, reduced prediction, hybrid coder
+    "c32_small_bip_periodic_rel": cfg(
+        large_n_x=6, large_n_y=4, large_n_z=5, large_d=14, large_m=5, large_b=3,
+        large_p=3, prediction_mode=1, local_sum_type=2, large_omega=11, large_r=40, log_two_t_inc=4, v_min=-1,
+        v_max=3,
+        quantizer_fidelity_control_method=2, periodic_updating_flag=1, u=1,
+        relative_error_limit_assignment_method=1, large_d_large_r=5,
+        entropy_coder_type=1, large_u_max=16, gamma_star=6, gamma_0=2, hybrid_initial_accumulator=[50],
+        image="scene", seed=32),
+    # BIP, absolute error limit with sample representatives: stride order, block-adaptive coder
+    "c33_small_bip_stride_block": cfg(
+        large_n_x=5, large_n_y=4, large_n_z=6, large_d=16, large_m=6, large_b=4,
+        large_p=2, large_omega=13, large_r=48, log_two_t_inc=5, v_min=-1, v_max=3,
+        quantizer_fidelity_control_method=1, large_d_large_a=4, a_vector=[3],
+        sample_representative_flag=1, large_theta=2, phi_vector=[1], psi_vector=[1],
+        entropy_coder_type=2, large_j=8, r=4,
+        image="scene", seed=33),
+    # BSQ, lossless, full prediction (weights in memory), sample-adaptive coder
+    "c34_small_bsq_lossless": cfg(
+        large_n_x=8, large_n_y=4, large_n_z=4, large_d=10, sample_encoding_order=1, large_m=0, large_b=1,
+        large_p=2, large_omega=10, large_r=32, log_two_t_inc=4, v_min=-2, v_max=3,
+        large_u_max=12, gamma_star=5, gamma_0=1, k_prime_prime_vector=[2],
+        image="scene", seed=34),
+    # BIL with periodic updating of band-dependent absolute error limits every row, reduced prediction with narrow
+    # neighbour-oriented local sums: speculative weight loop with error limit values in the sample sequence, one
+    # sample per clock cycle
+    "c35_small_bil_periodic_spec": cfg(
+        large_n_x=40, large_n_y=4, large_n_z=4, large_d=12, large_m=1, large_b=2,
+        large_p=2, prediction_mode=1, local_sum_type=1, large_omega=12, large_r=40, log_two_t_inc=4, v_min=-1,
+        v_max=3,
+        quantizer_fidelity_control_method=1, periodic_updating_flag=1, u=0,
+        absolute_error_limit_assignment_method=1, large_d_large_a=3,
+        large_u_max=16, gamma_star=6, gamma_0=1, k_prime_prime_vector=[3],
+        image="scene", seed=35),
+    # Block-adaptive coder with J = 64 in BSQ order on constant bands with spikes: fundamental sequence options with
+    # two long codewords in a row, a run of all-zeros blocks before the last block of the image
+    "c36_block_j64_spikes": cfg(
+        large_n_x=64, large_n_y=8, large_n_z=2, large_d=12, sample_encoding_order=1, large_m=0, large_b=2,
+        large_p=0, prediction_mode=1, local_sum_type=0, large_omega=8, large_r=32, log_two_t_inc=4, v_min=-1,
+        v_max=2,
+        entropy_coder_type=2, large_j=64, r=4096,
+        image="spikes", seed=36),
+    # Block-adaptive coder with D = 32 on uncorrelated noise: split-sample options with k >= 25 (fewer than four sets of
+    # split bits per codeword); custom weight initialization with Q = Omega + 3 (no fill bits)
+    "c37_block_d32_custom": cfg(
+        large_n_x=8, large_n_y=4, large_n_z=3, large_d=32, sample_encoding_order=1, large_m=0, large_b=4,
+        large_p=1, large_omega=19, large_r=64, log_two_t_inc=4, v_min=-1, v_max=3,
+        weight_initialization_method=1, weight_initialization_table_flag=1, large_q=22,
+        large_lambda_vector=[w for z in range(3)
+                             for w in [(5 - z % 3) << 12, (-3 + z % 2) << 12, 1 << 12] + ([100 << 12] if z else [])],
+        entropy_coder_type=2, large_j=16, r=4096,
+        image="midnoise", seed=37),
 }
+
+
+# ------------------------------------------------------------------------------------------------
+# Random configurations
+# ------------------------------------------------------------------------------------------------
+def random_sup_table(rng, nx, ny, nz):
+    """Supplementary information table with random type, structure and content (CCSDS 3.5, 5.3.2.3; the purposes
+    5 to 9 are reserved)."""
+    t = {"type": rng.choice([0, 1, 2]), "purpose": rng.choice([0, 1, 2, 3, 4] + list(range(10, 16))),
+         "structure": rng.randint(0, 3), "user_data": rng.randint(0, 15)}
+    n = [1, nz, nz * nx, ny * nx][t["structure"]]
+    if t["type"] == 2:
+        t.update(df=rng.randint(1, 23), de=rng.randint(2, 8))
+        t["beta"] = rng.randint(0, (1 << t["de"]) - 2)
+        t["data"] = [(rng.randint(0, 1), rng.randint(0, (1 << t["de"]) - 2), rng.randint(0, (1 << t["df"]) - 1))
+                     for _ in range(n)]
+    else:
+        di = rng.randint(1, 32)
+        t["di"] = di
+        if t["type"] == 0:
+            t["data"] = [rng.randint(0, (1 << di) - 1) for _ in range(n)]
+        else:
+            t["data"] = [rng.randint(-(1 << (di - 1)), (1 << (di - 1)) - 1) for _ in range(n)]
+    return t
+
+
+def random_config(seed, max_samples=480):
+    """Configuration with random values of all parameters in the ranges of CCSDS 123.0-B-2 and a small image."""
+    rng = random.Random(seed)
+    pick = rng.choice
+    # Image: sometimes a single column, row or band
+    while True:
+        nx = 1 if rng.random() < 0.08 else rng.randint(2, 24)
+        ny = 1 if rng.random() < 0.08 else rng.randint(2, 16)
+        nz = 1 if rng.random() < 0.08 else rng.randint(2, 24)
+        if nx * ny * nz <= max_samples:
+            break
+    d = pick([2, 3, 4, 5, 8, 10, 12, 14, 16, 16, 16, 18, 20, 22, 24, 26, 28, 30, 31, 32])
+    bsq = rng.random() < 0.3
+    c = cfg(large_n_x=nx, large_n_y=ny, large_n_z=nz, large_d=d, sample_type=rng.randint(0, 1),
+            sample_encoding_order=int(bsq), large_m=0 if bsq else rng.randint(1, nz), large_b=rng.randint(1, 8),
+            user_defined_data=rng.randint(0, 255), image=pick(["scene", "scene", "noise", "constant", "mixed", "flat",
+                                                               "stripes"]),
+            seed=seed)
+    # Predictor (NX = 1: reduced mode and column-oriented local sums, CCSDS 4.4, 4.5)
+    p = rng.randint(0, 15)
+    full = nx > 1 and rng.random() < 0.5
+    omega = rng.randint(4, 19)
+    vmin = rng.randint(-6, 9)
+    c.update(large_p=p, prediction_mode=0 if full else 1,
+             local_sum_type=rng.choice([2, 3]) if nx == 1 else rng.randint(0, 3),
+             large_omega=omega, large_r=rng.randint(max(32, d + omega + 2), 64), log_two_t_inc=rng.randint(4, 11),
+             v_min=vmin, v_max=rng.randint(vmin, 9))
+    nw = [min(z, p) + (3 if full else 0) for z in range(nz)]
+    nzeta = sum(min(z, p) + (1 if full else 0) for z in range(nz))
+    if nzeta and rng.random() < 0.3:
+        c.update(weight_exponent_offset_flag=1, weight_exponent_offset_table_flag=rng.randint(0, 1),
+                 zeta_vector=[rng.randint(-6, 5) for z in range(nz) for _ in range(min(z, p) + (1 if full else 0))])
+    if sum(nw) and rng.random() < 0.25:
+        q = rng.randint(3, omega + 3)
+        c.update(weight_initialization_method=1, weight_initialization_table_flag=rng.randint(0, 1), large_q=q,
+                 large_lambda_vector=[rng.randint(-(1 << (q - 1)), (1 << (q - 1)) - 1) for z in range(nz)
+                                      for _ in range(nw[z])])
+    # Quantizer (no periodic error limit updating in BSQ order, CCSDS 4.8.2.4.4)
+    fid = pick([0, 0, 1, 2, 3])
+    c["quantizer_fidelity_control_method"] = fid
+    dmax = min(d - 1, 16)
+    if fid:
+        if not bsq and rng.random() < 0.3:
+            c.update(periodic_updating_flag=1, u=rng.randint(0, 3))
+        if fid in (1, 3):
+            da = rng.randint(1, dmax)
+            dep = rng.randint(0, 1)
+            c.update(absolute_error_limit_assignment_method=dep, large_d_large_a=da,
+                     a_vector=[rng.randint(0, (1 << da) - 1) for _ in range(nz if dep else 1)])
+        if fid in (2, 3):
+            dr = rng.randint(1, dmax)
+            dep = rng.randint(0, 1)
+            c.update(relative_error_limit_assignment_method=dep, large_d_large_r=dr,
+                     r_vector=[rng.randint(0, (1 << dr) - 1) for _ in range(nz if dep else 1)])
+    # Sample representatives (the subpart only with Theta > 0, CCSDS 5.3.3.5.1.1; offsets 0 in lossless
+    # compression, CCSDS 4.9.1.2)
+    if rng.random() < 0.5:
+        theta = rng.randint(1, 4)
+        c.update(sample_representative_flag=1, large_theta=theta)
+        for flag, table, vec in (("band_varying_damping_flag", "damping_table_flag", "phi_vector"),
+                                 ("band_varying_offset_flag", "offset_table_flag", "psi_vector")):
+            varying = rng.randint(0, 1)
+            top = 0 if vec == "psi_vector" and not fid else (1 << theta) - 1
+            c.update({flag: varying, table: rng.randint(0, 1) if varying else 0,
+                      vec: [rng.randint(0, top) for _ in range(nz if varying else 1)]})
+    # Entropy coder
+    coder = rng.randint(0, 2)
+    c["entropy_coder_type"] = coder
+    if coder in (0, 1):
+        g0 = rng.randint(1, 8)
+        c.update(large_u_max=rng.randint(8, 32), gamma_0=g0, gamma_star=rng.randint(max(4, g0 + 1), 11))
+    if coder == 0:
+        kmax = min(d - 2, 14)
+        varying = rng.randint(0, 1)
+        c.update(band_varying_k_flag=varying, accumulator_initialization_table_flag=rng.randint(0, 1) if varying else 0,
+                 k_prime_prime_vector=[rng.randint(0, kmax) for _ in range(nz if varying else 1)])
+    if coder == 1:
+        top = (1 << (d + c["gamma_0"])) - 1
+        c["hybrid_initial_accumulator"] = [rng.choice([0, top, rng.randint(0, top)]) for _ in range(nz)]
+    if coder == 2:
+        c.update(large_j=pick([8, 16, 32, 64]), restricted_code_options_flag=rng.randint(0, 1) if d <= 4 else 0,
+                 r=pick([1, 2, 5, 16, 100, 4096, rng.randint(1, 4096)]))
+    # Supplementary information tables
+    if rng.random() < 0.15:
+        c["supplementary_information_tables"] = [random_sup_table(rng, nx, ny, nz) for _ in range(rng.randint(1, 3))]
+    return c
+
+
+# Random configurations of the regression: r<seed>
+RANDOM = {"r{:02d}_random".format(s): random_config(s) for s in range(1, 25)}
+
+# All configurations with golden data
+ALL = dict(CONFIGS, **RANDOM)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -328,9 +508,31 @@ def make_image(c):
         for z in range(nz):
             for y in range(ny):
                 for x in range(nx):
-                    img[z][y][x] = lo + span // 3 + 7 * z
+                    img[z][y][x] = lo + (span // 3 + 7 * z) % (span + 1)
                     if rng.random() < 0.002:
                         img[z][y][x] = rng.randint(lo, hi)
+        return img
+    if kind == "midnoise":
+        # Uncorrelated noise of 1/64 of the range around the mid value
+        mid = lo + (span + 1) // 2
+        amp = span >> 6
+        for z in range(nz):
+            for y in range(ny):
+                for x in range(nx):
+                    img[z][y][x] = mid + rng.randint(-amp, amp)
+        return img
+    if kind == "spikes":
+        # Constant bands at the mid value with spikes of moderate amplitude: a spike and its east neighbour give two
+        # long mapped quantizer indices in a row; the spike in the last row follows constant rows
+        mid = lo + (span + 1) // 2
+        amp = max(1, span // 100)
+        for z in range(nz):
+            for y in range(ny):
+                for x in range(nx):
+                    img[z][y][x] = mid
+        img[0][ny // 4][min(10, nx - 1)] = mid + amp
+        img[0][ny // 4][min(31, nx - 1)] = mid - amp
+        img[nz - 1][ny - 1][nx // 2 + min(8, nx // 2 - 1)] = mid + amp
         return img
     if kind == "mixed":
         # Scene in the even bands, uncorrelated noise in the odd bands

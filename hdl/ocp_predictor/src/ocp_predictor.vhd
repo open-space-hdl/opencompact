@@ -31,6 +31,7 @@ library ieee;
 
 library olo;
     use olo.olo_base_pkg_math.all;
+    use olo.olo_ft_pkg_ecc.all;
 
 library work;
     use work.ocp_pkg.all;
@@ -80,30 +81,35 @@ entity ocp_predictor is
         RamStyle_g             : string                    := "auto"
     );
     port (
-        Clk       : in    std_logic;
-        Rst       : in    std_logic;
+        Clk            : in    std_logic;
+        Rst            : in    std_logic;
         -- Image samples in the input order
-        In_Valid  : in    std_logic;
-        In_Ready  : out   std_logic;
-        In_Data   : in    std_logic_vector(DynamicRange_g - 1 downto 0);
+        In_Valid       : in    std_logic;
+        In_Ready       : out   std_logic;
+        In_Data        : in    std_logic_vector(DynamicRange_g - 1 downto 0);
         -- Error limit values for periodic error limit updating (entropy coder input order)
-        Lim_Valid : in    std_logic                     := '0';
-        Lim_Ready : out   std_logic;
-        Lim_Data  : in    std_logic_vector(15 downto 0) := (others => '0');
+        Lim_Valid      : in    std_logic                     := '0';
+        Lim_Ready      : out   std_logic;
+        Lim_Data       : in    std_logic_vector(15 downto 0) := (others => '0');
         -- Pulse: the first item (sample or error limit value) of an image is accepted
-        Img_Start : out   std_logic;
+        Img_Start      : out   std_logic;
         -- Entropy coder input sequence
-        Out_Valid : out   std_logic;
-        Out_Ready : in    std_logic;
-        Out_Data  : out   std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
-        Out_Kind  : out   std_logic_vector(1 downto 0);
-        Out_Band  : out   std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
-        Out_First : out   std_logic;
-        Out_Init  : out   std_logic;
-        Out_Last  : out   std_logic;
+        Out_Valid      : out   std_logic;
+        Out_Ready      : in    std_logic;
+        Out_Data       : out   std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
+        Out_Kind       : out   std_logic_vector(1 downto 0);
+        Out_Band       : out   std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
+        Out_First      : out   std_logic;
+        Out_Init       : out   std_logic;
+        Out_Last       : out   std_logic;
         -- Memory errors (pulses): corrected single error, detected double error
-        Ecc_Sec   : out   std_logic;
-        Ecc_Ded   : out   std_logic
+        Ecc_Sec        : out   std_logic;
+        Ecc_Ded        : out   std_logic;
+        -- Error injection into the next write of memory ErrInj_Channel (0 to 11): a single (corrected)
+        -- or a double (detected) bit error
+        ErrInj_Channel : in    std_logic_vector(3 downto 0)  := (others => '0');
+        ErrInj_Double  : in    std_logic                     := '0';
+        ErrInj_Valid   : in    std_logic                     := '0'
     );
 end entity;
 
@@ -136,16 +142,32 @@ architecture rtl of ocp_predictor is
     constant UseRel_c   : boolean  := Fid_c = FidRelative_c or Fid_c = FidBoth_c;
     constant Periodic_c : boolean  := PeriodicUpdate_g and not Lossless_c and not Bsq_c;
     constant Theta_c    : natural  := SampleRepResolution_g;
-    constant M_c        : positive := minimum(SubFrameDepth_g, ZSize_g);
-    constant Cmax_c     : natural  := P_c + 3 * toInt(Full_c);
-    constant C1_c       : positive := maximum(Cmax_c, 1);
+
+    function anyNonZero (v : integer_vector) return boolean is
+    begin
+
+        for i in v'range loop
+            if v(i) /= 0 then
+                return true;
+            end if;
+        end loop;
+
+        return false;
+    end function;
+
+    -- The sample representatives are the samples in lossless compression without damping (4.9.2: with
+    -- damping they depend on the high-resolution predicted sample also when m = 0)
+    constant RepIsSample_c : boolean  := Lossless_c and (Theta_c = 0 or not anyNonZero(Damping_g));
+    constant M_c           : positive := minimum(SubFrameDepth_g, ZSize_g);
+    constant Cmax_c        : natural  := P_c + 3 * toInt(Full_c);
+    constant C1_c          : positive := maximum(Cmax_c, 1);
     -- The sample representative of the previous sample of the band (W) enters the local sum or the
     -- directional local differences (CCSDS 4.4, 4.5.2)
-    constant WUsed_c    : boolean := Full_c or not Narrow_c;
+    constant WUsed_c       : boolean := Full_c or not Narrow_c;
     -- Consecutive samples of a band follow each other directly, in BSQ and single-band images also
     -- from one row to the next
-    constant Gap1_c     : boolean := Bsq_c or M_c = 1;
-    constant RunRows_c  : boolean := Bsq_c or ZSize_g = 1;
+    constant Gap1_c        : boolean := Bsq_c or M_c = 1;
+    constant RunRows_c     : boolean := Bsq_c or ZSize_g = 1;
 
     -- Widths: samples, local differences (and their storage), weights, dot product, high-resolution
     -- predicted sample, quantizer operands, sample representative numerator, sign comparison
@@ -228,7 +250,7 @@ architecture rtl of ocp_predictor is
     constant ThreshSign_c : boolean := not UseRel_c;
     -- Speculation over the signs of the two previous samples of the band: four weight vectors
     constant Spec_c       : boolean  := Speculation_g and ThreshSign_c and Gap1_c and Cmax_c > 0 and TreeSt_c = 1 and
-                                       (Lossless_c or not WUsed_c);
+                                       (RepIsSample_c or not WUsed_c);
     constant NC_c         : positive := sel(Spec_c, 4, 1);
 
     constant StRam_c    : natural  := 2;                      -- memory data, local sum
@@ -247,9 +269,9 @@ architecture rtl of ocp_predictor is
     constant StRepSum_c : natural  := StRepMul_c + 1;         -- sample representative
     constant StOut_c    : natural  := maximum(StRepSum_c, StUpd_c);
     constant NSt_c      : positive := StOut_c + 1;
-    -- Stage that provides the central local difference to the next band: lossless at once, near-
-    -- lossless with the sample representative
-    constant StDz_c     : natural := sel(Lossless_c, StDiff_c, StRepSum_c);
+    -- Stage that provides the central local difference to the next band: at once when the sample
+    -- representatives are the samples, otherwise with the sample representative
+    constant StDz_c     : natural := sel(RepIsSample_c, StDiff_c, StRepSum_c);
 
     -- Memories: sample representatives of the current line of every band (BI) or of row 0 of the
     -- current and the previous band and the current line (BSQ); window of the previous line, previous
@@ -274,11 +296,11 @@ architecture rtl of ocp_predictor is
     constant Lwin_c     : natural  := sel(Gap1_c, 0, StRam_c + 2);
     constant Lrep_c     : natural  := StRepSum_c + 2;
     constant RowGap_c   : natural  := (XSize_g - 1) * sel(Bsq_c, 1, M_c);
-    constant SameRep_c  : boolean  := not Lossless_c and (WUsed_c or RowGap_c < Lrep_c);
+    constant SameRep_c  : boolean  := not RepIsSample_c and (WUsed_c or RowGap_c < Lrep_c);
     constant Lfix_c     : natural  := maximum(Lwin_c, sel(SameRep_c, Lrep_c, 0));
     constant Ldw_c      : natural  := StDz_c + 2;
     constant DiffGap_c  : natural  := sel(Bsq_c, XSize_g * YSize_g, (XSize_g - 1) * M_c + 1);
-    constant CrossRep_c : boolean  := not Lossless_c and (P_c > 0 or Narrow_c);
+    constant CrossRep_c : boolean  := not RepIsSample_c and (P_c > 0 or Narrow_c);
     constant CrossDw_c  : boolean  := DiffRam_c and DiffGap_c < Ldw_c;
     constant Lcross_c   : natural  := maximum(sel(CrossRep_c, Lrep_c, 0), sel(CrossDw_c, Ldw_c, 0));
     constant SbLen_c    : positive := maximum(maximum(maximum(Lw_c, Lfix_c), Lcross_c) - 1, 1);
@@ -356,7 +378,8 @@ architecture rtl of ocp_predictor is
                                                                TW_c);
     constant NArr_c     : unsigned(AW_c - 1 downto 0) := resize(NPix_c * to_unsigned(M_c, ZW_c), AW_c);
     -- Local differences per band and pixel: band z - 1 may run up to floor(S / M) pixels ahead of band z
-    constant KCtx_c     : positive := 2 ** log2ceil(S_c / M_c + 1);
+    -- (stride order only)
+    constant KCtx_c     : positive := sel(Stride_c, 2 ** log2ceil(S_c / M_c + 1), 1);
     constant CtxDepth_c : positive := BandSlots_c * KCtx_c;
 
     type DiffArr_t is array (natural range <>) of signed(DW_c - 1 downto 0);
@@ -762,6 +785,7 @@ architecture rtl of ocp_predictor is
     signal FifoOutRdy  : std_logic;
     signal OutData     : std_logic_vector(FifoW_c - 1 downto 0);
     signal EccSecVec   : std_logic_vector(11 downto 0);
+    signal InjVec      : std_logic_vector(11 downto 0);
     signal EccDedVec   : std_logic_vector(11 downto 0);
     -- Stride order: input buffer, output buffer, central local differences per band
     signal InWrEna     : std_logic;
@@ -810,7 +834,8 @@ architecture rtl of ocp_predictor is
     begin
         A_v := shift_left(resize(z, A_v'length), log2ceil(KCtx_c));
         if KCtx_c > 1 then
-            A_v := A_v or resize(t(log2ceil(KCtx_c) - 1 downto 0), A_v'length);
+            -- t mod KCtx (t may have fewer bits than KCtx needs in small images)
+            A_v := A_v or resize(resize(t, log2ceil(KCtx_c)), A_v'length);
         end if;
         return std_logic_vector(A_v);
     end function;
@@ -948,6 +973,8 @@ begin
         alias WbDz_i      : Item_r is r.P(StDz_c);
         alias WbUpd_i     : Item_r is r.P(StUpd_c);
         alias WbOut_i     : Item_r is r.P(StOut_c);
+
+        variable Use_v : std_logic_vector(11 downto 0);
     begin
         v := r;
 
@@ -969,8 +996,15 @@ begin
         OutWrAddr <= (others => '0');
         OutWrData <= (others => '0');
         StartS_v  := '0';
-        v.EccSec  := or(EccSecVec);
-        v.EccDed  := or(EccDedVec);
+        -- Memory errors of reads whose data the pipeline uses: the memories are also read in cycles
+        -- without an item, so the flags count when an item takes the data (the stage of the item, the
+        -- weights unless initial, the handshakes of the output FIFO and of the stride output buffer)
+        Use_v     := (others => toSl(InpRam_i.Valid = '1' and InpRam_i.Kind = ItemSample_c));
+        Use_v(5)  := toSl(InpProd_i.Valid = '1' and InpProd_i.Kind = ItemSample_c and InpProd_i.Init = '0');
+        Use_v(8)  := FifoOutVld and FifoOutRdy;
+        Use_v(10) := r.ORd(2);
+        v.EccSec  := or(EccSecVec and Use_v);
+        v.EccDed  := or(EccDedVec and Use_v);
 
         Zi_v    := to_integer(r.Z);
         Xi_v    := to_integer(r.X);
@@ -1096,8 +1130,9 @@ begin
                         v.LastT0 := toSample(In_Data);
                     end if;
 
-                    -- Lossless compression: the sample representatives are the samples (4.9)
-                    if Lossless_c then
+                    -- Lossless compression without damping: the sample representatives are the
+                    -- samples (4.9.2)
+                    if RepIsSample_c then
                         SrWrEna   <= '1';
                         SrWrAddr  <= srAddr(r.Z, r.Y = 0, Xi_v);
                         SrWrData  <= In_Data;
@@ -1461,7 +1496,7 @@ begin
             OutDiff_o.Dz := resize(shift_left(resize(InpDiff_i.Sample, DW_c), 2) - InpDiff_i.Sigma, DW_c);
         end if;
         OutDiff_o.Ctx := Ctx_v;
-        if Lossless_c then
+        if RepIsSample_c then
             OutDiff_o.Ctx := shiftCtx(Ctx_v, OutDiff_o.Dz);
             if InpDiff_i.Valid = '1' and InpDiff_i.Kind = ItemSample_c then
                 v.LastWord := OutDiff_o.Ctx;
@@ -1518,8 +1553,10 @@ begin
 
         for c in 0 to NC_c - 1 loop
             Wb_v(c) := Wload_v;
-            if Spec_c and InpProd_i.Init = '0' and (RunRows_c or InpProd_i.X /= 0 or InpProd_i.First = '1') then
-                -- Continuation of the run of the band
+            -- Continuation of the run of the band; a cycle without a sample (whose other fields are
+            -- those of the previous item) passes the candidates on
+            if Spec_c and (InpProd_i.Valid = '0' or
+                           (InpProd_i.Init = '0' and (RunRows_c or InpProd_i.X /= 0 or InpProd_i.First = '1'))) then
                 Wb_v(c) := r.CW(c);
             end if;
         end loop;
@@ -1770,7 +1807,7 @@ begin
             SRep2_v          := shift_right(InpRepSum_i.Num1 + InpRepSum_i.Num2, Om_c + Theta_c + 1);
             OutRepSum_o.SRep := resize(shift_right(SRep2_v + 1, 1), SW_c);
         end if;
-        if not Lossless_c then
+        if not RepIsSample_c then
             if InpRepSum_i.First = '0' then
                 OutRepSum_o.Dz := resize(shift_left(resize(OutRepSum_o.SRep, DW_c), 2) - InpRepSum_i.Sigma, DW_c);
             end if;
@@ -1783,9 +1820,9 @@ begin
         -------------------------------------------------------------------------------------------
         -- Write back of the band state
         -------------------------------------------------------------------------------------------
-        -- Near-lossless compression: sample representatives of the line, of the previous sample and
-        -- of the first column
-        if not Lossless_c then
+        -- Sample representatives of the line, of the previous sample and of the first column (near-
+        -- lossless compression or damping)
+        if not RepIsSample_c then
             if WbRep_i.Valid = '1' and WbRep_i.Kind = ItemSample_c then
                 SrWrEna  <= '1';
                 RepWrEna <= '1';
@@ -2002,6 +2039,11 @@ begin
     -----------------------------------------------------------------------------------------------
     -- Memories
     -----------------------------------------------------------------------------------------------
+    -- Error injection: the memory of the selected channel
+    g_inj : for i in 0 to 11 generate
+        InjVec(i) <= ErrInj_Valid when to_integer(unsigned(ErrInj_Channel)) = i else '0';
+    end generate;
+
     i_sr_ram : entity olo.olo_ft_ram_sdp
         generic map (
             Depth_g       => SrDepth_c,
@@ -2010,16 +2052,18 @@ begin
             EccPipeline_g => 1
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            Wr_Addr   => SrWrAddr,
-            Wr_Ena    => SrWrEna,
-            Wr_Data   => SrWrData,
-            Rd_Addr   => SrRdAddr,
-            Rd_Data   => SrRdData,
-            Rd_Valid  => open,
-            Rd_EccSec => EccSecVec(0),
-            Rd_EccDed => EccDedVec(0)
+            Clk            => Clk,
+            Rst            => Rst,
+            Wr_Addr        => SrWrAddr,
+            Wr_Ena         => SrWrEna,
+            Wr_Data        => SrWrData,
+            Rd_Addr        => SrRdAddr,
+            Rd_Data        => SrRdData,
+            Rd_Valid       => open,
+            Rd_EccSec      => EccSecVec(0),
+            Rd_EccDed      => EccDedVec(0),
+            ErrInj_BitFlip => injPattern(eccCodewordWidth(D_c), ErrInj_Double),
+            ErrInj_Valid   => InjVec(0)
         );
 
     -- The window is always forwarded when consecutive samples belong to the same band
@@ -2033,16 +2077,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => WinWrAddr,
-                Wr_Ena    => WinWrEna,
-                Wr_Data   => WinWrData,
-                Rd_Addr   => BandRdAddr,
-                Rd_Data   => WinRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(1),
-                Rd_EccDed => EccDedVec(1)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => WinWrAddr,
+                Wr_Ena         => WinWrEna,
+                Wr_Data        => WinWrData,
+                Rd_Addr        => BandRdAddr,
+                Rd_Data        => WinRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(1),
+                Rd_EccDed      => EccDedVec(1),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(2 * D_c), ErrInj_Double),
+                ErrInj_Valid   => InjVec(1)
             );
 
     else generate
@@ -2059,16 +2105,18 @@ begin
             EccPipeline_g => 1
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            Wr_Addr   => RepWrAddr,
-            Wr_Ena    => RepWrEna,
-            Wr_Data   => RepWrData,
-            Rd_Addr   => BandRdAddr,
-            Rd_Data   => RepRdData,
-            Rd_Valid  => open,
-            Rd_EccSec => EccSecVec(2),
-            Rd_EccDed => EccDedVec(2)
+            Clk            => Clk,
+            Rst            => Rst,
+            Wr_Addr        => RepWrAddr,
+            Wr_Ena         => RepWrEna,
+            Wr_Data        => RepWrData,
+            Rd_Addr        => BandRdAddr,
+            Rd_Data        => RepRdData,
+            Rd_Valid       => open,
+            Rd_EccSec      => EccSecVec(2),
+            Rd_EccDed      => EccDedVec(2),
+            ErrInj_BitFlip => injPattern(eccCodewordWidth(D_c), ErrInj_Double),
+            ErrInj_Valid   => InjVec(2)
         );
 
     i_row_ram : entity olo.olo_ft_ram_sdp
@@ -2079,16 +2127,18 @@ begin
             EccPipeline_g => 1
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            Wr_Addr   => RepWrAddr,
-            Wr_Ena    => RowWrEna,
-            Wr_Data   => RepWrData,
-            Rd_Addr   => BandRdAddr,
-            Rd_Data   => RowRdData,
-            Rd_Valid  => open,
-            Rd_EccSec => EccSecVec(3),
-            Rd_EccDed => EccDedVec(3)
+            Clk            => Clk,
+            Rst            => Rst,
+            Wr_Addr        => RepWrAddr,
+            Wr_Ena         => RowWrEna,
+            Wr_Data        => RepWrData,
+            Rd_Addr        => BandRdAddr,
+            Rd_Data        => RowRdData,
+            Rd_Valid       => open,
+            Rd_EccSec      => EccSecVec(3),
+            Rd_EccDed      => EccDedVec(3),
+            ErrInj_BitFlip => injPattern(eccCodewordWidth(D_c), ErrInj_Double),
+            ErrInj_Valid   => InjVec(3)
         );
 
     g_diff : if DiffRam_c generate
@@ -2101,16 +2151,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => DiffWrAddr,
-                Wr_Ena    => DiffWrEna,
-                Wr_Data   => DiffWrData,
-                Rd_Addr   => DiffRdAddr,
-                Rd_Data   => DiffRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(4),
-                Rd_EccDed => EccDedVec(4)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => DiffWrAddr,
+                Wr_Ena         => DiffWrEna,
+                Wr_Data        => DiffWrData,
+                Rd_Addr        => DiffRdAddr,
+                Rd_Data        => DiffRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(4),
+                Rd_EccDed      => EccDedVec(4),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(DiffBits_c), ErrInj_Double),
+                ErrInj_Valid   => InjVec(4)
             );
 
     else generate
@@ -2129,16 +2181,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => WWrAddr,
-                Wr_Ena    => WWrEna,
-                Wr_Data   => WWrData,
-                Rd_Addr   => WRdAddr,
-                Rd_Data   => WRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(5),
-                Rd_EccDed => EccDedVec(5)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => WWrAddr,
+                Wr_Ena         => WWrEna,
+                Wr_Data        => WWrData,
+                Rd_Addr        => WRdAddr,
+                Rd_Data        => WRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(5),
+                Rd_EccDed      => EccDedVec(5),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(WBits_c), ErrInj_Double),
+                ErrInj_Valid   => InjVec(5)
             );
 
     else generate
@@ -2157,16 +2211,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => LimWrAddr,
-                Wr_Ena    => AbsWrEna,
-                Wr_Data   => Lim_Data,
-                Rd_Addr   => LimRdAddr,
-                Rd_Data   => AbsRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(6),
-                Rd_EccDed => EccDedVec(6)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => LimWrAddr,
+                Wr_Ena         => AbsWrEna,
+                Wr_Data        => Lim_Data,
+                Rd_Addr        => LimRdAddr,
+                Rd_Data        => AbsRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(6),
+                Rd_EccDed      => EccDedVec(6),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(16), ErrInj_Double),
+                ErrInj_Valid   => InjVec(6)
             );
 
     else generate
@@ -2185,16 +2241,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => LimWrAddr,
-                Wr_Ena    => RelWrEna,
-                Wr_Data   => Lim_Data,
-                Rd_Addr   => LimRdAddr,
-                Rd_Data   => RelRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(7),
-                Rd_EccDed => EccDedVec(7)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => LimWrAddr,
+                Wr_Ena         => RelWrEna,
+                Wr_Data        => Lim_Data,
+                Rd_Addr        => LimRdAddr,
+                Rd_Data        => RelRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(7),
+                Rd_EccDed      => EccDedVec(7),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(16), ErrInj_Double),
+                ErrInj_Valid   => InjVec(7)
             );
 
     else generate
@@ -2216,16 +2274,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => InWrAddr,
-                Wr_Ena    => InWrEna,
-                Wr_Data   => In_Data,
-                Rd_Addr   => InRdAddr,
-                Rd_Data   => InRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(9),
-                Rd_EccDed => EccDedVec(9)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => InWrAddr,
+                Wr_Ena         => InWrEna,
+                Wr_Data        => In_Data,
+                Rd_Addr        => InRdAddr,
+                Rd_Data        => InRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(9),
+                Rd_EccDed      => EccDedVec(9),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(D_c), ErrInj_Double),
+                ErrInj_Valid   => InjVec(9)
             );
 
         i_out_ram : entity olo.olo_ft_ram_sdp
@@ -2236,16 +2296,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => OutWrAddr,
-                Wr_Ena    => OutWrEna,
-                Wr_Data   => OutWrData,
-                Rd_Addr   => OutRdAddr,
-                Rd_Data   => OutRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(10),
-                Rd_EccDed => EccDedVec(10)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => OutWrAddr,
+                Wr_Ena         => OutWrEna,
+                Wr_Data        => OutWrData,
+                Rd_Addr        => OutRdAddr,
+                Rd_Data        => OutRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(10),
+                Rd_EccDed      => EccDedVec(10),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(D_c), ErrInj_Double),
+                ErrInj_Valid   => InjVec(10)
             );
 
         i_ctx_ram : entity olo.olo_ft_ram_sdp
@@ -2256,16 +2318,18 @@ begin
                 EccPipeline_g => 1
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                Wr_Addr   => CtxWrAddr,
-                Wr_Ena    => CtxWrEna,
-                Wr_Data   => CtxWrData,
-                Rd_Addr   => CtxRdAddr,
-                Rd_Data   => CtxRdData,
-                Rd_Valid  => open,
-                Rd_EccSec => EccSecVec(11),
-                Rd_EccDed => EccDedVec(11)
+                Clk            => Clk,
+                Rst            => Rst,
+                Wr_Addr        => CtxWrAddr,
+                Wr_Ena         => CtxWrEna,
+                Wr_Data        => CtxWrData,
+                Rd_Addr        => CtxRdAddr,
+                Rd_Data        => CtxRdData,
+                Rd_Valid       => open,
+                Rd_EccSec      => EccSecVec(11),
+                Rd_EccDed      => EccDedVec(11),
+                ErrInj_BitFlip => injPattern(eccCodewordWidth(DiffBits_c), ErrInj_Double),
+                ErrInj_Valid   => InjVec(11)
             );
 
     else generate
@@ -2286,17 +2350,19 @@ begin
             RamStyle_g => RamStyle_g
         )
         port map (
-            Clk        => Clk,
-            Rst        => Rst,
-            In_Data    => FifoInData,
-            In_Valid   => FifoInValid,
-            In_Ready   => open,
-            In_Level   => FifoLevel,
-            Out_Data   => FifoOutData,
-            Out_Valid  => FifoOutVld,
-            Out_Ready  => FifoOutRdy,
-            Out_EccSec => EccSecVec(8),
-            Out_EccDed => EccDedVec(8)
+            Clk               => Clk,
+            Rst               => Rst,
+            In_Data           => FifoInData,
+            In_Valid          => FifoInValid,
+            In_Ready          => open,
+            In_Level          => FifoLevel,
+            Out_Data          => FifoOutData,
+            Out_Valid         => FifoOutVld,
+            Out_Ready         => FifoOutRdy,
+            Out_EccSec        => EccSecVec(8),
+            Out_EccDed        => EccDedVec(8),
+            In_ErrInj_BitFlip => injPattern(eccCodewordWidth(FifoW_c), ErrInj_Double),
+            In_ErrInj_Valid   => InjVec(8)
         );
 
     -- Registered output: the SECDED correction of the FIFO and the first stage of the entropy coder

@@ -7,8 +7,10 @@
 The predictor (hdl/ocp_predictor) is a pipeline without internal stalls. Its issue stage starts a sample once the
 samples it depends on have left the feedback loops: the previous sample of the same band (weights, window of the
 previous line and, in near-lossless compression, sample representatives) and, in near-lossless compression or with
-central local differences kept in memory, the sample of the previous band at the same pixel. When consecutive samples
-belong to the same band, the weight loop speculates over the error signs and needs no distance. This module mirrors
+central local differences kept in memory, the sample of the previous band at the same pixel. Lossless compression with
+damping (Theta > 0 and a phi_z > 0) counts as near-lossless here: its sample representatives depend on the predicted
+sample (CCSDS 4.9.2). When consecutive samples belong to the same band, the weight loop speculates over the error
+signs and needs no distance. This module mirrors
 the pipeline stages and the required distances of the RTL and computes the issue cycle of every item of the entropy
 coder input sequence. The predictor testbench checks that the RTL issues the samples of a configuration in exactly
 the computed number of cycles.
@@ -39,12 +41,13 @@ def gcd(a, b):
 
 
 def stride_params(g, lat):
-    """Stride order of BI order with M = NZ in near-lossless compression with dependencies between the bands of a
-    pixel: sample (z, t) in slot t M + z S with S >= L_cross coprime with M (None when not used)."""
+    """Stride order of BI order with M = NZ in near-lossless compression (or lossless compression with damping)
+    with dependencies between the bands of a pixel: sample (z, t) in slot t M + z S with S >= L_cross coprime with M
+    (None when not used)."""
     nz = g["ZSize_g"]
     m = min(g["SubFrameDepth_g"], nz)
     narrow = g["LocalSum_g"] in ("NARROW_NEIGHBOR", "NARROW_COLUMN")
-    cross_rep = g["Fidelity_g"] != "LOSSLESS" and (g["PredictionBands_g"] > 0 or narrow)
+    cross_rep = not rep_equals_sample(g) and (g["PredictionBands_g"] > 0 or narrow)
     periodic = g["PeriodicUpdate_g"] and g["Fidelity_g"] != "LOSSLESS"
     if not (g.get("Stride_g", True) and g["EncodingOrder_g"] == "BI" and m == nz and nz > 1 and cross_rep and
             not periodic):
@@ -136,6 +139,12 @@ def stride_spans(g, lat, st):
     return in_cyc[-1] - in_cyc[0], out_cyc[-1] - out_cyc[0]
 
 
+def rep_equals_sample(g):
+    """Sample representatives equal the samples: lossless compression without damping (CCSDS 4.9.2)."""
+    damping = [int(v) for v in str(g["Damping_g"]).split(",")]
+    return g["Fidelity_g"] == "LOSSLESS" and (g["SampleRepResolution_g"] == 0 or not any(damping))
+
+
 def latencies(g, speculation=True):
     """Pipeline stages and required issue distances (cycles) for the generics g of a configuration."""
     d = g["DynamicRange_g"]
@@ -147,6 +156,7 @@ def latencies(g, speculation=True):
     narrow = g["LocalSum_g"] in ("NARROW_NEIGHBOR", "NARROW_COLUMN")
     fid = g["Fidelity_g"]
     lossless = fid == "LOSSLESS"
+    rep_is_sample = rep_equals_sample(g)
     c = p + 3 * int(full)
     c1 = max(c, 1)
     qw = max(d, 16) + 2
@@ -155,7 +165,7 @@ def latencies(g, speculation=True):
     run_rows = bsq or nz == 1
     ts = tree_stages(c1 + 1)
     thresh_sign = fid not in ("RELATIVE", "ABSOLUTE_RELATIVE")
-    spec = speculation and thresh_sign and gap1 and c > 0 and ts == 1 and (lossless or not w_used)
+    spec = speculation and thresh_sign and gap1 and c > 0 and ts == 1 and (rep_is_sample or not w_used)
 
     st = {"ram": 2, "diff": 3, "inc": 4, "prod": 5}
     st["tree"] = st["prod"] + ts
@@ -168,22 +178,59 @@ def latencies(g, speculation=True):
     st["rep_mul"] = st["rep"] + 1
     st["rep_sum"] = st["rep_mul"] + 1
     st["out"] = max(st["rep_sum"], st["upd"])
-    st["dz"] = st["diff"] if lossless else st["rep_sum"]
+    st["dz"] = st["diff"] if rep_is_sample else st["rep_sum"]
 
     l_w = st["upd"] - 1 if c > 0 else 0
     l_win = 0 if gap1 else st["ram"] + 2
     l_rep = st["rep_sum"] + 2
     row_gap = (nx - 1) * (1 if bsq else m)
-    same_rep = not lossless and (w_used or row_gap < l_rep)
+    same_rep = not rep_is_sample and (w_used or row_gap < l_rep)
     l_fix = max(l_win, l_rep if same_rep else 0)
     diff_ram = p > 0 and (bsq or m < nz)
     l_dw = st["dz"] + 2
     diff_gap = nx * ny if bsq else (nx - 1) * m + 1
-    cross_rep = not lossless and (p > 0 or narrow)
+    cross_rep = not rep_is_sample and (p > 0 or narrow)
     cross_dw = diff_ram and diff_gap < l_dw
     l_cross = max(l_rep if cross_rep else 0, l_dw if cross_dw else 0)
     return {"stages": st, "depth": st["out"] + 1, "spec": spec, "run_rows": run_rows, "c": c, "narrow": narrow,
             "l_w": l_w, "l_fix": l_fix, "l_cross": l_cross}
+
+
+# Error injection channels of ocp_core (ErrInj_Channel): the memories of the predictor (0 to 11) and of the entropy
+# coder (12, 13)
+ECC_CHANNELS = {
+    0: "sample representatives of the line", 1: "window of the previous line", 2: "previous sample representative",
+    3: "first sample representative of the line", 4: "central local differences", 5: "weights",
+    6: "absolute error limits", 7: "relative error limits", 8: "predictor output FIFO", 9: "stride input buffer",
+    10: "stride output buffer", 11: "stride local differences", 12: "coder statistics", 13: "codeword FIFO",
+}
+
+
+def ecc_channels(g):
+    """Error injection channels whose memory exists in a configuration (mirrors the generate conditions of
+    ocp_predictor and of the entropy coders)."""
+    nz = g["ZSize_g"]
+    bsq = g["EncodingOrder_g"] == "BSQ"
+    m = min(g["SubFrameDepth_g"], nz)
+    fid = g["Fidelity_g"]
+    periodic = g["PeriodicUpdate_g"] and fid != "LOSSLESS" and not bsq
+    lat = latencies(g, g.get("Speculation_g", True))
+    present = {
+        0: True,
+        1: not (bsq or m == 1),
+        2: True,
+        3: True,
+        4: g["PredictionBands_g"] > 0 and (bsq or m < nz),
+        5: lat["c"] > 0 and not (lat["spec"] and lat["run_rows"]),
+        6: periodic and fid in ("ABSOLUTE", "ABSOLUTE_RELATIVE") and g["AbsBandDependent_g"],
+        7: periodic and fid in ("RELATIVE", "ABSOLUTE_RELATIVE") and g["RelBandDependent_g"],
+        8: True,
+        12: g["EntropyCoder_g"] in ("SAMPLE_ADAPTIVE", "HYBRID"),
+        13: True,
+    }
+    stride = stride_params(g, lat) is not None
+    present.update({9: stride, 10: stride, 11: stride})
+    return [ch for ch in sorted(present) if present[ch]]
 
 
 def items(g):

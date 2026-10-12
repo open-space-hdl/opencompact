@@ -97,26 +97,31 @@ entity ocp_core is
         RamStyle_g             : string                    := "auto"
     );
     port (
-        Clk       : in    std_logic;
-        Rst       : in    std_logic;
+        Clk            : in    std_logic;
+        Rst            : in    std_logic;
         -- Image samples in the input order (unsigned or two's complement)
-        In_Valid  : in    std_logic;
-        In_Ready  : out   std_logic;
-        In_Data   : in    std_logic_vector(DynamicRange_g - 1 downto 0);
+        In_Valid       : in    std_logic;
+        In_Ready       : out   std_logic;
+        In_Data        : in    std_logic_vector(DynamicRange_g - 1 downto 0);
         -- Error limit values for periodic error limit updating
-        Lim_Valid : in    std_logic                     := '0';
-        Lim_Ready : out   std_logic;
-        Lim_Data  : in    std_logic_vector(15 downto 0) := (others => '0');
+        Lim_Valid      : in    std_logic                     := '0';
+        Lim_Ready      : out   std_logic;
+        Lim_Data       : in    std_logic_vector(15 downto 0) := (others => '0');
         -- Compressed image: first byte in the most significant bits; the last word of an image marks its
         -- valid bytes
-        Out_Valid : out   std_logic;
-        Out_Ready : in    std_logic;
-        Out_Data  : out   std_logic_vector(OutWidth_g - 1 downto 0);
-        Out_Keep  : out   std_logic_vector(OutWidth_g / 8 - 1 downto 0);
-        Out_Last  : out   std_logic;
+        Out_Valid      : out   std_logic;
+        Out_Ready      : in    std_logic;
+        Out_Data       : out   std_logic_vector(OutWidth_g - 1 downto 0);
+        Out_Keep       : out   std_logic_vector(OutWidth_g / 8 - 1 downto 0);
+        Out_Last       : out   std_logic;
         -- Memory errors (pulses): corrected single error, detected double error
-        Ecc_Sec   : out   std_logic;
-        Ecc_Ded   : out   std_logic
+        Ecc_Sec        : out   std_logic;
+        Ecc_Ded        : out   std_logic;
+        -- Error injection into the next write of memory ErrInj_Channel (user guide, memories): a single
+        -- (corrected) or a double (detected) bit error
+        ErrInj_Channel : in    std_logic_vector(3 downto 0)  := (others => '0');
+        ErrInj_Double  : in    std_logic                     := '0';
+        ErrInj_Valid   : in    std_logic                     := '0'
     );
 end entity;
 
@@ -173,6 +178,8 @@ architecture rtl of ocp_core is
     signal PredDed   : std_logic;
     signal CoderSec  : std_logic;
     signal CoderDed  : std_logic;
+    signal InjStats  : std_logic;
+    signal InjBuffer : std_logic;
 
 begin
 
@@ -331,25 +338,28 @@ begin
             RamStyle_g             => RamStyle_g
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            In_Valid  => In_Valid,
-            In_Ready  => In_Ready,
-            In_Data   => In_Data,
-            Lim_Valid => Lim_Valid,
-            Lim_Ready => Lim_Ready,
-            Lim_Data  => Lim_Data,
-            Img_Start => ImgStart,
-            Out_Valid => Item_Valid,
-            Out_Ready => Item_Ready,
-            Out_Data  => Item_Data,
-            Out_Kind  => Item_Kind,
-            Out_Band  => Item_Band,
-            Out_First => Item_First,
-            Out_Init  => Item_Init,
-            Out_Last  => Item_Last,
-            Ecc_Sec   => PredSec,
-            Ecc_Ded   => PredDed
+            Clk            => Clk,
+            Rst            => Rst,
+            In_Valid       => In_Valid,
+            In_Ready       => In_Ready,
+            In_Data        => In_Data,
+            Lim_Valid      => Lim_Valid,
+            Lim_Ready      => Lim_Ready,
+            Lim_Data       => Lim_Data,
+            Img_Start      => ImgStart,
+            Out_Valid      => Item_Valid,
+            Out_Ready      => Item_Ready,
+            Out_Data       => Item_Data,
+            Out_Kind       => Item_Kind,
+            Out_Band       => Item_Band,
+            Out_First      => Item_First,
+            Out_Init       => Item_Init,
+            Out_Last       => Item_Last,
+            Ecc_Sec        => PredSec,
+            Ecc_Ded        => PredDed,
+            ErrInj_Channel => ErrInj_Channel,
+            ErrInj_Double  => ErrInj_Double,
+            ErrInj_Valid   => ErrInj_Valid
         );
 
     -----------------------------------------------------------------------------------------------
@@ -371,23 +381,26 @@ begin
                 RamStyle_g            => RamStyle_g
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                In_Valid  => Item_Valid,
-                In_Ready  => Item_Ready,
-                In_Data   => Item_Data,
-                In_Kind   => Item_Kind,
-                In_Band   => Item_Band,
-                In_First  => Item_First,
-                In_Init   => Item_Init,
-                In_Last   => Item_Last,
-                Cw_Valid  => Cw_Valid,
-                Cw_Ready  => Cw_Ready,
-                Cw_Data   => Cw_Data,
-                Cw_Length => Cw_Length,
-                Cw_Last   => Cw_Last,
-                Ecc_Sec   => CoderSec,
-                Ecc_Ded   => CoderDed
+                Clk           => Clk,
+                Rst           => Rst,
+                In_Valid      => Item_Valid,
+                In_Ready      => Item_Ready,
+                In_Data       => Item_Data,
+                In_Kind       => Item_Kind,
+                In_Band       => Item_Band,
+                In_First      => Item_First,
+                In_Init       => Item_Init,
+                In_Last       => Item_Last,
+                Cw_Valid      => Cw_Valid,
+                Cw_Ready      => Cw_Ready,
+                Cw_Data       => Cw_Data,
+                Cw_Length     => Cw_Length,
+                Cw_Last       => Cw_Last,
+                Ecc_Sec       => CoderSec,
+                Ecc_Ded       => CoderDed,
+                ErrInj_Stats  => InjStats,
+                ErrInj_Buffer => InjBuffer,
+                ErrInj_Double => ErrInj_Double
             );
 
     end generate;
@@ -410,23 +423,26 @@ begin
                 RamStyle_g           => RamStyle_g
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                In_Valid  => Item_Valid,
-                In_Ready  => Item_Ready,
-                In_Data   => Item_Data,
-                In_Kind   => Item_Kind,
-                In_Band   => Item_Band,
-                In_First  => Item_First,
-                In_Init   => Item_Init,
-                In_Last   => Item_Last,
-                Cw_Valid  => Cw_Valid,
-                Cw_Ready  => Cw_Ready,
-                Cw_Data   => Cw_Data,
-                Cw_Length => Cw_Length,
-                Cw_Last   => Cw_Last,
-                Ecc_Sec   => CoderSec,
-                Ecc_Ded   => CoderDed
+                Clk           => Clk,
+                Rst           => Rst,
+                In_Valid      => Item_Valid,
+                In_Ready      => Item_Ready,
+                In_Data       => Item_Data,
+                In_Kind       => Item_Kind,
+                In_Band       => Item_Band,
+                In_First      => Item_First,
+                In_Init       => Item_Init,
+                In_Last       => Item_Last,
+                Cw_Valid      => Cw_Valid,
+                Cw_Ready      => Cw_Ready,
+                Cw_Data       => Cw_Data,
+                Cw_Length     => Cw_Length,
+                Cw_Last       => Cw_Last,
+                Ecc_Sec       => CoderSec,
+                Ecc_Ded       => CoderDed,
+                ErrInj_Stats  => InjStats,
+                ErrInj_Buffer => InjBuffer,
+                ErrInj_Double => ErrInj_Double
             );
 
     end generate;
@@ -442,19 +458,21 @@ begin
                 RamStyle_g        => RamStyle_g
             )
             port map (
-                Clk       => Clk,
-                Rst       => Rst,
-                In_Valid  => Item_Valid,
-                In_Ready  => Item_Ready,
-                In_Data   => Item_Data,
-                In_Last   => Item_Last,
-                Cw_Valid  => Cw_Valid,
-                Cw_Ready  => Cw_Ready,
-                Cw_Data   => Cw_Data,
-                Cw_Length => Cw_Length,
-                Cw_Last   => Cw_Last,
-                Ecc_Sec   => CoderSec,
-                Ecc_Ded   => CoderDed
+                Clk           => Clk,
+                Rst           => Rst,
+                In_Valid      => Item_Valid,
+                In_Ready      => Item_Ready,
+                In_Data       => Item_Data,
+                In_Last       => Item_Last,
+                Cw_Valid      => Cw_Valid,
+                Cw_Ready      => Cw_Ready,
+                Cw_Data       => Cw_Data,
+                Cw_Length     => Cw_Length,
+                Cw_Last       => Cw_Last,
+                Ecc_Sec       => CoderSec,
+                Ecc_Ded       => CoderDed,
+                ErrInj_Buffer => InjBuffer,
+                ErrInj_Double => ErrInj_Double
             );
 
     end generate;
@@ -481,6 +499,10 @@ begin
             Out_Keep  => Out_Keep,
             Out_Last  => OutLast
         );
+
+    -- Error injection: channel 12 statistics memory, channel 13 codeword buffer of the entropy coder
+    InjStats  <= ErrInj_Valid when to_integer(unsigned(ErrInj_Channel)) = 12 else '0';
+    InjBuffer <= ErrInj_Valid when to_integer(unsigned(ErrInj_Channel)) = 13 else '0';
 
     Out_Valid <= OutValid;
     Out_Last  <= OutLast;

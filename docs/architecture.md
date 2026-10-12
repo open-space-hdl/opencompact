@@ -42,7 +42,7 @@ valid / ready streams with AXI4-Stream handshake semantics. The core runs on any
 
 OpenCompact is an open CCSDS 123.0-B-2 compressor based on the Open Logic VHDL Library. The code lives in
 [open-space-hdl/opencompact](https://github.com/open-space-hdl/opencompact) under the PSI HDL Library License,
-Version 1.0, the licence of Open Logic. Open Logic is pinned to the tag `4.7.0-ft.1` (9fea4eb) of the branch
+Version 1.0, the licence of Open Logic. Open Logic is pinned to the tag `4.7.0-ft.2` (425d69d) of the branch
 `fault-tolerant` of open-space-hdl/open-logic-ft, the fault-tolerant fork of Open Logic.
 
 ### References
@@ -52,7 +52,7 @@ Version 1.0, the licence of Open Logic. Open Logic is pinned to the tag `4.7.0-f
 | \[CCSDS\] | CCSDS 123.0-B-2, Low-Complexity Lossless and Near-Lossless Multispectral and Hyperspectral Image Compression | Blue Book, Issue 2, February 2019, with Technical Corrigendum 3 |
 | \[LDC\] | CCSDS 121.0-B-3, Lossless Data Compression | Blue Book, Issue 3, August 2020 |
 | \[CNES\] | CNES reference software for CCSDS 123.0-B-2 and 121.0-B-3 (Low-Complexity Near-Lossless tools, Universitat Autònoma de Barcelona for CNES) | build of 27 January 2022 |
-| \[OLO\] | [Open Logic, fault-tolerant fork, branch fault-tolerant](https://github.com/open-space-hdl/open-logic-ft/tree/fault-tolerant) | 4.7.0-ft.1 (9fea4eb) |
+| \[OLO\] | [Open Logic, fault-tolerant fork, branch fault-tolerant](https://github.com/open-space-hdl/open-logic-ft/tree/fault-tolerant) | 4.7.0-ft.2 (425d69d) |
 
 ### Conventions
 

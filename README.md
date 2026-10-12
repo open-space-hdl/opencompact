@@ -1,6 +1,6 @@
 # OpenCompact
 
-[![TRL 2](docs/img/trl-2.svg)](https://openspacehdl.org/trl/)
+[![TRL 3](docs/img/trl-3.svg)](https://openspacehdl.org/trl/)
 
 OpenCompact is an open hyperspectral and multispectral image compression core according to CCSDS 123.0-B-2
 (Low-Complexity Lossless and Near-Lossless Multispectral and Hyperspectral Image Compression), based on the Open Logic
@@ -19,11 +19,15 @@ sample per clock cycle, and the compressed image leaves the core in words of 8 t
 
 ## Status
 
-**Technology readiness level: TRL 2** (in development, first performance estimates). The core is a demonstrator: it
-compresses the test images of 30 configurations, which together cover every option of the standard, byte for byte
-identically to the CNES reference software for CCSDS 123.0-B-2, in GHDL and in QuestaSim, and it synthesizes for
-every configuration. The testbenches check the throughput of every configuration cycle by cycle against the
-throughput model `tools/ocp_throughput.py`. It has not been tested on hardware and has no flight heritage; see
+**Technology readiness level: TRL 3** (fully verified by simulation). The core compresses the test images of 37
+configurations, which together cover every option of the standard, and of 24 random configurations byte for byte
+identically to the CNES reference software for CCSDS 123.0-B-2, in GHDL and in QuestaSim. It also reproduces the
+compressed images of 300 vectors of the CCSDS test data set, selected to cover the parameter values of the set. Unit
+testbenches verify the predictor, the entropy coders and the bit packer; single and double bit errors are injected
+into every memory through the error injection port, and every reset at a random time is followed by a correct image.
+Code coverage is closed or every remaining miss is justified ([coverage](docs/coverage.md)). The predictor testbench
+checks the throughput of every configuration cycle by cycle against the throughput model `tools/ocp_throughput.py`,
+and every configuration synthesizes. The core has not been tested on hardware and has no flight heritage; see
 [what the levels mean](https://openspacehdl.org/trl/) and the steps to the next level in the
 [roadmap](docs/roadmap.md#technology-readiness).
 
@@ -75,13 +79,20 @@ python run.py --questa <test>       # QuestaSim
 ```
 
 Every testbench runs once per configuration of `tools/ocp_configs.py`; the compressed images are compared with the
-golden data of `tb/golden/`, which `tools/golden.py` generates with the CNES reference software.
+golden data of `tb/golden/`, which `tools/golden.py` generates with the CNES reference software. With the environment
+variable `OCP_TESTVECTORS` the testbenches also run a selection of the CCSDS test data set that
+`tools/ocp_testvectors.py` prepares (the data set is not part of the repository):
+
+```shell
+python tools/ocp_testvectors.py <data set directory> --out <directory> --count 300
+OCP_TESTVECTORS=<directory> python run.py -p 4
+```
 
 Checks besides the regression:
 
 ```shell
 python lint/lint.py                         # VSG, no errors and no warnings
-python lint/synth_check.py                  # synthesizability of every configuration with GHDL
+python lint/synth_check.py                  # synthesizability of the configurations with GHDL
 python tools/compliance.py --check          # traceability of every clause
 python tools/gen_low_entropy_pkg.py --check # low-entropy code tables up to date
 python tools/check_model_testvectors.py <dir>   # reference model against the CCSDS test data set

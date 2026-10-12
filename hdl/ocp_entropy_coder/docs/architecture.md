@@ -11,12 +11,14 @@ All three coders end in the codeword buffer `ocp_cw_buffer`: a register concaten
 codeword of up to 96 bits before it enters a SECDED-protected FIFO (`olo_ft_fifo_sync`, 16 entries). A FIFO entry
 therefore holds several short codewords. While the bit packer takes the header of the next image, the coder keeps
 running into the buffer, and afterwards the bit packer takes several codewords per clock cycle until the backlog is
-gone. A codeword with the last flag ends a concatenation.
+gone. A codeword with the last flag ends a concatenation. The error flags of the FIFO count once per word, with the
+handshake at its output.
 
 The statistics of a band (accumulator and counter) live in a SECDED-protected memory (`olo_ft_ram_sdp`, read latency
 two cycles). An item reads the memory when it enters the pipeline; when one of the three items ahead of it belongs to
 the same band and has not yet written its updated statistics, the item takes them from that item's pipeline register
-instead (newest first). Consecutive indexes of one band (BSQ order) therefore cost no extra cycles.
+instead (newest first). Consecutive indexes of one band (BSQ order) therefore cost no extra cycles. The error flags
+of the memory count only when an item (or the tail of the hybrid coder) takes the read statistics.
 
 ## 2. Sample-adaptive coder (`ocp_sample_adaptive_coder`)
 
@@ -77,7 +79,8 @@ clock cycles than its collection (for J = 8 at most six), so the three buffers l
 is output. The lengths of the fundamental sequence codewords of the next two entries are registers: they are read
 from the block buffer one cycle ahead (the first two entries when the output of a block starts, then the entries
 two and three positions ahead), so that the decision between one and two codewords per cycle starts from registers
-and not from the buffer.
+and not from the buffer. The block buffers are registers: synthesis attributes keep the tools from inferring memories
+without ECC from them.
 
 ## 5. Interfaces
 
@@ -86,3 +89,4 @@ and not from the buffer.
 | `In_Valid`, `In_Ready`, `In_Data`, `In_Kind`, `In_Band`, `In_First`, `In_Init`, `In_Last` | in | Entropy coder input sequence (the block-adaptive coder uses value and last flag only) |
 | `Cw_Valid`, `Cw_Ready`, `Cw_Data`, `Cw_Length`, `Cw_Last` | out | Codewords of up to `CwWidth_c` bits |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events (statistics memories, codeword buffer) |
+| `ErrInj_Stats`, `ErrInj_Buffer`, `ErrInj_Double` | in | Error injection into the next write of the statistics memory or of the codeword buffer (the block-adaptive coder has no statistics memory) |

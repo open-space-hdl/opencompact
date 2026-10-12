@@ -23,6 +23,7 @@ library ieee;
 
 library olo;
     use olo.olo_base_pkg_math.all;
+    use olo.olo_ft_pkg_ecc.all;
 
 library work;
     use work.ocp_pkg.all;
@@ -36,25 +37,28 @@ entity ocp_cw_buffer is
         RamStyle_g : string   := "auto"
     );
     port (
-        Clk       : in    std_logic;
-        Rst       : in    std_logic;
+        Clk           : in    std_logic;
+        Rst           : in    std_logic;
         -- Codewords; In_Level counts the occupied entries including the concatenation register, a
         -- codeword is accepted while In_Level < Depth_g
-        In_Valid  : in    std_logic;
-        In_Ready  : out   std_logic;
-        In_Data   : in    std_logic_vector(CwWidth_c - 1 downto 0);
-        In_Length : in    std_logic_vector(CwLenWidth_c - 1 downto 0);
-        In_Last   : in    std_logic;
-        In_Level  : out   std_logic_vector(log2ceil(Depth_g + 2) - 1 downto 0);
+        In_Valid      : in    std_logic;
+        In_Ready      : out   std_logic;
+        In_Data       : in    std_logic_vector(CwWidth_c - 1 downto 0);
+        In_Length     : in    std_logic_vector(CwLenWidth_c - 1 downto 0);
+        In_Last       : in    std_logic;
+        In_Level      : out   std_logic_vector(log2ceil(Depth_g + 2) - 1 downto 0);
         -- Concatenated codewords
-        Cw_Valid  : out   std_logic;
-        Cw_Ready  : in    std_logic;
-        Cw_Data   : out   std_logic_vector(CwWidth_c - 1 downto 0);
-        Cw_Length : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Cw_Last   : out   std_logic;
+        Cw_Valid      : out   std_logic;
+        Cw_Ready      : in    std_logic;
+        Cw_Data       : out   std_logic_vector(CwWidth_c - 1 downto 0);
+        Cw_Length     : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Cw_Last       : out   std_logic;
         -- Memory errors (pulses)
-        Ecc_Sec   : out   std_logic;
-        Ecc_Ded   : out   std_logic
+        Ecc_Sec       : out   std_logic;
+        Ecc_Ded       : out   std_logic;
+        -- Error injection into the next write of the FIFO: a single or a double bit error
+        ErrInj_Double : in    std_logic := '0';
+        ErrInj_Valid  : in    std_logic := '0'
     );
 end entity;
 
@@ -79,6 +83,8 @@ architecture rtl of ocp_cw_buffer is
     signal FifoLevel   : std_logic_vector(log2ceil(Depth_g + 1) - 1 downto 0);
     signal FifoOutData : std_logic_vector(FifoW_c - 1 downto 0);
     signal Ready       : std_logic;
+    signal FifoSec     : std_logic;
+    signal FifoDed     : std_logic;
 
     -- Codeword without bits beyond its length
     function masked (d : std_logic_vector; n : natural) return std_logic_vector is
@@ -157,17 +163,23 @@ begin
             RamStyle_g => RamStyle_g
         )
         port map (
-            Clk        => Clk,
-            Rst        => Rst,
-            In_Data    => FifoInData,
-            In_Valid   => FifoInValid,
-            In_Ready   => open,
-            In_Level   => FifoLevel,
-            Out_Data   => FifoOutData,
-            Out_Valid  => Cw_Valid,
-            Out_Ready  => Cw_Ready,
-            Out_EccSec => Ecc_Sec,
-            Out_EccDed => Ecc_Ded
+            Clk               => Clk,
+            Rst               => Rst,
+            In_Data           => FifoInData,
+            In_Valid          => FifoInValid,
+            In_Ready          => open,
+            In_Level          => FifoLevel,
+            Out_Data          => FifoOutData,
+            Out_Valid         => Cw_Valid,
+            Out_Ready         => Cw_Ready,
+            Out_EccSec        => FifoSec,
+            Out_EccDed        => FifoDed,
+            In_ErrInj_BitFlip => injPattern(eccCodewordWidth(FifoW_c), ErrInj_Double),
+            In_ErrInj_Valid   => ErrInj_Valid
         );
+
+    -- Memory errors of the words taken from the FIFO (the flags follow the output word also while it waits)
+    Ecc_Sec <= FifoSec and Cw_Valid and Cw_Ready;
+    Ecc_Ded <= FifoDed and Cw_Valid and Cw_Ready;
 
 end architecture;

@@ -100,7 +100,9 @@ structure and user-defined data, then the Table Data subblock with its fill bits
 
 The core has one clock `Clk`. `Rst` is synchronous and high-active and must last at least one clock cycle; the
 integrator synchronises it, for example with `olo_ft_reset_gen`. After the reset the core waits for the first sample
-of an image.
+of an image. A reset at any time aborts the image in progress (header, body or tail); the next image is compressed
+from the initial state of the standard. The memories need no initialisation: the core uses data read from a memory
+only after it has been written in the same image.
 
 ## 4. Interfaces
 
@@ -110,6 +112,7 @@ of an image.
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in, out, in | 16 | Error limit values for periodic updating (unused otherwise) |
 | `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out, in, out, out, out | `OutWidth_g`, `OutWidth_g` / 8 | Compressed image in words, first byte of the image in the most significant bits of the first word; `Out_Last` on the last word of an image, whose valid bytes `Out_Keep` marks (bit `OutWidth_g` / 8 - 1 for the most significant byte); all other words are complete |
 | `Ecc_Sec`, `Ecc_Ded` | out | 1 | One-cycle pulses: corrected single error, detected double error in a memory |
+| `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | 4, 1, 1 | Error injection for tests: a pulse on `ErrInj_Valid` flips one bit (`ErrInj_Double` = '0') or two bits of the next word written into the memory of channel `ErrInj_Channel` (section 4.1); tie to '0' in operation |
 
 All streams use the AXI4-Stream handshake: a transfer takes place in a cycle with valid and ready high.
 
@@ -123,6 +126,33 @@ With periodic error limit updating, the core reads the error limit values at the
 y mod 2^u = 0, before the first sample of that frame: the absolute limits (A*, or a_0 to a_(NZ-1)) followed by the
 relative limits (R*, or r_0 to r_(NZ-1)), each as a 16-bit value of which DA or DR bits are used.
 
+### 4.1 Memories and error injection
+
+Every memory of the core is protected by a SECDED code: a single bit error in a word is corrected when the word is
+read (`Ecc_Sec`), a double bit error is detected (`Ecc_Ded`). The tables of the configuration (low-entropy codes,
+initial weights and accumulators, damping and offset values) are constants and map to logic. The channels of the error
+injection:
+
+| Channel | Memory | Present |
+| --- | --- | --- |
+| 0 | Sample representatives of the current line of every band | always |
+| 1 | Window of the previous line of every band | BI order with M > 1 |
+| 2 | Sample representative of the previous sample of every band | always |
+| 3 | First sample representative of the line of every band | always |
+| 4 | Central local differences of the previous bands | P > 0 in BSQ order or in BI order with M < NZ |
+| 5 | Weights of every band | C > 0, except with the speculative weight loop in BSQ order and in single-band images |
+| 6 | Band-dependent absolute error limits | periodic error limit updating with band-dependent absolute limits |
+| 7 | Band-dependent relative error limits | periodic error limit updating with band-dependent relative limits |
+| 8 | Output FIFO of the predictor | always |
+| 9, 10, 11 | Input buffer, output buffer and local differences of the stride order | stride order (section 7.1) |
+| 12 | Statistics of the entropy coder | sample-adaptive and hybrid coder |
+| 13 | Codeword buffer of the entropy coder | always |
+
+The flags count only in cycles in which the core takes the read data for an item: an upset of a word that is not read
+again, or that is read only in a cycle without an item, raises no alarm. An injection into a channel without memory has
+no effect.
+`tools/ocp_throughput.py` (`ecc_channels`) lists the channels of a configuration.
+
 ## 5. Operating sequence
 
 1. Release the reset.
@@ -134,6 +164,10 @@ relative limits (R*, or r_0 to r_(NZ-1)), each as a 16-bit value of which DA or 
    follow the last sample of an image without a gap.
 
 The output can be stalled at any time; the core then stops taking samples after its internal buffers are full.
+
+A detected double error (`Ecc_Ded`) may falsify the compressed image in progress; the core continues to the end of the
+image. The system discards that image and resets the core before the next image. A corrected single error changes
+nothing; its counter is a measure of the upset rate.
 
 ## 6. Integration constraints
 
@@ -167,7 +201,7 @@ computes the cycle in which the predictor takes every sample of a configuration:
 
 ```shell
 python tools/ocp_throughput.py                     # all configurations of tools/ocp_configs.py
-python tools/ocp_throughput.py c25_hp_bsq_lossless
+python tools/ocp_throughput.py c25_tp_bsq_lossless
 ```
 
 Cycles per sample of the predictor for the configurations of the regression (throughput model, checked by the
@@ -178,12 +212,14 @@ testbenches cycle by cycle):
 | c01, c09, c11, c12, c15, c18, c22, c27 | BIP or BI with M >= 8, lossless | 1.00 |
 | c14, c20, c24 | BIP with 3 to 6 bands, lossless | 1.33 |
 | c23 | BIP with 4 bands and five local differences, lossless | 1.98 |
+| c36 | BSQ without local differences (reduced prediction, P = 0), lossless | 1.00 |
 | c13, c25 | One band (BI) or BSQ, lossless, speculative weight loop | 1.00 |
-| c26, c28 | BIL or BSQ, near-lossless, speculative weight loop | 1.00 |
+| c26, c28, c35 | BIL or BSQ, near-lossless, speculative weight loop (c35 with periodic error limit updating) | 1.00 to 1.02 |
 | c29, c30 | BIP with 40 and 48 bands, near-lossless, stride order | 1.00 per sample, plus (NZ - 1)(S - 1) cycles per image |
 | c04, c06, c16 | BIP with 10 to 16 bands, near-lossless, stride order | 2.3 to 3.8 |
-| c02, c03, c07, c08, c17 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
-| c05, c10, c19, c21 | BI with M = 4, 2, 3 and 1, near-lossless | 17.5 to 31.5 |
+| c33 | BIP with 6 bands, near-lossless, stride order, image of 20 pixels | 14.2 (the per-image cycles of the stride order dominate) |
+| c02, c03, c07, c08, c17, c34, c37 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
+| c05, c10, c19, c21, c31, c32 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
 
 ### 7.2 Resources
 
@@ -194,17 +230,17 @@ small test images make the per-image skew of the stride order visible).
 
 | Configuration | Cycles per sample | LUT | Flip-flops | LSRAM | uSRAM | Math blocks | Clock frequency |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| c01: 32 x 12 x 16, D = 16, BIP, lossless, P = 3 full, sample-adaptive | 1.00 | 11448 | 5425 | 1 | 34 | 13 | 125 MHz |
-| c03: 20 x 10 x 8, D = 8, BSQ, lossless, P = 2 full, narrow local sums, sample-adaptive | 7.93 | 11894 | 4221 | 1 | 17 | 7 | 120 MHz |
-| c04: 24 x 12 x 12, D = 16, BIP, absolute error limit, P = 3 full, hybrid (stride order) | 3.14 | 20848 | 13798 | 3 | 41 | 36 | 119 MHz |
-| c06: 24 x 12 x 10, D = 16, BIP, absolute and relative error limits, P = 4 full, block-adaptive (stride order) | 3.78 | 18468 | 15910 | 3 | 89 | 23 | 104 MHz |
-| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, sample-adaptive | 1.00 | 39241 | 15165 | 12 | 34 | 74 | 80 MHz |
-| c20: 12 x 10 x 6, D = 28, BIP, lossless, P = 3 full, hybrid | 1.33 | 22124 | 7309 | 1 | 41 | 31 | 119 MHz |
-| c25: 32 x 12 x 6, D = 16, BSQ, lossless, P = 3 reduced, narrow local sums, sample-adaptive (speculative weight loop) | 1.00 | 13002 | 4109 | 3 | 17 | 49 | 108 MHz |
-| c26: 40 x 8 x 6, D = 16, BIL, absolute error limit, P = 3 reduced, narrow column-oriented local sums, hybrid (speculative weight loop) | 1.00 | 23041 | 11610 | 1 | 34 | 68 | 105 MHz |
-| c27: 16 x 8 x 24, D = 16, BIP, lossless, P = 3 full, block-adaptive | 1.00 | 18909 | 6394 | 1 | 82 | 25 | 107 MHz |
-| c29: 12 x 6 x 40, D = 12, BIP, absolute error limit, P = 3 full, sample-adaptive (stride order) | 1.49 | 16360 | 11660 | 5 | 38 | 11 | 121 MHz |
-| c30: 10 x 5 x 48, D = 16, BIP, absolute and relative error limits, P = 2 reduced, hybrid (stride order) | 1.67 | 18595 | 10706 | 7 | 33 | 25 | 119 MHz |
+| c01: 32 x 12 x 16, D = 16, BIP, lossless, P = 3 full, sample-adaptive | 1.00 | 11521 | 5422 | 1 | 34 | 13 | 133 MHz |
+| c03: 20 x 10 x 8, D = 8, BSQ, lossless, P = 2 full, narrow local sums, sample-adaptive | 7.93 | 12058 | 4231 | 1 | 17 | 7 | 120 MHz |
+| c04: 24 x 12 x 12, D = 16, BIP, absolute error limit, P = 3 full, hybrid (stride order) | 3.14 | 20908 | 13832 | 3 | 41 | 36 | 116 MHz |
+| c06: 24 x 12 x 10, D = 16, BIP, absolute and relative error limits, P = 4 full, block-adaptive (stride order) | 3.78 | 19433 | 16994 | 3 | 40 | 23 | 106 MHz |
+| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, sample-adaptive | 1.00 | 39435 | 15178 | 12 | 34 | 74 | 81 MHz |
+| c20: 12 x 10 x 6, D = 28, BIP, lossless, P = 3 full, hybrid | 1.33 | 21949 | 7337 | 1 | 41 | 31 | 125 MHz |
+| c25: 32 x 12 x 6, D = 16, BSQ, lossless, P = 3 reduced, narrow local sums, sample-adaptive (speculative weight loop) | 1.00 | 13310 | 4123 | 3 | 17 | 49 | 106 MHz |
+| c26: 40 x 8 x 6, D = 16, BIL, absolute error limit, P = 3 reduced, narrow column-oriented local sums, hybrid (speculative weight loop) | 1.00 | 22928 | 11584 | 1 | 34 | 68 | 106 MHz |
+| c27: 16 x 8 x 24, D = 16, BIP, lossless, P = 3 full, block-adaptive | 1.00 | 19945 | 7396 | 1 | 33 | 25 | 107 MHz |
+| c29: 12 x 6 x 40, D = 12, BIP, absolute error limit, P = 3 full, sample-adaptive (stride order) | 1.49 | 16248 | 11776 | 5 | 38 | 11 | 117 MHz |
+| c30: 10 x 5 x 48, D = 16, BIP, absolute and relative error limits, P = 2 reduced, hybrid (stride order) | 1.67 | 18545 | 10727 | 7 | 33 | 25 | 119 MHz |
 
 All configurations reach 100 MHz except c11, which combines D = 32 with Omega = 19: the product of a 35-bit local
 difference and a 22-bit weight needs a cascade of four math blocks within one clock cycle. A second product stage for
@@ -248,4 +284,16 @@ python tools/golden.py --cnes-bin /path/to/cnes/bin            # all configurati
 python tools/golden.py --cnes-bin /path/to/cnes/bin c01_lossless_bip
 ```
 
-A new configuration is a new entry in `tools/ocp_configs.py`; the testbenches pick it up automatically.
+A new configuration is a new entry in `tools/ocp_configs.py`; the testbenches pick it up automatically. The random
+configurations `r01_random` to `r24_random` come from `random_config(seed)` in the same file: every parameter is drawn
+in the range of the standard, with a small test image.
+
+The CCSDS test data set (images compressed with randomly chosen configurations) is not part of the repository.
+`tools/ocp_testvectors.py` selects test vectors from it that together cover the parameter values of the data set,
+converts them into the golden format and writes them into a directory; the core, predictor and entropy coder
+testbenches then run them as well:
+
+```shell
+python tools/ocp_testvectors.py /path/to/testdata --out /path/to/selection --count 300
+OCP_TESTVECTORS=/path/to/selection python run.py -p 4
+```

@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------------------------------------
 """Generates the golden compressed images of the verification with the CNES reference software.
 
-For every configuration of tools/ocp_configs.py the script writes into tb/golden/<configuration>/:
+For every configuration of tools/ocp_configs.py (ALL) the script writes into tb/golden/<configuration>/:
 
 - image.raw            test image in the input order of the compressor (little-endian 8, 16 or 32-bit samples)
 - compressed.bin       compressed image produced by the CNES encoder (lcnl_encoder): the golden reference
@@ -198,13 +198,16 @@ def generate(name, c, cnes_bin):
     limits = ocp_configs.error_limit_updates(c)
     hdr_args = header_args(c)
     if c["supplementary_information_tables"]:
-        run(cnes_bin, ["lcnl_header_tool"] + hdr_args + sit_args(c) + ["-s", "/dev/zero", "hdr_tmp"], tmp)
+        run(cnes_bin, ["lcnl_header_tool"] + hdr_args + sit_args(c) +
+            ["-s", "/dev/zero", "-o", "opt_tmp.bin", "hdr_tmp"], tmp)
         texts = []
         for i, t in enumerate(c["supplementary_information_tables"]):
             (tmp / "sit_{}.txt".format(i)).write_text(sit_text(c, t))
             texts.append("sit_{}.txt".format(i))
-        run(cnes_bin, ["lcnl_supplementary_tables_encoder", "hdr_tmp", "sit.bin"] + texts, tmp)
-        hdr_args = ["-d", "hdr_tmp", "-s", "sit.bin"]
+        opt_tmp = ["-o", "opt_tmp.bin"] if (tmp / "opt_tmp.bin").exists() and (tmp / "opt_tmp.bin").stat().st_size \
+            else []
+        run(cnes_bin, ["lcnl_supplementary_tables_encoder"] + opt_tmp + ["hdr_tmp", "sit.bin"] + texts, tmp)
+        hdr_args = (["-t", "opt_tmp.bin"] if opt_tmp else []) + ["-d", "hdr_tmp", "-s", "sit.bin"]
     run(cnes_bin, ["lcnl_header_tool"] + hdr_args + ["-o", "optional_tables.bin", "header.bin"], tmp)
     enc = ["lcnl_encoder"]
     dec = ["lcnl_decoder"]
@@ -256,9 +259,9 @@ def main():
     args = ap.parse_args()
     if not args.cnes_bin:
         raise SystemExit("give the bin directory of the CNES reference software with --cnes-bin or OCP_CNES_BIN")
-    names = args.configs or list(ocp_configs.CONFIGS)
+    names = args.configs or list(ocp_configs.ALL)
     for name in names:
-        generate(name, ocp_configs.CONFIGS[name], args.cnes_bin)
+        generate(name, ocp_configs.ALL[name], args.cnes_bin)
 
 
 if __name__ == "__main__":

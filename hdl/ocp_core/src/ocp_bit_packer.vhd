@@ -155,8 +155,11 @@ begin
         variable Word_v  : natural range 0 to Words_c - 1;
         variable Data_v  : std_logic_vector(OW_c - 1 downto 0);
         variable Bytes_v : natural range 0 to OW_c / 8;
+        variable Push_v  : boolean;
     begin
-        v := r;
+        v      := r;
+        Push_v := false;
+        End_v  := r.WpA;
 
         if Out_Ready = '1' then
             v.OutValid := '0';
@@ -179,13 +182,8 @@ begin
                 v.Pos1  := r.WpA(PosW_c - 1 downto 0);
                 -- Written up to the next interface word: the next image starts there
                 v.End1 := End_v + ((OW_c - to_integer(End_v mod OW_c)) mod OW_c);
-                if r.EndValid(0) = '0' then
-                    v.EndValid(0) := '1';
-                    v.End0        := End_v;
-                else
-                    v.EndValid(1) := '1';
-                    v.End1q       := End_v;
-                end if;
+                -- Entered into the queue of image ends after the output (below)
+                Push_v     := true;
                 v.WpA      := End_v + ((OW_c - to_integer(End_v mod OW_c)) mod OW_c);
                 v.FillMod  := 0;
                 v.FillPend := '0';
@@ -268,6 +266,18 @@ begin
                 v.OutKeep  := (others => '1');
                 v.OutLast  := '0';
                 v.Rp       := r.Rp + OW_c;
+            end if;
+        end if;
+
+        -- Queue of image ends: the end of the image whose fill bits were allocated, after the output
+        -- has taken the end of the previous image in the same cycle
+        if Push_v then
+            if v.EndValid(0) = '0' then
+                v.EndValid(0) := '1';
+                v.End0        := End_v;
+            else
+                v.EndValid(1) := '1';
+                v.End1q       := End_v;
             end if;
         end if;
 

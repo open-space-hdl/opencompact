@@ -47,6 +47,7 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | EC-FT-01 | The statistics of the sample-adaptive and the hybrid coder and the codeword buffers of all coders shall be stored in memories with SECDED ECC; corrected single and detected double errors shall be signalled on `Ecc_Sec` and `Ecc_Ded`. | none |
+| EC-FT-02 | Every coder shall inject a single or a double bit error into the next word written into its statistics memory (`ErrInj_Stats`) or its codeword buffer (`ErrInj_Buffer`). The block buffers of the block-adaptive coder are registers. | none |
 
 ## 3. Configuration parameters
 

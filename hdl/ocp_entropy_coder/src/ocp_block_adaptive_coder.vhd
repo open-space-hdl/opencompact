@@ -27,6 +27,7 @@ library ieee;
 
 library olo;
     use olo.olo_base_pkg_math.all;
+    use olo.olo_base_pkg_attribute.all;
 
 library work;
     use work.ocp_pkg.all;
@@ -43,22 +44,25 @@ entity ocp_block_adaptive_coder is
         RamStyle_g        : string                   := "auto"
     );
     port (
-        Clk       : in    std_logic;
-        Rst       : in    std_logic;
+        Clk           : in    std_logic;
+        Rst           : in    std_logic;
         -- Entropy coder input sequence
-        In_Valid  : in    std_logic;
-        In_Ready  : out   std_logic;
-        In_Data   : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
-        In_Last   : in    std_logic;
+        In_Valid      : in    std_logic;
+        In_Ready      : out   std_logic;
+        In_Data       : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
+        In_Last       : in    std_logic;
         -- Codewords
-        Cw_Valid  : out   std_logic;
-        Cw_Ready  : in    std_logic;
-        Cw_Data   : out   std_logic_vector(CwWidth_c - 1 downto 0);
-        Cw_Length : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Cw_Last   : out   std_logic;
+        Cw_Valid      : out   std_logic;
+        Cw_Ready      : in    std_logic;
+        Cw_Data       : out   std_logic_vector(CwWidth_c - 1 downto 0);
+        Cw_Length     : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Cw_Last       : out   std_logic;
         -- Memory errors (pulses)
-        Ecc_Sec   : out   std_logic;
-        Ecc_Ded   : out   std_logic
+        Ecc_Sec       : out   std_logic;
+        Ecc_Ded       : out   std_logic;
+        -- Error injection into the next write of the codeword buffer: a single or a double bit error
+        ErrInj_Buffer : in    std_logic := '0';
+        ErrInj_Double : in    std_logic := '0'
     );
 end entity;
 
@@ -187,6 +191,11 @@ architecture rtl of ocp_block_adaptive_coder is
     end record;
 
     signal r, r_next : TwoProcess_r;
+
+    -- The block buffers are registers: synthesis shall not infer memories without ECC from them
+    attribute ram_style of r    : signal is "registers";
+    attribute ramstyle of r     : signal is "logic";
+    attribute syn_ramstyle of r : signal is "registers";
 
     -- Codeword register into the codeword buffer
     signal BufReady : std_logic;
@@ -585,21 +594,23 @@ begin
             RamStyle_g => RamStyle_g
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            In_Valid  => r.CwValid,
-            In_Ready  => BufReady,
-            In_Data   => r.CwData,
-            In_Length => std_logic_vector(r.CwLength),
-            In_Last   => r.CwLast,
-            In_Level  => open,
-            Cw_Valid  => Cw_Valid,
-            Cw_Ready  => Cw_Ready,
-            Cw_Data   => Cw_Data,
-            Cw_Length => Cw_Length,
-            Cw_Last   => Cw_Last,
-            Ecc_Sec   => Ecc_Sec,
-            Ecc_Ded   => Ecc_Ded
+            Clk           => Clk,
+            Rst           => Rst,
+            In_Valid      => r.CwValid,
+            In_Ready      => BufReady,
+            In_Data       => r.CwData,
+            In_Length     => std_logic_vector(r.CwLength),
+            In_Last       => r.CwLast,
+            In_Level      => open,
+            Cw_Valid      => Cw_Valid,
+            Cw_Ready      => Cw_Ready,
+            Cw_Data       => Cw_Data,
+            Cw_Length     => Cw_Length,
+            Cw_Last       => Cw_Last,
+            Ecc_Sec       => Ecc_Sec,
+            Ecc_Ded       => Ecc_Ded,
+            ErrInj_Double => ErrInj_Double,
+            ErrInj_Valid  => ErrInj_Buffer
         );
 
     p_seq : process (Clk) is

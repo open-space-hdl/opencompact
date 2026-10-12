@@ -6,6 +6,7 @@
 tools/ocp_configs.py.
 
 Usage: python lint/synth_check.py [configuration ...]
+Without arguments the named configurations are checked; any configuration of ALL (also the random ones) can be named.
 Uses the libraries compiled by the regression runner (run `python run.py --compile` first).
 Exit code 0 when every configuration synthesizes without error and without inferred latch.
 This is a technology-independent check of synthesizability; resources and timing need the FPGA tools.
@@ -52,7 +53,7 @@ def main():
         raise SystemExit("compiled libraries not found, run: python run.py --compile")
     names = sys.argv[1:] or list(ocp_configs.CONFIGS)
     with tempfile.TemporaryDirectory() as tmp:
-        results = [synth(n, ocp_configs.CONFIGS[n], Path(tmp)) for n in names]
+        results = [synth(n, ocp_configs.ALL[n], Path(tmp)) for n in names]
     sys.exit(0 if all(results) else 1)
 
 

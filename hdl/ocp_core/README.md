@@ -11,4 +11,4 @@ stream of words of 8 to 64 bits.
 | [Verification plan](docs/verification_plan.md) | Test cases against the CNES reference software |
 | [Verification report](docs/verification_report.md) | Results and findings |
 
-Tests: `python run.py "*ocp_core*"`
+Tests: `python run.py "*ocp_core*" "*ocp_bit_packer*"`

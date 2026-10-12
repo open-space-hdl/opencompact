@@ -4,7 +4,19 @@
 
 The testbench compresses the test image of a configuration twice in a row and compares both compressed images, byte by
 byte and including the last-word marker and the valid bytes of the last word, with the compressed image of the CNES
-reference software (`tb/golden/<configuration>/compressed.bin`). The interface width changes from configuration to
+reference software (`tb/golden/<configuration>/compressed.bin`). The configurations are the 30 configurations that cover
+the options of the standard, four configurations with small images for the error injection and the reset tests, two
+configurations for rare paths of the speculative weight loop and of the block-adaptive coder (c35 to c37) and 24 random
+configurations (`r01_random` to `r24_random`, all parameters drawn in the ranges of the standard,
+`tools/ocp_configs.py`). Locally the testbench also runs a selection of the CCSDS test data set
+(`tools/ocp_testvectors.py`): compressed images of randomly chosen configurations whose golden data does not come from
+the CNES reference software.
+
+Two further tests run on a selection of configurations: `test_ecc` injects a single and a double bit error into every
+memory of the configuration (`ErrInj_Channel`) and checks that a corrected error leaves the compressed image unchanged
+and that a double error is signalled; `test_reset` resets the core at random times of an image (header, body, tail)
+and checks the next image. The testbench of the bit packer (`ocp_bit_packer_tb`) packs random codewords of random
+images and checks every word. The interface width changes from configuration to
 configuration (8, 16, 32 and 64 bits in turn; 32 bits for the throughput configurations). The error limit values of
 periodic updating come from the same file as for the CNES encoder. After the second image the output must stay idle
 and no memory error may be signalled. For the throughput configurations the testbench compares the cycles between the
@@ -14,10 +26,14 @@ first and the last accepted sample of both images with the throughput model (`to
 
 | Testbench | DUT and environment |
 | --- | --- |
-| `ocp_core_tb` | `ocp_core` at 100 MHz with the generics of a configuration of `tools/ocp_configs.py`; file-based source of the samples and of the error limits, sink with optional random stalls |
+| `ocp_core_tb` | `ocp_core` at 100 MHz with the generics of a configuration of `tools/ocp_configs.py`; file-based source of the samples and of the error limits, sink with optional random stalls; the test sequencer runs jobs of one or several images, a reset aborts a job |
+| `ocp_bit_packer_tb` | `ocp_bit_packer` with a random source of codewords (lengths 0 to 96 bits) and a sink that builds the expected words from the same random sequence |
 
 Every configuration is a VUnit configuration of the test `test_golden`; four configurations also run with 30 % input
-gaps and 60 % output stalls (suffix `_bp`). Simulator: GHDL.
+gaps and 60 % output stalls (suffix `_bp`), as does every third random configuration. `test_ecc` and `test_reset` run
+on the configurations of `ECC` and `RESET` in `hdl/ocp_core/tb/vunit_config.py`; together the configurations of `ECC`
+have all 14 memories of the core. The test vectors of the CCSDS test data set run when `OCP_TESTVECTORS` names a
+directory prepared by `tools/ocp_testvectors.py` (not in CI). Simulators: GHDL and QuestaSim.
 
 ## 3. Test cases
 
@@ -47,23 +63,34 @@ gaps and 60 % output stalls (suffix `_bp`). Simulator: GHDL.
 | `test_golden` c22_single_pixel_hybrid (TC-CO-22) | Image of one pixel per band with the hybrid coder: uncoded samples only, tail with the initial accumulators | CO-HD-02, CO-PK-02, EC-HY-02, EC-HY-04 |
 | `test_golden` c23_extreme_weights (TC-CO-23) | D = 3, Omega = 19, weight exponent offset table with -6 | CO-HD-04, EC-SA-01, EC-SA-03 |
 | `test_golden` c24_reduced_p0 (TC-CO-24) | Reduced prediction with P = 0, block-adaptive coder with J = 8 and r = 16 | CO-HD-04, EC-BA-01, EC-BA-03 |
-| `test_golden` c25_hp_bsq_lossless (TC-CO-25) | Throughput: BSQ with the sample-adaptive coder, one sample per cycle over two images | CO-TP-01, EC-TP-01 |
-| `test_golden` c26_hp_bil_near_abs (TC-CO-26) | Throughput: BIL with the hybrid coder, one sample per cycle over two images including the tail | CO-TP-01, EC-TP-01, EC-HY-04 |
-| `test_golden` c27_hp_bip_full (TC-CO-27) | Throughput: BIP with the block-adaptive coder (J = 16), one sample per cycle over two images | CO-TP-01, EC-TP-01, EC-BA-03 |
-| `test_golden` c28_hp_bsq_near_abs (TC-CO-28) | Throughput: BSQ near-lossless with the sample-adaptive coder, one sample per cycle over two images | CO-TP-01, EC-TP-01 |
-| `test_golden` c29_hp_bip_near_stride (TC-CO-29) | Stride order of the predictor with the sample-adaptive coder, two images | CO-PK-03, EC-SA-01 |
-| `test_golden` c30_hp_bip_both_stride (TC-CO-30) | Stride order with absolute and relative error limits and the hybrid coder, two images | CO-HD-05, EC-HY-01, EC-HY-04 |
+| `test_golden` c25_tp_bsq_lossless (TC-CO-25) | Throughput: BSQ with the sample-adaptive coder, one sample per cycle over two images | CO-TP-01, EC-TP-01 |
+| `test_golden` c26_tp_bil_near_abs (TC-CO-26) | Throughput: BIL with the hybrid coder, one sample per cycle over two images including the tail | CO-TP-01, EC-TP-01, EC-HY-04 |
+| `test_golden` c27_tp_bip_full (TC-CO-27) | Throughput: BIP with the block-adaptive coder (J = 16), one sample per cycle over two images | CO-TP-01, EC-TP-01, EC-BA-03 |
+| `test_golden` c28_tp_bsq_near_abs (TC-CO-28) | Throughput: BSQ near-lossless with the sample-adaptive coder, one sample per cycle over two images | CO-TP-01, EC-TP-01 |
+| `test_golden` c29_tp_bip_near_stride (TC-CO-29) | Stride order of the predictor with the sample-adaptive coder, two images | CO-PK-03, EC-SA-01 |
+| `test_golden` c30_tp_bip_both_stride (TC-CO-30) | Stride order with absolute and relative error limits and the hybrid coder, two images | CO-HD-05, EC-HY-01, EC-HY-04 |
 | `test_golden` c01_lossless_bip_bp (TC-CO-31) | As TC-CO-01 with input gaps and output stalls | CO-IF-01, CO-IF-02, CO-PK-03 |
 | `test_golden` c04_near_abs_hybrid_bp (TC-CO-32) | As TC-CO-04 with input gaps and output stalls | CO-IF-02, CO-PK-03 |
 | `test_golden` c06_near_both_block_bp (TC-CO-33) | As TC-CO-06 with input gaps and output stalls | CO-IF-02, CO-PK-03 |
 | `test_golden` c10_periodic_limits_bp (TC-CO-34) | As TC-CO-10 with input gaps and output stalls | CO-IF-01, CO-IF-02, CO-PK-03, EC-IF-02 |
+| `test_golden` r01_random to r24_random (TC-CO-35) | Random configurations: images of 1 to 480 samples (also NX, NY or NZ of 1), D from 2 to 32, signed and unsigned, BSQ and BI with random M, B from 1 to 8, P from 0 to 15, both prediction modes, all local sums, Omega from 4 to 19, R from its minimum to 64, weight exponent offsets and custom weights in or outside the header, all fidelity modes with band-dependent or band-independent limits and periodic updating, sample representatives with damping and offset tables, all coders with random parameters, supplementary information tables of all types; every third with back pressure | CO-IF-01, CO-IF-02, CO-HD-01 to CO-HD-07, CO-PK-01 to CO-PK-03, EC-IF-01, EC-IF-02, EC-SA-01 to EC-SA-03, EC-HY-01 to EC-HY-04, EC-BA-01 to EC-BA-03 |
+| `test_golden` tv_<number> (TC-CO-36) | CCSDS test data set (local): 300 test vectors of up to 4096 samples, selected to cover the parameter values of the data set (`tools/ocp_testvectors.py`), every fourth with back pressure | CO-IF-01, CO-IF-02, CO-HD-01 to CO-HD-07, CO-PK-01 to CO-PK-03, EC-IF-01, EC-SA-01 to EC-SA-03, EC-HY-01 to EC-HY-04, EC-BA-01 to EC-BA-03 |
+| `test_ecc` c31, c32, c33, c34 (TC-CO-37) | For every memory of the configuration: a single bit error injected into its first write leaves the compressed image unchanged and is signalled on `Ecc_Sec`; a double bit error is signalled on `Ecc_Ded`; after a reset the next image is correct and free of errors | CO-IF-03, CO-IF-04, CO-RS-01, PR-FT-01, PR-FT-02, EC-FT-01, EC-FT-02 |
+| `test_reset` c22, c31, c32, c33, c34 (TC-CO-38) | Eight resets at random times of an image (header, body, tail of the hybrid coder, end of the image), each followed by a correct image; 10 % input gaps and 20 % output stalls | CO-RS-01, CO-PK-03 |
+| `test_random` ocp_bit_packer_tb w8_b1 to w64_b8 (TC-CO-39) | Bit packer with interface widths of 8, 16, 32 and 64 bits and output word sizes from 1 to 8 bytes: 50 random images of up to 40 codewords of 0 to 96 bits; data, valid bytes and last flag of every word | CO-IF-02, CO-PK-02, CO-TP-01 |
+| `test_random` ocp_bit_packer_tb w8_b1_bp to w64_b8_bp (TC-CO-40) | As TC-CO-39 with 20 % source gaps and 50 % sink stalls | CO-IF-02, CO-PK-02 |
+| `test_random` ocp_bit_packer_tb w8_b1_small to w64_b8_small (TC-CO-41) | 200 images of up to three codewords with 80 % sink stalls: several image ends queued in the packer | CO-IF-02, CO-PK-02, CO-PK-03 |
+| `test_golden` c31_small_bi_periodic_abs to c34_small_bsq_lossless (TC-CO-42) | Small images of 120 to 144 samples: BI order with M = 2 and periodic band-dependent absolute limits (sample-adaptive coder), BIP with periodic band-dependent relative limits (hybrid coder), stride order (block-adaptive coder), BSQ lossless with full prediction | CO-IF-01, CO-HD-05, CO-PK-02, EC-IF-02 |
+| `test_golden` c22_single_pixel_hybrid_seq, c31_small_bi_periodic_abs_seq, c34_small_bsq_lossless_seq (TC-CO-43) | Ten images in a row with 70 % output stalls: several images wait for their header while the bit packer takes the body of an earlier image, and an image starts in the cycle in which the header of a waiting image starts | CO-IF-01, CO-PK-03 |
+| `test_golden` c35_small_bil_periodic_spec, c36_block_j64_spikes, c37_block_d32_custom (TC-CO-44) | BIL order with periodic updating of band-dependent absolute error limits every row and reduced prediction with narrow neighbour-oriented local sums: the error limit values pass the speculative weight loop; block-adaptive coder with J = 64 on constant bands with spikes: two fundamental sequence codewords that do not fit into one codeword together, a run of all-zeros blocks before the last block of the image; block-adaptive coder with D = 32 on noise: split-sample options with k >= 25, custom weight initialization with Q = Omega + 3 | CO-IF-01, CO-HD-04, CO-HD-05, EC-BA-01, EC-BA-03 |
 
 ## 4. Requirement coverage
 
 | Requirement | Test cases |
 | --- | --- |
-| CO-IF-01, CO-IF-02 | TC-CO-01, TC-CO-10, TC-CO-19 to TC-CO-34; interface widths of 8, 16, 32 and 64 bits |
-| CO-IF-03 | all (no error; error injection is an open item) |
-| CO-HD-01 to CO-HD-07 | TC-CO-01 to TC-CO-24 |
-| CO-PK-01 to CO-PK-03 | all (two images per test) |
-| CO-TP-01 | TC-CO-25 to TC-CO-28 |
+| CO-IF-01, CO-IF-02 | TC-CO-01, TC-CO-10, TC-CO-19 to TC-CO-36, TC-CO-39 to TC-CO-41; interface widths of 8, 16, 32 and 64 bits |
+| CO-IF-03, CO-IF-04 | TC-CO-37 (no error in all other test cases) |
+| CO-HD-01 to CO-HD-07 | TC-CO-01 to TC-CO-24, TC-CO-35, TC-CO-36 |
+| CO-PK-01 to CO-PK-03 | all (two images per test), TC-CO-39 to TC-CO-41, TC-CO-43 (ten images per test) |
+| CO-TP-01 | TC-CO-25 to TC-CO-28, TC-CO-39 |
+| CO-RS-01 | TC-CO-37, TC-CO-38 |

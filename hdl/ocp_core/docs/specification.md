@@ -16,6 +16,7 @@ the standard set by generics and outputs every compressed image as a stream of w
 | CO-IF-01 | The core shall take the samples of an image in the input order (BI or BSQ) on a valid / ready stream of D-bit samples and, with periodic error limit updating, the error limit values on a valid / ready stream of 16-bit values. | 5.4.2 |
 | CO-IF-02 | The core shall output every compressed image as a valid / ready stream of words of `OutWidth_g` bits (8, 16, 32 or 64), first byte of the compressed image in the most significant bits of the first word, with a marker on the last word of the image and its valid bytes. | 5.2.1 |
 | CO-IF-03 | The core shall signal corrected single and detected double memory errors of all its memories on `Ecc_Sec` and `Ecc_Ded`. | none |
+| CO-IF-04 | The core shall inject a single or a double bit error into the next word written into the memory selected by `ErrInj_Channel` (channels 0 to 13). | none |
 
 ### 2.2 Header generator (CO-1)
 
@@ -37,6 +38,12 @@ the standard set by generics and outputs every compressed image as a stream of w
 | CO-PK-02 | After the last codeword of the body, fill bits (zeros) shall be appended up to the next output word boundary so that the size of the compressed image is a multiple of the output word size B, from 1 to 8 bytes. | 5.2.2, 5.4.3.2.4.4, 5.4.3.3.5.4.5, 5.4.3.4.3.2 |
 | CO-PK-03 | Images shall be compressed one after the other; every image shall start with the initial state of the standard and with its own header. | 5.2.1 |
 | CO-TP-01 | The bit packer shall take one codeword (or header part) per clock cycle while the compressed image needs on average at most `OutWidth_g` bits per clock cycle, so that the core takes the samples of consecutive images in the cycles of the predictor. | none |
+
+### 2.4 Reset
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| CO-RS-01 | A reset at any time shall abort the image in progress; the core shall compress the next image from the initial state of the standard, without initialisation of its memories. | none |
 
 ## 3. Configuration parameters
 

@@ -71,6 +71,7 @@ with periodic error limit updating, the error limit values at the start of every
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | PR-FT-01 | Sample representatives, local differences, weights and band-dependent periodic error limits shall be stored in memories with SECDED ECC; corrected single and detected double errors shall be signalled on `Ecc_Sec` and `Ecc_Ded`. | none |
+| PR-FT-02 | The predictor shall inject a single or a double bit error into the next word written into its memory selected by `ErrInj_Channel` (channels 0 to 11). | none |
 
 ## 3. Configuration parameters
 

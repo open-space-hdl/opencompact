@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="52" height="20" role="img" aria-label="TRL 2">
-  <title>Technology readiness level 2: in development, first modules simulated</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="52" height="20" role="img" aria-label="TRL 3">
+  <title>Technology readiness level 3: fully verified by simulation</title>
   <clipPath id="r">
     <rect width="52" height="20" rx="3" fill="#fff"/>
   </clipPath>
@@ -9,6 +9,6 @@
   </g>
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
     <text x="16.5" y="14">TRL</text>
-    <text x="42.5" y="14">2</text>
+    <text x="42.5" y="14">3</text>
   </g>
 </svg>

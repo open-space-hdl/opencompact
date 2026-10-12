@@ -182,7 +182,8 @@ header and the codewords to the compressed image, adds the fill bits after the l
 ### Clock and reset
 
 All blocks run in `Clk`. The reset input `Rst` is synchronous and high-active (Open Logic convention); the integrator
-synchronises it to `Clk`, for example with `olo_ft_reset_gen`.
+synchronises it to `Clk`, for example with `olo_ft_reset_gen`. A reset at any time returns every block to the state
+before the first image. The memories are not reset: every word is written in an image before the image reads it.
 
 ### Internal interfaces
 
@@ -258,6 +259,8 @@ built from and the clauses it owns (P1: no clause is owned twice).
 | `olo_ft_ram_sdp` | PR-1, PR-2, PR-3, EC-1, EC-2 | Simple dual-port memories with SECDED ECC: sample representatives, central local differences, weights, error limits, stride buffers, coder statistics |
 | `olo_ft_fifo_sync` | PR-1, EC-1, EC-2, EC-3 | FIFOs with SECDED ECC: output of the predictor, codeword buffers of the entropy coders |
 | `olo_base_pl_stage` | PR-1 | Register stage at the output of the predictor |
+| `olo_ft_pkg_ecc` | PR-1, EC-1, EC-2, EC-3 | Codeword width of the SECDED memories for the error injection patterns |
+| `olo_base_pkg_attribute` | EC-3 | Synthesis attributes that keep the block buffers in registers |
 | `olo_base_pkg_math` | all | `log2ceil` for the widths of addresses and counters |
 
 ### Gaps in Open Logic
@@ -278,7 +281,11 @@ section 10 is checked by `tools/compliance.py`.
 | Level | Scope | Bench | Checks |
 | --- | --- | --- | --- |
 | Unit | Predictor | `ocp_predictor_tb`: test image of a configuration in input order, periodic error limits | Entropy coder input sequence (values, kinds, bands, flags) against the reference model; cycles of the input (and in stride order of the output) against the throughput model |
+| Unit | Entropy coders | `ocp_entropy_coder_tb`: entropy coder input sequence of the reference model, optional back pressure | Codewords joined into a bit stream against the body of the compressed image of the CNES reference software, including the tail and the fill bits |
+| Unit | Bit packer | `ocp_bit_packer_tb`: random codewords of random images, interface widths of 8 to 64 bits, optional back pressure | Every output word, the valid bytes and the end-of-image marker against a model of the packing |
 | Core | Header, predictor, entropy coders and bit packer | `ocp_core_tb`: two images in sequence, interface widths of 8 to 64 bits, optional back pressure | Compressed images byte by byte, including the end-of-image marker and the valid bytes, against the CNES reference software; for the throughput configurations the cycles of the input of both images against the throughput model |
+| Core | Error injection | `ocp_core_tb` (`test_ecc`): a single and a double bit error into every memory of a configuration through `ErrInj_Channel` | A single error is corrected and flagged, the compressed image is unchanged; a double error is flagged |
+| Core | Reset | `ocp_core_tb` (`test_reset`): resets at random times of an image | The image after every reset equals the CNES reference |
 
 ### Reference data
 
@@ -294,6 +301,13 @@ section 10 is checked by `tools/compliance.py`.
   the entropy coder input sequence for the unit testbench of the predictor.
 - The test images are synthetic and deterministic: scenes of three materials with smooth spectra, edges and noise,
   push-broom stripes, flat low-entropy images and uncorrelated noise.
+- Random configurations (`random_config` of `tools/ocp_configs.py`) draw every parameter of the standard in its range;
+  their golden data comes from the CNES reference software like that of the other configurations.
+- `tools/ocp_testvectors.py` selects test vectors of the CCSDS test data set that cover every parameter value of the
+  set and converts them into the format of `tb/golden/` (test image in input order, compressed image, error limit
+  values, entropy coder input sequence of the reference model). The data set is not part of the repository; with the
+  environment variable `OCP_TESTVECTORS` the testbenches of the predictor, the entropy coders and the core also run
+  the selected vectors.
 
 ### Configurations
 
@@ -326,12 +340,20 @@ cover all options of the standard:
 | c22_single_pixel_hybrid | Image of one pixel per band: uncoded samples only, hybrid coder tail with the initial accumulators |
 | c23_extreme_weights | D = 3, Omega = 19, vmin = vmax = -6, weight exponent offsets -6: weight increments beyond the weight range |
 | c24_reduced_p0 | Reduced prediction with P = 0 (no weights), block-adaptive coder with J = 8 |
-| c25_hp_bsq_lossless | Throughput: BSQ, lossless, reduced prediction with P = 3, narrow local sums, D = 16, Omega = 19, R = 48: speculative weight loop |
-| c26_hp_bil_near_abs | Throughput: BIL, absolute error limit with sample representatives, reduced prediction with P = 3, narrow column-oriented local sums, hybrid coder: speculative weight loop |
-| c27_hp_bip_full | Throughput: BIP with 24 bands, full prediction with P = 3, block-adaptive coder |
-| c28_hp_bsq_near_abs | Throughput: BSQ, absolute error limit, reduced prediction with P = 2, narrow neighbour-oriented local sums: speculative weight loop |
-| c29_hp_bip_near_stride | Throughput: BIP with 40 bands, absolute error limit with sample representatives, full prediction with P = 3: stride order |
-| c30_hp_bip_both_stride | Throughput: BIP with 48 bands, absolute and relative error limits, reduced prediction with P = 2, narrow column-oriented local sums, hybrid coder: stride order |
+| c25_tp_bsq_lossless | Throughput: BSQ, lossless, reduced prediction with P = 3, narrow local sums, D = 16, Omega = 19, R = 48: speculative weight loop |
+| c26_tp_bil_near_abs | Throughput: BIL, absolute error limit with sample representatives, reduced prediction with P = 3, narrow column-oriented local sums, hybrid coder: speculative weight loop |
+| c27_tp_bip_full | Throughput: BIP with 24 bands, full prediction with P = 3, block-adaptive coder |
+| c28_tp_bsq_near_abs | Throughput: BSQ, absolute error limit, reduced prediction with P = 2, narrow neighbour-oriented local sums: speculative weight loop |
+| c29_tp_bip_near_stride | Throughput: BIP with 40 bands, absolute error limit with sample representatives, full prediction with P = 3: stride order |
+| c30_tp_bip_both_stride | Throughput: BIP with 48 bands, absolute and relative error limits, reduced prediction with P = 2, narrow column-oriented local sums, hybrid coder: stride order |
+| c31_small_bi_periodic_abs | Small image for the error injection and reset tests: BI with M = 2, periodic updating of band-dependent absolute error limits, sample-adaptive coder |
+| c32_small_bip_periodic_rel | Small image: BIP, periodic updating of band-dependent relative error limits, reduced prediction, hybrid coder |
+| c33_small_bip_stride_block | Small image: BIP, absolute error limit with sample representatives (stride order), block-adaptive coder |
+| c34_small_bsq_lossless | Small image: BSQ, lossless, sample-adaptive coder |
+| c35_small_bil_periodic_spec | BIL with periodic updating of band-dependent absolute error limits every row, reduced prediction with narrow neighbour-oriented local sums: error limit values in the speculative weight loop |
+| c36_block_j64_spikes | Block-adaptive coder with J = 64 on constant bands with spikes: two fundamental sequence codewords that do not fit into one codeword together, a run of all-zeros blocks before the last block |
+| c37_block_d32_custom | Block-adaptive coder with D = 32 on noise: split-sample options with k >= 25 (fewer than four sets of split bits per codeword); custom weight initialization with Q = Omega + 3 |
+| r01_random to r24_random | Random configurations: every parameter drawn in the range of the standard (image size, D, orders, prediction, error limits, sample representatives, weights, tables, coders) |
 
 ### Framework
 
@@ -385,5 +407,7 @@ module specifications and the verification plans, lists the requirements and tes
 3. Entropy coders (EC-1 to EC-3), header generator and bit packer (CO-1 to CO-3) with the core testbench against the
    CNES reference software.
 4. Demonstrator: all configurations of section 9 bit-exact, synthesizability check, first performance estimates.
-5. Verification closure: unit testbenches of the entropy coders, error injection into the memories, code coverage,
-   then pipelining of the predictor towards one sample per cycle.
+5. Throughput: pipelining of the predictor and the entropy coders towards one sample per clock cycle.
+6. Verification closure: unit testbenches of the entropy coders and the bit packer, error injection into every
+   memory, resets at random times, random configurations and the CCSDS test data set, code coverage.
+7. Hardware: synthesis with timing closure on a target FPGA and a hardware test.

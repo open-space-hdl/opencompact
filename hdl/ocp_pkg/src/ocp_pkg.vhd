@@ -78,6 +78,10 @@ package ocp_pkg is
     function toSl (b : boolean) return std_logic;
     function toInt (b : boolean) return natural;
 
+    -- Bit flip pattern of the error injection into a SECDED codeword of the given width: bit 0
+    -- (corrected single error) or bits 0 and 1 (detected double error)
+    function injPattern (width : positive; double : std_logic) return std_logic_vector;
+
     -- Low-entropy codes of the hybrid entropy coder: input symbol limits and thresholds (CCSDS table 5-16)
     type LeNatArray_t is array (0 to 15) of natural;
 
@@ -210,6 +214,16 @@ package body ocp_pkg is
             return 1;
         end if;
         return 0;
+    end function;
+
+    function injPattern (width : positive; double : std_logic) return std_logic_vector is
+        variable P_v : std_logic_vector(width - 1 downto 0) := (others => '0');
+    begin
+        P_v(0) := '1';
+        if double = '1' and width > 1 then
+            P_v(1) := '1';
+        end if;
+        return P_v;
     end function;
 
 end package body;

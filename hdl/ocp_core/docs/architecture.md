@@ -49,3 +49,4 @@ bits per clock cycle.
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in | Error limit values (periodic updating) |
 | `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out | Compressed image, words of `OutWidth_g` bits, first byte in the most significant bits; valid bytes of the last word of an image |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events of the predictor and the entropy coder |
+| `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | Error injection: channels 0 to 11 go to the predictor, channel 12 to the statistics memory and channel 13 to the codeword buffer of the entropy coder |

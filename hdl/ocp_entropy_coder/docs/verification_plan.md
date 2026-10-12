@@ -2,15 +2,29 @@
 
 ## 1. Overview
 
-The entropy coders are verified in `ocp_core` (G integration level): the core compresses the test image of every
-configuration and its output is compared byte by byte with the compressed image of the CNES reference software. A
-codeword error of a coder changes the compressed image, so every configuration checks the coder it selects completely,
-including the tail and the fill bits. Unit testbenches of the coders against codeword sequences of the reference model
-are an open item of the roadmap.
+The unit testbench `ocp_entropy_coder_tb` drives the entropy coder input sequence of the reference model
+(`tb/golden/<configuration>/delta.txt`: mapped quantizer indices with band, t = 0 and t = 1 flags, and the error limit
+values of periodic updating) into the coder of a configuration, joins the codewords into a bit stream and compares it
+byte by byte with the body of the image compressed by the CNES reference software, including the tail and the fill
+bits. It runs every configuration of `tools/ocp_configs.py` (the 37 configurations and the 24 random configurations),
+two images in a row, every second configuration with 20 % source gaps and 50 % sink stalls.
+
+The coders are also verified in `ocp_core` (G integration level): the core compresses the test image of every
+configuration and its output is compared byte by byte with the compressed image of the CNES reference software; the
+error injection into the statistics memories and the codeword buffers runs there (`test_ecc`).
 
 ## 2. Test cases
 
-The test cases are those of the [verification plan of ocp_core](../../ocp_core/docs/verification_plan.md).
+| Test ID | Description | Requirements |
+| --- | --- | --- |
+| `test_golden` sample-adaptive configurations of ocp_entropy_coder_tb (TC-EC-01) | Sample-adaptive coder on the input sequences of all configurations with this coder | EC-IF-01, EC-IF-02, EC-SA-01, EC-SA-02, EC-SA-03 |
+| `test_golden` hybrid configurations of ocp_entropy_coder_tb (TC-EC-02) | Hybrid coder on the input sequences of all configurations with this coder, including the tail | EC-IF-01, EC-IF-02, EC-HY-01, EC-HY-02, EC-HY-03, EC-HY-04 |
+| `test_golden` block-adaptive configurations of ocp_entropy_coder_tb (TC-EC-03) | Block-adaptive coder on the input sequences of all configurations with this coder | EC-IF-01, EC-BA-01, EC-BA-02, EC-BA-03 |
+| `test_golden` configurations of ocp_entropy_coder_tb with back pressure (TC-EC-04) | Every second configuration with source gaps and sink stalls | EC-IF-01, EC-TP-01 |
+| `test_golden` c20_hybrid_d28_stall, c30_tp_bip_both_stride_stall (TC-EC-05) | Hybrid coder with 90 % sink stalls: the codeword FIFO fills during the samples (high-entropy codes with D = 28) and during the tail (48 bands) | EC-IF-01, EC-HY-04, EC-TP-01 |
+
+The test cases of the [verification plan of ocp_core](../../ocp_core/docs/verification_plan.md) cover the coders as
+well:
 
 | Test cases | Coder and options | Requirements |
 | --- | --- | --- |
@@ -22,10 +36,10 @@ The test cases are those of the [verification plan of ocp_core](../../ocp_core/d
 
 | Requirement | Test cases |
 | --- | --- |
-| EC-IF-01 | all core test cases |
+| EC-IF-01 | TC-EC-01 to TC-EC-05, all core test cases |
 | EC-IF-02 | TC-CO-10, TC-CO-19, TC-CO-21, TC-CO-34 |
 | EC-SA-01 to EC-SA-03 | TC-CO-01 to TC-CO-03, TC-CO-09, TC-CO-11, TC-CO-12, TC-CO-14, TC-CO-15, TC-CO-21, TC-CO-23, TC-CO-25, TC-CO-28, TC-CO-29, TC-CO-31 |
 | EC-HY-01 to EC-HY-04 | TC-CO-04, TC-CO-05, TC-CO-10, TC-CO-13, TC-CO-16, TC-CO-20, TC-CO-22, TC-CO-26, TC-CO-30, TC-CO-32, TC-CO-34 |
 | EC-BA-01 to EC-BA-03 | TC-CO-06 to TC-CO-08, TC-CO-17 to TC-CO-19, TC-CO-24, TC-CO-27, TC-CO-33 |
-| EC-TP-01 | TC-CO-25 to TC-CO-28 (one item per cycle over two images) |
-| EC-FT-01 | sample-adaptive and hybrid test cases (no error; error injection is an open item) |
+| EC-TP-01 | TC-CO-25 to TC-CO-28 (one item per cycle over two images), TC-EC-04, TC-EC-05 |
+| EC-FT-01, EC-FT-02 | TC-CO-37 (error injection into the statistics memory and the codeword buffer) |

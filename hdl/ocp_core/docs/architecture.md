@@ -2,14 +2,9 @@
 
 ## 1. Structure
 
-```text
-          +-----------+
-          | ocp_header| --- header in parts of up to 64 bits ---+
-          +-----------+                                          v
-In  --> ocp_predictor --> ocp_<selected>_coder --> codewords --> mux --> ocp_bit_packer --> Out (OutWidth_g bits)
-Lim -->      | Img_Start                                         ^
-             +----------> image sequencer: header, then body ----+
-```
+![Block diagram of ocp_core: ocp_predictor, the entropy coder selected by EntropyCoder_g, the source multiplexer, the
+bit packer, the header generator, the image sequencer (CO-3), the OR of the memory error events and the error
+injection](img/ocp_core_arch.drawio.svg)
 
 The predictor signals with `Img_Start` that it has accepted the first item of an image. The image sequencer counts
 the images accepted at the input and not yet given a header; it starts the header of the next image once the bit

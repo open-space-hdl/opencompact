@@ -12,6 +12,10 @@ without an item; an error flag of a memory counts only in a cycle in which an it
 the stage that uses the data, the handshake at the output of the FIFO), so that an upset of a word that is not used
 does not raise an alarm.
 
+![Block diagram of ocp_predictor: the pipeline stages from the issue stage to the sample representative, the
+memories with their read and write paths, the speculative weight loop, the output buffer of the stride order, the
+output FIFO and the register stage](img/ocp_predictor_arch.drawio.svg)
+
 | Stage | Function | CCSDS |
 | --- | --- | --- |
 | 0 issue | Next item of the input order (error limit value or sample); dependency check against the issued samples; read addresses of the memories | 4.8.2.4, 5.4.2 |

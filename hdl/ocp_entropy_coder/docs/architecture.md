@@ -22,6 +22,9 @@ of the memory count only when an item (or the tail of the hybrid coder) takes th
 
 ## 2. Sample-adaptive coder (`ocp_sample_adaptive_coder`)
 
+![Block diagram of ocp_sample_adaptive_coder: issue, statistics, code selection and codeword stages, the statistics
+memory with forwarding from the items ahead, and the codeword buffer](img/ocp_sample_adaptive_coder_arch.drawio.svg)
+
 | Stage | Function | CCSDS |
 | --- | --- | --- |
 | 0 | Accept an item, read the statistics of its band | |
@@ -35,6 +38,10 @@ The statistics memory holds per band the accumulator (D + gamma\* + 2 bits) and 
 initial accumulators are a constant table of the generics.
 
 ## 3. Hybrid coder (`ocp_hybrid_coder`)
+
+![Block diagram of ocp_hybrid_coder: issue, statistics, coding method, main codeword, low-entropy and codeword
+stages, the statistics memory, the low-entropy code tables, the tail, the output multiplexer and the codeword
+buffer](img/ocp_hybrid_coder_arch.drawio.svg)
 
 | Stage | Function | CCSDS |
 | --- | --- | --- |
@@ -63,6 +70,9 @@ final '1' bit together with the last accumulator. The next image enters only aft
 return to the null prefix.
 
 ## 4. Block-adaptive coder (`ocp_block_adaptive_coder`)
+
+![Block diagram of ocp_block_adaptive_coder: collection, selection, zero-block runs and output, the three block
+buffers and the codeword buffer](img/ocp_block_adaptive_coder_arch.drawio.svg)
 
 | Part | Function | Reference |
 | --- | --- | --- |

@@ -142,17 +142,9 @@ Three properties of the standard shape the architecture more than any single fea
 
 ## 6 Architecture overview
 
-```text
-                 +------------------------------------------------------------------------------+
-                 |                    CO-1 header generator --+                                 |
-                 |                                            v                                 |
- In  (samples) ->| PR-1 sequencer --> PR-2..PR-6 predictor --> EC-1 | EC-2 | EC-3 --> CO-2 bit -->|-> Out (words)
- Lim (limits)  ->|   input order       quantizer, mapper      entropy coder        packer       |
-                 |                                                                  CO-3        |
-                 |   FT memories: sample representatives, local differences, weights,           |
-                 |   error limits, coder statistics ----------------------------------------->  |-> Ecc_Sec, Ecc_Ded
-                 +------------------------------------------------------------------------------+
-```
+![OpenCompact architecture overview: the predictor (PR-1 to PR-6) with its feedback of sample representatives,
+local differences and weights, the output FIFO, the entropy coder selected by EntropyCoder_g (EC-1, EC-2 or EC-3),
+the header generator (CO-1), the bit packer (CO-2) and the image sequencer (CO-3)](img/ocp_core_overview.drawio.svg)
 
 The samples enter in the input order of the compressed image (BI with sub-frame interleaving depth M, or BSQ). The
 predictor is a pipeline: it reads the neighbours and the weights, predicts, quantizes, computes the sample

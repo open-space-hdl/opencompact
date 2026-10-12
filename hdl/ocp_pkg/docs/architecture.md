@@ -16,6 +16,9 @@ The low-entropy codes of annex B are prefix-free variable-to-variable codes. Eve
 machine: the states are the active prefixes (the proper prefixes of its input codewords, ordered by length; state 0
 is the null prefix), the inputs are the symbols 0 to L_i and the escape symbol X.
 
+![Entry of LeTrans_c: flush word of the resulting active prefix, flag of a complete input codeword, and either the
+length and the output codeword or the address of the next state and the next state](img/ocp_pkg_le_entry.drawio.svg)
+
 | Constant | Entries | Entry |
 | --- | --- | --- |
 | `LeTrans_c` | 3004 (one per state and symbol, rows of a power of two of entries) | bits 40 to 27: flush word of the resulting active prefix; bit 26: complete input codeword; bits 25 to 21: length of the output codeword; bits 20 to 0: output codeword (complete) or the address of the next state (bits 19 to 8) and the next state (bits 7 to 0) |

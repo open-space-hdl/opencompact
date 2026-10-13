@@ -24,10 +24,13 @@ tools implement the constant as a ROM.
 ## 3. Bit packer (`ocp_bit_packer`)
 
 The bit packer takes one codeword of up to 96 bits per clock cycle and outputs words of `OutWidth_g` bits (8, 16, 32
-or 64), the first bit of the image in the most significant bit. The codewords are written into a circular bit buffer
-(256 bits, 512 bits for 64-bit words with large output word sizes): the position of a codeword is the sum of the
-lengths before it, so the rotation of a codeword to its position and the write into the buffer take three pipeline
-stages without a feedback loop. A word leaves the buffer once all its bits are written.
+or 64). The codewords are written into a circular bit buffer (256 bits, 512 bits for 64-bit words with large output
+word sizes) in stream order, the first bit of the image at buffer position 0: the position of a codeword is the sum of
+the lengths before it, so the rotation of a codeword to its position and the write into the buffer take three
+pipeline stages without a feedback loop. A word leaves the buffer once all its bits are written. On the way out,
+buffer bits 8n to 8n + 7 of the word become byte n of the interface word (`Out_Data` bits 8n + 7 to 8n) with the first
+of them in the most significant bit, so the first byte of the image is in bits 7 to 0 (CO-IF-02). The reordering is
+wiring only.
 
 After the last codeword of an image (`In_Last`) the bit packer appends zero bits up to a multiple of B bytes
 (`OutputWordSize_g`, CCSDS 5.3.1.2), counted from the first bit of the image. The interface word that holds the end of
@@ -42,6 +45,6 @@ bits per clock cycle.
 | `Clk`, `Rst` | in | Clock, synchronous high-active reset |
 | `In_Valid`, `In_Ready`, `In_Data` | in | Samples (D bits) in the input order |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in | Error limit values (periodic updating) |
-| `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out | Compressed image, words of `OutWidth_g` bits, first byte in the most significant bits; valid bytes of the last word of an image |
+| `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out | Compressed image, words of `OutWidth_g` bits, byte n in bits 8n + 7 to 8n (first byte in bits 7 to 0); valid bytes of the last word of an image, contiguous from byte 0 |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events of the predictor and the entropy coder |
 | `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | Error injection: channels 0 to 11 go to the predictor, channel 12 to the statistics memory and channel 13 to the codeword buffer of the entropy coder |

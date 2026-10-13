@@ -6,11 +6,16 @@
 ---------------------------------------------------------------------------------------------------
 -- Description
 ---------------------------------------------------------------------------------------------------
--- Testbench of ocp_bit_packer: random codewords (lengths 0 to CwWidth_c bits) of random images
--- (1 to MaxCodewords_g codewords) are packed; the sink builds the expected bytes from the same
--- random sequence (same seeds), appends the fill bits up to a multiple of the output word size and
--- checks every interface word, its valid bytes (Out_Keep) and the last flag. Source gaps and sink
--- stalls are random; small images with sink stalls queue several image ends in the packer.
+-- Testbench of ocp_bit_packer.
+--
+-- * test_random: random codewords (lengths 0 to CwWidth_c bits) of random images (1 to
+--   MaxCodewords_g codewords) are packed; the sink builds the expected bytes from the same random
+--   sequence (same seeds), appends the fill bits up to a multiple of the output word size and checks
+--   every interface word, its valid bytes (Out_Keep) and the last flag. Source gaps and sink stalls
+--   are random; small images with sink stalls queue several image ends in the packer.
+-- * test_byte_order: one image of the numbered bytes 1, 2, 3, ... (2 OutWidth_g / 8 - 1 bytes) as
+--   8-bit codewords; byte n of every word must be in Out_Data(8n + 7 downto 8n) and the valid bytes
+--   of the last word contiguous from byte 0.
 --
 -- Documentation: hdl/ocp_core/docs/verification_plan.md
 
@@ -58,6 +63,11 @@ architecture sim of ocp_bit_packer_tb is
     constant ClkPeriod_c : time     := 10 ns;
     constant Bytes_c     : positive := OutWidth_g / 8;
     constant MaxBytes_c  : positive := (MaxCodewords_g * CwWidth_c) / 8 + 2 * OutputWordSize_g;
+    -- test_byte_order: numbered bytes of the image, and with the fill bytes up to a multiple of the
+    -- output word size
+    constant OrdBytes_c  : positive := 2 * Bytes_c - 1;
+    constant OrdTotal_c  : positive := OrdBytes_c + (OutputWordSize_g - OrdBytes_c mod OutputWordSize_g) mod
+                                       OutputWordSize_g;
 
     signal Clk       : std_logic                                   := '0';
     signal Rst       : std_logic                                   := '1';
@@ -72,7 +82,8 @@ architecture sim of ocp_bit_packer_tb is
     signal Out_Keep  : std_logic_vector(Bytes_c - 1 downto 0);
     signal Out_Last  : std_logic;
 
-    signal SinkDone : boolean := false;
+    signal SinkDone  : boolean := false;
+    signal ByteOrder : boolean := false;
 
     -- Random codeword sequence: the same seeds in the source and in the sink give the same sequence
     type Rng_t is record
@@ -152,11 +163,12 @@ begin
         disable_log_msg(ID_POS_ACK);
 
         while test_suite loop
-            if run("test_random") then
-                Rst <= '1';
+            if run("test_random") or run("test_byte_order") then
+                ByteOrder <= running_test_case = "test_byte_order";
+                Rst       <= '1';
                 wait for 5 * ClkPeriod_c;
                 wait until rising_edge(Clk);
-                Rst <= '0';
+                Rst       <= '0';
                 wait until SinkDone;
 
                 for i in 0 to 99 loop
@@ -170,7 +182,7 @@ begin
         ocpTestEnd(runner);
     end process;
 
-    -- Random images of random codewords
+    -- Random images of random codewords, or the image of numbered bytes (test_byte_order)
     p_source : process is
         variable Rng_v  : Rng_t := (Seed_g, 7);
         variable N_v    : integer;
@@ -178,6 +190,21 @@ begin
         variable Len_v  : natural;
     begin
         wait until Rst = '0';
+
+        if ByteOrder then
+
+            -- Codeword i: the byte i as 8 bits, most significant bit first
+            for i in 1 to OrdBytes_c loop
+                In_Valid  <= '1';
+                In_Data   <= std_logic_vector(to_unsigned(i, CwWidth_c));
+                In_Length <= std_logic_vector(to_unsigned(8, CwLenWidth_c));
+                In_Last   <= toSl(i = OrdBytes_c);
+                wait until rising_edge(Clk) and In_Ready = '1';
+                In_Valid  <= '0';
+            end loop;
+
+            wait;
+        end if;
 
         for img in 1 to Images_g loop
             randInt(Rng_v, 1, MaxCodewords_g, N_v);
@@ -202,32 +229,51 @@ begin
         wait;
     end process;
 
-    -- Expected bytes of every image from the same random sequence, checked word by word
+    -- Expected bytes of every image from the same random sequence (or the numbered bytes), checked
+    -- word by word: byte n of a word in Out_Data(8n + 7 downto 8n)
     p_sink : process is
         type ByteArr_t is array (0 to MaxBytes_c - 1) of natural range 0 to 255;
 
-        variable Rng_v   : Rng_t := (Seed_g, 7);
-        variable N_v     : integer;
-        variable Data_v  : std_logic_vector(CwWidth_c - 1 downto 0);
-        variable Len_v   : natural;
-        variable Exp_v   : ByteArr_t;
-        variable NExp_v  : natural;
-        variable Acc_v   : natural;
-        variable NAcc_v  : natural;
-        variable Bits_v  : natural;
-        variable Pos_v   : natural;
-        variable Hi_v    : natural;
-        variable Valid_v : natural;
+        variable Rng_v    : Rng_t := (Seed_g, 7);
+        variable N_v      : integer;
+        variable Data_v   : std_logic_vector(CwWidth_c - 1 downto 0);
+        variable Len_v    : natural;
+        variable Exp_v    : ByteArr_t;
+        variable NExp_v   : natural;
+        variable Acc_v    : natural;
+        variable NAcc_v   : natural;
+        variable Bits_v   : natural;
+        variable Pos_v    : natural;
+        variable Valid_v  : natural;
+        variable Images_v : positive;
     begin
         wait until Rst = '0';
+        Images_v := Images_g;
+        if ByteOrder then
+            Images_v := 1;
+        end if;
 
-        for img in 1 to Images_g loop
+        for img in 1 to Images_v loop
             -- Expected bytes: codewords most significant bit first, then fill bits
             NExp_v := 0;
             Acc_v  := 0;
             NAcc_v := 0;
             Bits_v := 0;
-            randInt(Rng_v, 1, MaxCodewords_g, N_v);
+            N_v    := 0;
+            if ByteOrder then
+
+                -- Numbered bytes 1, 2, 3, ..., then the fill bytes
+                for i in 0 to OrdTotal_c - 1 loop
+                    Exp_v(i) := 0;
+                    if i < OrdBytes_c then
+                        Exp_v(i) := i + 1;
+                    end if;
+                end loop;
+
+                NExp_v := OrdTotal_c;
+            else
+                randInt(Rng_v, 1, MaxCodewords_g, N_v);
+            end if;
 
             for i in 1 to N_v loop
                 randCodeword(Rng_v, i = 1, Data_v, Len_v);
@@ -274,12 +320,16 @@ begin
 
                 Valid_v := minimum(Bytes_c, NExp_v - Pos_v);
 
+                if ByteOrder then
+                    log(ID_SEQUENCER, "Out_Data x""" & to_hstring(Out_Data) & """, Out_Keep """ &
+                                      to_string(Out_Keep) & """");
+                end if;
+
                 for b in 0 to Bytes_c - 1 loop
-                    Hi_v := OutWidth_g - 1 - 8 * b;
-                    check_value(Out_Keep(Bytes_c - 1 - b), toSl(b < Valid_v), ERROR,
+                    check_value(Out_Keep(b), toSl(b < Valid_v), ERROR,
                                 "image " & to_string(img) & " byte " & to_string(Pos_v + b) & ": keep");
                     if b < Valid_v then
-                        check_value(to_integer(unsigned(Out_Data(Hi_v downto Hi_v - 7))), Exp_v(Pos_v + b), ERROR,
+                        check_value(to_integer(unsigned(Out_Data(8 * b + 7 downto 8 * b))), Exp_v(Pos_v + b), ERROR,
                                     "image " & to_string(img) & " byte " & to_string(Pos_v + b));
                     end if;
                 end loop;
@@ -291,7 +341,7 @@ begin
 
         end loop;
 
-        log(ID_SEQUENCER, to_string(Images_g) & " images checked");
+        log(ID_SEQUENCER, to_string(Images_v) & " images checked");
         SinkDone <= true;
         wait;
     end process;

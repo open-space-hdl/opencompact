@@ -7,10 +7,11 @@
 -- Description
 ---------------------------------------------------------------------------------------------------
 -- Bit packer: appends codewords of up to CwWidth_c bits, one per clock cycle, to the compressed
--- image and outputs it in words of OutWidth_g bits, first bit in the most significant bit. After the
--- last codeword of an image it appends fill bits up to a multiple of the output word size of the
--- standard (CCSDS 123.0-B-2 5.3.1.2, OutputWordSize_g bytes); the last interface word of an image
--- marks its valid bytes with Out_Keep, and the next image starts with a new interface word.
+-- image and outputs it in words of OutWidth_g bits, the first byte in bits 7:0 and the first bit of
+-- every byte in its most significant bit (CCSDS 123.0-B-2 1.6.3). After the last codeword of an image
+-- it appends fill bits up to a multiple of the output word size of the standard (CCSDS 123.0-B-2
+-- 5.3.1.2, OutputWordSize_g bytes); the last interface word of an image marks its valid bytes with
+-- Out_Keep, and the next image starts with a new interface word.
 --
 -- The codewords are written into a circular bit buffer. The position of a codeword only depends on
 -- the lengths of the codewords before it, so its alignment to the position is pipelined.
@@ -47,7 +48,8 @@ entity ocp_bit_packer is
         In_Data   : in    std_logic_vector(CwWidth_c - 1 downto 0);
         In_Length : in    std_logic_vector(CwLenWidth_c - 1 downto 0);
         In_Last   : in    std_logic;
-        -- Compressed image: first bit in the most significant bit
+        -- Compressed image: byte n in Out_Data(8n + 7 downto 8n), first bit of a byte in its most
+        -- significant bit; Out_Keep(n) marks byte n valid
         Out_Valid : out   std_logic;
         Out_Ready : in    std_logic;
         Out_Data  : out   std_logic_vector(OutWidth_g - 1 downto 0);
@@ -118,6 +120,23 @@ architecture rtl of ocp_bit_packer is
 
         for i in 0 to x'length - 1 loop
             R_v(i) := x(x'low + x'length - 1 - i);
+        end loop;
+
+        return R_v;
+    end function;
+
+    -- Interface word from a buffer word in stream order: byte n holds the stream bits 8n to 8n + 7,
+    -- the first of them in its most significant bit
+    function toBytes (x : std_logic_vector) return std_logic_vector is
+        variable R_v : std_logic_vector(x'length - 1 downto 0);
+    begin
+
+        for n in 0 to x'length / 8 - 1 loop
+
+            for i in 0 to 7 loop
+                R_v(8 * n + 7 - i) := x(x'low + 8 * n + i);
+            end loop;
+
         end loop;
 
         return R_v;
@@ -236,7 +255,7 @@ begin
 
             for w in 0 to Words_c - 1 loop
                 if w = Word_v then
-                    Data_v := reverse(r.Buf((w + 1) * OW_c - 1 downto w * OW_c));
+                    Data_v := toBytes(r.Buf((w + 1) * OW_c - 1 downto w * OW_c));
                 end if;
             end loop;
 
@@ -246,9 +265,9 @@ begin
                     Bytes_v := to_integer(Rest_v) / 8;
 
                     for b in 0 to OW_c / 8 - 1 loop
-                        v.OutKeep(OW_c / 8 - 1 - b) := toSl(b < Bytes_v);
+                        v.OutKeep(b) := toSl(b < Bytes_v);
                         if b >= Bytes_v then
-                            Data_v(OW_c - 1 - 8 * b downto OW_c - 8 - 8 * b) := (others => '0');
+                            Data_v(8 * b + 7 downto 8 * b) := (others => '0');
                         end if;
                     end loop;
 

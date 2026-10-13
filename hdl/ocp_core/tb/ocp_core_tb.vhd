@@ -523,14 +523,15 @@ begin
 
     end process;
 
-    -- Compressed image of the CNES reference software: the valid bytes of every word, first byte in
-    -- the most significant bits; the last word of an image carries the last flag. A job without
-    -- comparison only waits for the last word of every image.
+    -- Compressed image of the CNES reference software: the valid bytes of every word, byte n in
+    -- Out_Data(8n + 7 downto 8n) (first byte in bits 7:0), valid bytes contiguous from byte 0 and
+    -- all bytes valid except in the last word of an image, which carries the last flag. A job
+    -- without comparison only waits for the last word of every image.
     p_sink : process is
         variable Exp_v   : natural;
         variable Eof_v   : boolean;
         variable Cnt_v   : natural;
-        variable Hi_v    : natural;
+        variable Gap_v   : boolean;
         variable Abort_v : boolean;
 
         file Ref_f : ByteFile_t;
@@ -559,14 +560,23 @@ begin
 
                 if JobCompare then
 
+                    Gap_v := false;
+
                     for b in 0 to OutWidth_g / 8 - 1 loop
-                        Hi_v := OutWidth_g - 1 - 8 * b;
-                        if Out_Keep(OutWidth_g / 8 - 1 - b) = '1' then
+                        if Out_Keep(b) = '1' then
+                            check_value(not Gap_v, ERROR,
+                                        "image " & to_string(img) & " byte " & to_string(Cnt_v) &
+                                        ": valid bytes contiguous from byte 0");
                             check_value(not Eof_v, ERROR, "image " & to_string(img) & ": no byte beyond the end");
-                            check_value(to_integer(unsigned(Out_Data(Hi_v downto Hi_v - 7))), Exp_v, ERROR,
+                            check_value(to_integer(unsigned(Out_Data(8 * b + 7 downto 8 * b))), Exp_v, ERROR,
                                         "image " & to_string(img) & " byte " & to_string(Cnt_v));
                             Cnt_v := Cnt_v + 1;
                             readByte(Ref_f, Exp_v, Eof_v);
+                        else
+                            check_value(Out_Last, '1', ERROR,
+                                        "image " & to_string(img) & " byte " & to_string(Cnt_v) &
+                                        ": all bytes valid except in the last word");
+                            Gap_v := true;
                         end if;
                     end loop;
 

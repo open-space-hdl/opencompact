@@ -107,8 +107,8 @@ entity ocp_core is
         Lim_Valid      : in    std_logic                     := '0';
         Lim_Ready      : out   std_logic;
         Lim_Data       : in    std_logic_vector(15 downto 0) := (others => '0');
-        -- Compressed image: first byte in the most significant bits; the last word of an image marks its
-        -- valid bytes
+        -- Compressed image: byte n of a word in Out_Data(8n + 7 downto 8n), the first byte in bits 7:0;
+        -- the last word of an image marks its valid bytes, contiguous from byte 0
         Out_Valid      : out   std_logic;
         Out_Ready      : in    std_logic;
         Out_Data       : out   std_logic_vector(OutWidth_g - 1 downto 0);

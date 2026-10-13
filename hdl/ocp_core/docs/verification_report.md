@@ -2,10 +2,10 @@
 
 ## 1. Test results
 
-Run on 2026-10-12 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b):
+Run on 2026-10-13 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b):
 `python run.py "*ocp_core*" "*ocp_bit_packer*"`.
 The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code coverage is in
-[coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL on 2026-10-12
+[coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL on 2026-10-13
 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
@@ -14,13 +14,17 @@ The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code
 | `ocp_core_tb` `test_ecc` | 4 (every memory of the core) | 4 |
 | `ocp_core_tb` `test_reset` | 5 | 5 |
 | `ocp_bit_packer_tb` `test_random` | 30 | 30 |
+| `ocp_bit_packer_tb` `test_byte_order` | 5 | 5 |
 | `ocp_core_tb` `test_golden` with the CCSDS test data set | 300 (75 of them with back pressure) | 300 |
 
 ## 2. Summary
 
 Every compressed image equals the compressed image of the CNES reference software byte by byte, for two consecutive
 images per test (10 to 100 in the sequences), with and without back pressure, at interface widths of 8, 16, 32 and
-64 bits; the compressed images of the 300 vectors of the CCSDS test data set are reproduced as well. The
+64 bits; the compressed images of the 300 vectors of the CCSDS test data set are reproduced as well. Every word
+carries byte n in bits 8n + 7 to 8n, with the valid bytes of the last word contiguous from byte 0 and all bytes valid
+in the other words; the numbered bytes of TC-CO-45 show the order directly (32 bits: x"04030201", x"00070605" with
+`Out_Keep` "0111"). The
 configurations TC-CO-25 to TC-CO-28 take one sample per clock cycle over both images, including the header of the
 second image. A single bit error injected into any memory leaves the compressed image unchanged and is signalled on
 `Ecc_Sec`, a double bit error is signalled on `Ecc_Ded` (TC-CO-37); after every reset at a random time the next image

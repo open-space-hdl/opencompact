@@ -25,9 +25,9 @@ Closure rules:
 
 ## 2. Results
 
-Run on 2026-10-12: 239 tests (the testbenches of the predictor, the entropy coders, the bit packer and the core with
-all configurations of `tools/ocp_configs.py`), all passed in QuestaSim as in GHDL, 75 minutes with one simulator
-licence. Numbers are covered/total bins per file; bold marks a metric with misses.
+Run on 2026-10-13: 244 tests (the testbenches of the predictor, the entropy coders, the bit packer and the core with
+all configurations of `tools/ocp_configs.py`), all passed in QuestaSim as in GHDL. Numbers are covered/total bins per
+file; bold marks a metric with misses.
 
 | File | Statements | Branches | Conditions | Expressions | FSM States | FSM Transitions |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -38,9 +38,9 @@ licence. Numbers are covered/total bins per file; bold marks a metric with misse
 | `ocp_block_adaptive_coder.vhd` | **210 / 211 (99.5 %)** | **96 / 97 (99.0 %)** | **17 / 20 (85.0 %)** | 5 / 5 | | |
 | `ocp_cw_buffer.vhd` | 33 / 33 | 13 / 13 | 9 / 9 | 6 / 6 | | |
 | `ocp_header.vhd` | **161 / 167 (96.4 %)** | 60 / 60 | 2 / 2 | | | |
-| `ocp_bit_packer.vhd` | 97 / 97 | 31 / 31 | 2 / 2 | | | |
+| `ocp_bit_packer.vhd` | 105 / 105 | 31 / 31 | 2 / 2 | | | |
 | `ocp_core.vhd` | 22 / 22 | 24 / 24 | 10 / 10 | 6 / 6 | | |
-| Total | 1524 / 1546 (98.6 %) | 663 / 672 (98.7 %) | 147 / 172 (85.5 %) | 101 / 105 (96.2 %) | 3 / 3 (100.0 %) | 4 / 4 (100.0 %) |
+| Total | 1532 / 1554 (98.6 %) | 663 / 672 (98.7 %) | 147 / 172 (85.5 %) | 101 / 105 (96.2 %) | 3 / 3 (100.0 %) | 4 / 4 (100.0 %) |
 
 Every statement and branch that runs in simulation is covered except three items (the recovery branch of the tail
 state machine, the wait of the flush words of the tail and the saturation of a second extension symbol), and every

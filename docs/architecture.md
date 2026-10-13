@@ -170,11 +170,13 @@ header and the codewords to the compressed image, adds the fill bits after the l
 | D8 | The image ends with the last codeword: the bit packer adds the fill bits up to the output word boundary of the whole compressed image and marks the last interface word with its valid bytes; the header of the next image starts once its first sample is accepted | Consecutive compressed images on one stream, each self-delimiting by the end-of-image marker |
 | D9 | The low-entropy codes of the hybrid coder are state machines whose states are the active prefixes; their code and flush tables (CCSDS annex B) are ROM constants generated from the tables of the standard | Exact transcription of the 32 normative tables; one table lookup per low-entropy symbol |
 | D10 | Supplementary information tables are given as their encoded header bits (`SupTableData_g`) | Tables are data for the user of the image, not used by the compression |
+| D13 | Byte n of an interface word is in bits 8n + 7 to 8n, the first byte of the compressed image in bits 7 to 0; within a byte the first bit is the most significant bit; the valid bytes of the last word are contiguous from byte 0 | The standard fixes the bit order within a byte (CCSDS 1.6.3), not the place of a byte in a wider word. This order is the one of byte-addressed memory buses and of the Open Logic width converters, so the compressed image can be written into memory, converted in width or passed to a packet or encryption stage without reordering |
 
 ### Clock and reset
 
 All blocks run in `Clk`. The reset input `Rst` is synchronous and high-active (Open Logic convention); the integrator
-synchronises it to `Clk`, for example with `olo_ft_reset_gen`. A reset at any time returns every block to the state
+synchronises it to `Clk`, for example with `olo_base_reset_gen` (`SyncTmr_g` = true for a triplicated synchroniser).
+A reset at any time returns every block to the state
 before the first image. The memories are not reset: every word is written in an image before the image reads it.
 
 ### Internal interfaces
@@ -185,7 +187,7 @@ before the first image. The memories are not reset: every word is written in an 
 | Error limits | User to PR-1 | 16-bit error limit value | Valid / ready |
 | Entropy coder input | Predictor to EC-1, EC-2, EC-3 | Value (mapped quantizer index or error limit), kind, band, first sample of the band (t = 0), first coded sample (t = 1), last item of the image | Valid / ready |
 | Codewords | CO-1, EC-1, EC-2, EC-3 to CO-2 | Up to 96 bits, length, last codeword of the image | Valid / ready |
-| Compressed image | CO-2 to user | Word of 8, 16, 32 or 64 bits, valid bytes, last word of the image | Valid / ready |
+| Compressed image | CO-2 to user | Word of 8, 16, 32 or 64 bits, byte n in bits 8n + 7 to 8n (D13), valid bytes, last word of the image | Valid / ready |
 
 ### Performance
 

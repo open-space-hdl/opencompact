@@ -14,7 +14,7 @@ the standard set by generics and outputs every compressed image as a stream of w
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | CO-IF-01 | The core shall take the samples of an image in the input order (BI or BSQ) on a valid / ready stream of D-bit samples and, with periodic error limit updating, the error limit values on a valid / ready stream of 16-bit values. | 5.4.2 |
-| CO-IF-02 | The core shall output every compressed image as a valid / ready stream of words of `OutWidth_g` bits (8, 16, 32 or 64), first byte of the compressed image in the most significant bits of the first word, with a marker on the last word of the image and its valid bytes. | 5.2.1 |
+| CO-IF-02 | The core shall output every compressed image as a valid / ready stream of words of `OutWidth_g` bits (8, 16, 32 or 64) in which byte n of a word occupies bits 8n + 7 to 8n (the first byte of the compressed image in bits 7 to 0 of the first word) and the first bit of every byte is its most significant bit, with a marker on the last word of the image and its valid bytes, contiguous from byte 0. | 5.2.1 |
 | CO-IF-03 | The core shall signal corrected single and detected double memory errors of all its memories on `Ecc_Sec` and `Ecc_Ded`. | none |
 | CO-IF-04 | The core shall inject a single or a double bit error into the next word written into the memory selected by `ErrInj_Channel` (channels 0 to 13). | none |
 
@@ -61,7 +61,7 @@ predictor or the entropy coders use are described in their specifications. Gener
 | `DampingBandVarying_g`, `DampingTable_g`, `OffsetBandVarying_g`, `OffsetTable_g` | false | | Sample representative subpart flags |
 | `AccuInitTable_g` | false | | Accumulator initialisation table in the header |
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits |
-| `Speculation_g`, `Stride_g` | true | | Speculative weight loop and stride order of the predictor where they apply |
+| `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (PR-TP-02); the stride order of the predictor (PR-TP-03) is always used where it applies |
 
 ## 4. Interpretation of the standard
 
@@ -70,6 +70,7 @@ predictor or the entropy coders use are described in their specifications. Gener
 | 5.2.2 | The size of the compressed image (header and body) is a multiple of B; the header itself need not be (CCSDS 5.3.1.1 note 2). |
 | 5.3.3.3 | A table that is not included in the header (table flag false) is not output; the decompressor must know it (CCSDS 5.3.3.3.2.1 note). |
 | 2.4 | The end of a compressed image is the last byte marker of the output stream; the transport of the image to the decompressor is the task of the user. |
+| 1.6.3 | The standard numbers the bits of a word from the first transmitted bit, which is the most significant bit, and groups them into bytes; it does not define how bytes are placed in a wider interface word. The core keeps the bit order within every byte and places the bytes in increasing order of their position in the interface word: byte n in bits 8n + 7 to 8n. A byte stream written into memory over a byte-addressed bus, or converted to another width with the Open Logic width converters, then keeps the order of the compressed image. |
 
 ## 5. Integration constraints
 

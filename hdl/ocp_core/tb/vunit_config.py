@@ -15,7 +15,10 @@ ocp_core_tb:
 When the environment variable OCP_TESTVECTORS names a directory prepared by tools/ocp_testvectors.py, test_golden
 also runs one configuration per test vector of the CCSDS test data set (tv_<number>).
 
-ocp_bit_packer_tb: interface widths and output word sizes with random codewords.
+ocp_bit_packer_tb:
+
+- test_random: interface widths and output word sizes with random codewords
+- test_byte_order: the position of every byte in the interface word and the valid bytes of the last word
 """
 
 import json
@@ -87,13 +90,19 @@ def configure(lib):
     # Bit packer: interface widths and output word sizes; without back pressure, with back pressure and with small
     # images under sink stalls (several image ends queued in the packer)
     pk = lib.test_bench("ocp_bit_packer_tb")
+    rnd = pk.test("test_random")
     for n, (width, size) in enumerate([(8, 1), (8, 3), (16, 2), (16, 5), (32, 1), (32, 4), (32, 7), (64, 1),
                                        (64, 3), (64, 8)]):
         base = dict(OutWidth_g=width, OutputWordSize_g=size, Seed_g=n + 1)
-        pk.add_config(name="w{}_b{}".format(width, size), generics=base)
-        pk.add_config(name="w{}_b{}_bp".format(width, size), generics=dict(base, InGapPct_g=20, OutStallPct_g=50))
-        pk.add_config(name="w{}_b{}_small".format(width, size),
-                      generics=dict(base, Images_g=200, MaxCodewords_g=3, OutStallPct_g=80))
+        rnd.add_config(name="w{}_b{}".format(width, size), generics=base)
+        rnd.add_config(name="w{}_b{}_bp".format(width, size), generics=dict(base, InGapPct_g=20, OutStallPct_g=50))
+        rnd.add_config(name="w{}_b{}_small".format(width, size),
+                       generics=dict(base, Images_g=200, MaxCodewords_g=3, OutStallPct_g=80))
+
+    # Byte order: every interface width with a partial last word, and one with fill bytes in it
+    order = pk.test("test_byte_order")
+    for width, size in [(8, 1), (16, 1), (32, 1), (64, 1), (32, 3)]:
+        order.add_config(name="w{}_b{}".format(width, size), generics=dict(OutWidth_g=width, OutputWordSize_g=size))
 
     # Test vectors of the CCSDS test data set (every fourth with back pressure)
     tv_dir = os.environ.get("OCP_TESTVECTORS")

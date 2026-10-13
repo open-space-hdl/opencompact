@@ -89,8 +89,9 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | --- | --- | --- | --- |
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits (section 4) |
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 7) |
-| `Stride_g` | true | | Stride order of the predictor where it applies (section 7) |
 | `RamStyle_g` | "auto" | | Implementation of the memories (Open Logic) |
+
+The stride order of the predictor is used wherever it applies (section 7.1); it has no generic at the core level.
 
 The supplementary information tables are given as their encoded subpart: per table the 16 bits of table type, purpose,
 structure and user-defined data, then the Table Data subblock with its fill bits (5.3.2.3). The function
@@ -99,7 +100,8 @@ structure and user-defined data, then the Table Data subblock with its fill bits
 ## 3. Clock and reset
 
 The core has one clock `Clk`. `Rst` is synchronous and high-active and must last at least one clock cycle; the
-integrator synchronises it, for example with `olo_ft_reset_gen`. After the reset the core waits for the first sample
+integrator synchronises it, for example with `olo_base_reset_gen` (`SyncTmr_g` = true for a triplicated
+synchroniser). After the reset the core waits for the first sample
 of an image. A reset at any time aborts the image in progress (header, body or tail); the next image is compressed
 from the initial state of the standard. The memories need no initialisation: the core uses data read from a memory
 only after it has been written in the same image.
@@ -110,11 +112,23 @@ only after it has been written in the same image.
 | --- | --- | --- | --- |
 | `In_Valid`, `In_Ready`, `In_Data` | in, out, in | D | Samples, unsigned or two's complement, in the input order of the compressed image |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in, out, in | 16 | Error limit values for periodic updating (unused otherwise) |
-| `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out, in, out, out, out | `OutWidth_g`, `OutWidth_g` / 8 | Compressed image in words, first byte of the image in the most significant bits of the first word; `Out_Last` on the last word of an image, whose valid bytes `Out_Keep` marks (bit `OutWidth_g` / 8 - 1 for the most significant byte); all other words are complete |
+| `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out, in, out, out, out | `OutWidth_g`, `OutWidth_g` / 8 | Compressed image in words: byte n of a word in `Out_Data` bits 8n + 7 to 8n, so the first byte of the image is in bits 7 to 0 of the first word; `Out_Last` on the last word of an image, whose valid bytes `Out_Keep` marks (bit n for byte n, contiguous from bit 0); all other words are complete |
 | `Ecc_Sec`, `Ecc_Ded` | out | 1 | One-cycle pulses: corrected single error, detected double error in a memory |
 | `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | 4, 1, 1 | Error injection for tests: a pulse on `ErrInj_Valid` flips one bit (`ErrInj_Double` = '0') or two bits of the next word written into the memory of channel `ErrInj_Channel` (section 4.1); tie to '0' in operation |
 
 All streams use the AXI4-Stream handshake: a transfer takes place in a cycle with valid and ready high.
+
+The compressed image is a sequence of bytes; within a byte the first bit is the most significant bit (CCSDS 1.6.3).
+The bytes are placed in increasing order of their position in the word, the order of byte-addressed memory buses (AXI
+puts the byte at address offset n on bits 8n + 7 to 8n) and of the Open Logic width converters: a word written into
+memory keeps the byte order of the compressed image, and the 8-bit stream after `olo_base_wconv_xn2n` is the
+compressed image itself. Example with
+`OutWidth_g` = 32 and an image of the six bytes B0 to B5 (B = 1, 2, 3 or 6):
+
+| Word | `Out_Data` 31:24 | 23:16 | 15:8 | 7:0 | `Out_Keep` | `Out_Last` |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | B3 | B2 | B1 | B0 | "1111" | '0' |
+| 2 | - | - | B5 | B4 | "0011" | '1' |
 
 The input order (CCSDS 5.4.2) is:
 
@@ -191,7 +205,7 @@ configuration:
 | --- | --- | --- |
 | BI order with M at least the weight loop (7 to 11 cycles), lossless | Pipeline | 1 |
 | BSQ order or BI order with M = 1, at most three local differences (C <= 3); lossless, or absolute error limits with narrow local sums and reduced prediction | Speculative weight loop (`Speculation_g`) | 1 |
-| BI order with M = NZ, near-lossless with P > 0 or narrow local sums (no periodic updating) | Stride order (`Stride_g`) | 1 for NZ above about 33; NZ / 33 otherwise; plus about (NZ - 1) S cycles per image |
+| BI order with M = NZ, near-lossless with P > 0 or narrow local sums (no periodic updating) | Stride order | 1 for NZ above about 33; NZ / 33 otherwise; plus about (NZ - 1) S cycles per image |
 | BSQ order or BI order with small M otherwise | Pipeline | M / (loop length): 1/8 to 1/11 in lossless, about 1/33 in near-lossless compression |
 
 The entropy coders take one item per clock cycle. The bit packer outputs `OutWidth_g` bits per clock cycle: with

@@ -4,9 +4,9 @@
 
 Run on 2026-10-14 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b):
 `python run.py "*ocp_core*" "*ocp_bit_packer*"`.
-The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code coverage is in
-[coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL on 2026-10-14
-(`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3), with code coverage and in the optimised run
+without it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set
+ran in GHDL on 2026-10-14 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |

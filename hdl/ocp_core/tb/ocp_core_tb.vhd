@@ -17,6 +17,13 @@
 --   and after a reset the next image is correct
 -- * test_reset: resets at random times of an image (header, body, tail), each followed by a
 --   correct image
+-- * test_framing (UseInLast_g): images whose In_Last comes early (aborted: complete header, a
+--   prefix of the compressed image, fill bits, Out_Error) or is missing (complete image with
+--   Out_Error, the samples up to the next In_Last are discarded), between correct images and
+--   followed by resets at random times
+--
+-- With UseInLast_g the source sets In_Last on the last sample of every image; without it In_Last
+-- is random (ignored by the core).
 --
 -- Documentation: hdl/ocp_core/docs/verification_plan.md
 
@@ -58,6 +65,9 @@ entity ocp_core_tb is
         Resets_g               : natural  := 8;
         -- Width of the compressed image interface in bits
         OutWidth_g             : positive := 8;
+        -- Image framing with In_Last; size of the header in bytes (test_framing)
+        UseInLast_g            : boolean  := false;
+        HeaderBytes_g          : natural  := 0;
         -- Configuration
         XSize_g                : positive := 8;
         YSize_g                : positive := 8;
@@ -124,12 +134,53 @@ architecture sim of ocp_core_tb is
     constant ClkPeriod_c : time     := 10 ns;
     constant Bytes_c     : positive := 1 + toInt(DynamicRange_g > 8) + 2 * toInt(DynamicRange_g > 16);
     constant Periodic_c  : boolean  := PeriodicUpdate_g and Fidelity_g /= "LOSSLESS";
+    constant Samples_c   : positive := XSize_g * YSize_g * ZSize_g;
+
+    -- Framing of an image of a job: correct, In_Last early (on sample Pos), In_Last missing (Pos
+    -- further samples to discard, the last of them with In_Last)
+    constant Normal_c  : natural  := 0;
+    constant Early_c   : natural  := 1;
+    constant Missing_c : natural  := 2;
+    constant MaxPlan_c : positive := 16;
+
+    type Plan_r is record
+        Kind : natural;
+        Pos  : natural;
+    end record;
+
+    type Plan_t is array (1 to MaxPlan_c) of Plan_r;
+
+    constant NormalPlan_c : Plan_t := (others => (Normal_c, 0));
+
+    -- Aborted image: byte o of the output is the first k bits (0 to 7) of the expected byte e, then
+    -- zero bits
+    function isCut (o : natural; e : natural) return boolean is
+    begin
+
+        for k in 0 to 7 loop
+            if o = (e / 2 ** (8 - k)) * 2 ** (8 - k) then
+                return true;
+            end if;
+        end loop;
+
+        return false;
+    end function;
+
+    -- Framing of image i of a job (images beyond the plan are correct)
+    function planOf (p : Plan_t; i : positive) return Plan_r is
+    begin
+        if i > MaxPlan_c then
+            return (Normal_c, 0);
+        end if;
+        return p(i);
+    end function;
 
     signal Clk            : std_logic                                     := '0';
     signal Rst            : std_logic                                     := '1';
     signal In_Valid       : std_logic                                     := '0';
     signal In_Ready       : std_logic;
     signal In_Data        : std_logic_vector(DynamicRange_g - 1 downto 0) := (others => '0');
+    signal In_Last        : std_logic                                     := '0';
     signal Lim_Valid      : std_logic                                     := '0';
     signal Lim_Ready      : std_logic;
     signal Lim_Data       : std_logic_vector(15 downto 0)                 := (others => '0');
@@ -138,8 +189,10 @@ architecture sim of ocp_core_tb is
     signal Out_Data       : std_logic_vector(OutWidth_g - 1 downto 0);
     signal Out_Keep       : std_logic_vector(OutWidth_g / 8 - 1 downto 0);
     signal Out_Last       : std_logic;
+    signal Out_Error      : std_logic;
     signal Ecc_Sec        : std_logic;
     signal Ecc_Ded        : std_logic;
+    signal Ev_ImageError  : std_logic;
     signal ErrInj_Channel : std_logic_vector(3 downto 0)                  := (others => '0');
     signal ErrInj_Double  : std_logic                                     := '0';
     signal ErrInj_Valid   : std_logic                                     := '0';
@@ -149,8 +202,14 @@ architecture sim of ocp_core_tb is
     signal JobStart   : natural  := 0;
     signal JobImages  : positive := 1;
     signal JobCompare : boolean  := true;
+    signal JobPlan    : Plan_t   := NormalPlan_c;
     signal SrcDone    : natural  := 0;
     signal SinkDone   : natural  := 0;
+
+    -- Image of the job whose In_Last came early (the source of the error limits goes on with the
+    -- next image), framing error pulses since the start of the job
+    signal AbortImg : natural := 0;
+    signal ErrCount : natural := 0;
 
     -- Throughput: cycles of the first and the last accepted sample of a job, number of samples
     signal RateFirst : natural := 0;
@@ -225,6 +284,7 @@ begin
             BlockSize_g            => BlockSize_g,
             RestrictedCodes_g      => RestrictedCodes_g,
             RefInterval_g          => RefInterval_g,
+            UseInLast_g            => UseInLast_g,
             OutWidth_g             => OutWidth_g
         )
         port map (
@@ -233,6 +293,7 @@ begin
             In_Valid       => In_Valid,
             In_Ready       => In_Ready,
             In_Data        => In_Data,
+            In_Last        => In_Last,
             Lim_Valid      => Lim_Valid,
             Lim_Ready      => Lim_Ready,
             Lim_Data       => Lim_Data,
@@ -241,8 +302,10 @@ begin
             Out_Data       => Out_Data,
             Out_Keep       => Out_Keep,
             Out_Last       => Out_Last,
+            Out_Error      => Out_Error,
             Ecc_Sec        => Ecc_Sec,
             Ecc_Ded        => Ecc_Ded,
+            Ev_ImageError  => Ev_ImageError,
             ErrInj_Channel => ErrInj_Channel,
             ErrInj_Double  => ErrInj_Double,
             ErrInj_Valid   => ErrInj_Valid
@@ -270,19 +333,20 @@ begin
         end procedure;
 
         -- Starts a job of the source and the sink
-        procedure start (images : positive; compare : boolean) is
+        procedure start (images : positive; compare : boolean; plan : Plan_t := NormalPlan_c) is
         begin
             Job_v      := Job_v + 1;
             JobImages  <= images;
             JobCompare <= compare;
+            JobPlan    <= plan;
             JobStart   <= Job_v;
             wait until rising_edge(Clk);
         end procedure;
 
         -- Runs a job to its end
-        procedure job (images : positive; compare : boolean) is
+        procedure job (images : positive; compare : boolean; plan : Plan_t := NormalPlan_c) is
         begin
-            start(images, compare);
+            start(images, compare, plan);
             if SinkDone /= Job_v then
                 wait until SinkDone = Job_v;
             end if;
@@ -313,6 +377,7 @@ begin
         variable Channels_v : integer_vector(0 to 15);
         variable NCh_v      : natural;
         variable Wait_v     : natural;
+        variable Plan_v     : Plan_t;
     begin
         test_runner_setup(runner, runner_cfg);
         disable_log_msg(ID_POS_ACK);
@@ -330,6 +395,7 @@ begin
                                 "cycles between the first and the last sample at most " & to_string(ExpCycles_g));
                 end if;
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
+                check_value(ErrCount, 0, ERROR, "no framing error");
                 checkIdle;
 
             elsif run("test_ecc") then
@@ -389,25 +455,121 @@ begin
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
                 checkIdle;
 
+            elsif run("test_framing") then
+                -- Errors between correct images, all images back to back: In_Last on the first
+                -- sample, in the middle of the image, on the last sample but one and at a random
+                -- sample; In_Last missing, then a random number of samples up to the next In_Last
+                -- or only one
+                Plan_v     := NormalPlan_c;
+                Plan_v(2)  := (Early_c,
+                               0);
+                Plan_v(4)  := (Early_c,
+                               Samples_c / 2);
+                Plan_v(5)  := (Early_c,
+                               maximum(Samples_c - 2,
+                                          0));
+                Plan_v(7)  := (Missing_c,
+                               random(1,
+                                         Samples_c));
+                Plan_v(8)  := (Missing_c,
+                               1);
+                Plan_v(10) := (Early_c,
+                               random(0,
+                                         maximum(Samples_c - 2,
+                                                    0)));
+                reset;
+                job(11, true, Plan_v);
+                check_value(ErrCount, 6, ERROR, "one framing error event per image with an error");
+                check_value(SecCount + DedCount, 0, ERROR, "no memory error");
+
+                -- An image with an error, a reset at a random time of the abort or of the discarded
+                -- samples, then a correct image
+                Plan_v := NormalPlan_c;
+                reset;
+                job(1, true);
+
+                for i in 1 to Resets_g loop
+                    if i mod 2 = 1 then
+                        Plan_v(1) := (Early_c,
+                                      random(0,
+                                                maximum(Samples_c - 2,
+                                                           0)));
+                    else
+                        Plan_v(1) := (Missing_c,
+                                      random(1,
+                                                Samples_c));
+                    end if;
+                    Wait_v := random(0, 2 * JobCycles + 20);
+                    reset;
+                    start(2, true, Plan_v);
+
+                    for c in 1 to Wait_v loop
+                        wait until rising_edge(Clk);
+                    end loop;
+
+                    log(ID_SEQUENCER, "reset after " & to_string(Wait_v) & " cycles");
+                    reset;
+                    if SinkDone /= Job_v then
+                        wait until SinkDone = Job_v;
+                    end if;
+                    job(1, true);
+                    check_value(ErrCount, 0, ERROR, "no framing error after the reset");
+                end loop;
+
+                checkIdle;
+
             end if;
         end loop;
 
         ocpTestEnd(runner);
     end process;
 
-    -- Image samples (little-endian 8, 16 or 32-bit containers), JobImages times per job
+    -- Image samples (little-endian 8, 16 or 32-bit containers), JobImages times per job, with the
+    -- image end marker of the job plan (random without UseInLast_g)
     p_source : process is
-        variable Byte_v  : natural;
-        variable Eof_v   : boolean;
-        variable Smp_v   : std_logic_vector(31 downto 0);
         variable Abort_v : boolean;
+        variable Wait_v  : natural;
+
+        -- One sample (Wait_v: cycles until it is taken); a reset aborts the job
+        procedure send (data : std_logic_vector; last : std_logic) is
+        begin
+
+            while random(0, 99) < InGapPct_g and Rst = '0' loop
+                wait until rising_edge(Clk);
+            end loop;
+
+            In_Valid <= '1';
+            In_Data  <= data;
+            In_Last  <= last;
+            Wait_v   := 0;
+
+            loop
+                wait until rising_edge(Clk);
+                exit when In_Ready = '1' or Rst = '1';
+                Wait_v := Wait_v + 1;
+            end loop;
+
+            In_Valid <= '0';
+            In_Last  <= '0';
+            Abort_v  := Rst = '1';
+        end procedure;
+
+        variable Byte_v : natural;
+        variable Eof_v  : boolean;
+        variable Smp_v  : std_logic_vector(31 downto 0);
+        variable Plan_v : Plan_r;
+        variable Idx_v  : natural;
+        variable Last_v : std_logic;
 
         file Img_f : ByteFile_t;
     begin
         wait on JobStart;
-        Abort_v := false;
+        Abort_v  := false;
+        AbortImg <= 0;
 
         for img in 1 to JobImages loop
+            Plan_v := planOf(JobPlan, img);
+            Idx_v  := 0;
             file_open(Img_f, GoldenDir_g & "/image.raw", read_mode);
 
             loop
@@ -420,20 +582,38 @@ begin
 
                 exit when Eof_v;
 
-                while random(0, 99) < InGapPct_g and Rst = '0' loop
-                    wait until rising_edge(Clk);
-                end loop;
-
-                In_Valid <= '1';
-                In_Data  <= Smp_v(DynamicRange_g - 1 downto 0);
-                wait until rising_edge(Clk) and (In_Ready = '1' or Rst = '1');
-                In_Valid <= '0';
-                Abort_v  := Rst = '1';
+                if UseInLast_g then
+                    Last_v := toSl((Plan_v.Kind = Normal_c and Idx_v = Samples_c - 1) or
+                                   (Plan_v.Kind = Early_c and Idx_v = Plan_v.Pos));
+                else
+                    Last_v := toSl(random(0, 1) = 1);
+                end if;
+                send(Smp_v(DynamicRange_g - 1 downto 0), Last_v);
                 exit when Abort_v;
+
+                -- In_Last early: the rest of the image is lost
+                if Plan_v.Kind = Early_c and Idx_v = Plan_v.Pos then
+                    AbortImg <= img;
+                    exit;
+                end if;
+                Idx_v := Idx_v + 1;
             end loop;
 
             file_close(Img_f);
             exit when Abort_v;
+
+            -- In_Last missing: further samples up to the next In_Last, discarded at once
+            if Plan_v.Kind = Missing_c then
+
+                for i in 1 to Plan_v.Pos loop
+                    send(std_logic_vector(to_unsigned(random(0, 2 ** minimum(DynamicRange_g, 8) - 1), DynamicRange_g)),
+                         toSl(i = Plan_v.Pos));
+                    exit when Abort_v;
+                    check_value(Wait_v, 0, ERROR, "image " & to_string(img) & ": discarded sample taken at once");
+                end loop;
+
+                exit when Abort_v;
+            end if;
         end loop;
 
         SrcDone <= JobStart;
@@ -462,7 +642,7 @@ begin
         Cycle_v := Cycle_v + 1;
     end process;
 
-    -- Memory error pulses since the start of the job, cycles of the job
+    -- Memory error and framing error pulses since the start of the job, cycles of the job
     p_ecc : process is
         variable Job_v    : natural := 0;
         variable Cycles_v : natural := 0;
@@ -472,6 +652,7 @@ begin
             Job_v    := JobStart;
             SecCount <= 0;
             DedCount <= 0;
+            ErrCount <= 0;
             Cycles_v := 0;
         else
             if Ecc_Sec = '1' then
@@ -480,6 +661,9 @@ begin
             if Ecc_Ded = '1' then
                 DedCount <= DedCount + 1;
             end if;
+            if Ev_ImageError = '1' then
+                ErrCount <= ErrCount + 1;
+            end if;
             Cycles_v := Cycles_v + 1;
             if SinkDone /= Job_v then
                 JobCycles <= Cycles_v;
@@ -487,7 +671,8 @@ begin
         end if;
     end process;
 
-    -- Periodic error limit values (16-bit big-endian), JobImages times per job
+    -- Periodic error limit values (16-bit big-endian), JobImages times per job; after an early In_Last
+    -- the remaining values of that image are dropped (the core takes none of them)
     p_limits : process is
         variable Hi_v    : natural;
         variable Lo_v    : natural;
@@ -511,10 +696,10 @@ begin
                 exit when Eof_v;
                 Lim_Valid <= '1';
                 Lim_Data  <= std_logic_vector(to_unsigned(Hi_v * 256 + Lo_v, 16));
-                wait until rising_edge(Clk) and (Lim_Ready = '1' or Rst = '1');
+                wait until rising_edge(Clk) and (Lim_Ready = '1' or Rst = '1' or AbortImg = img);
                 Lim_Valid <= '0';
                 Abort_v   := Rst = '1';
-                exit when Abort_v;
+                exit when Abort_v or (AbortImg = img and Lim_Ready = '0');
             end loop;
 
             file_close(Lim_f);
@@ -525,14 +710,20 @@ begin
 
     -- Compressed image of the CNES reference software: the valid bytes of every word, byte n in
     -- Out_Data(8n + 7 downto 8n) (first byte in bits 7:0), valid bytes contiguous from byte 0 and
-    -- all bytes valid except in the last word of an image, which carries the last flag. A job
-    -- without comparison only waits for the last word of every image.
+    -- all bytes valid except in the last word of an image, which carries the last flag. Out_Error
+    -- only on the last word of an image with a framing error. An aborted image (In_Last early) is a
+    -- prefix of the compressed image with at least the header, then zero fill bits up to a multiple
+    -- of the output word size. A job without comparison only waits for the last word of every image.
     p_sink : process is
         variable Exp_v   : natural;
         variable Eof_v   : boolean;
         variable Cnt_v   : natural;
         variable Gap_v   : boolean;
         variable Abort_v : boolean;
+        variable Plan_v  : Plan_r;
+        variable Byte_v  : natural;
+        variable Same_v  : boolean;
+        variable Cut_v   : natural;
 
         file Ref_f : ByteFile_t;
     begin
@@ -540,12 +731,14 @@ begin
         Abort_v := false;
 
         for img in 1 to JobImages loop
+            Plan_v := planOf(JobPlan, img);
             file_open(Ref_f, GoldenDir_g & "/compressed.bin", read_mode);
-            Cnt_v := 0;
+            Cnt_v  := 0;
+            Same_v := true;
+            Cut_v  := 0;
             readByte(Ref_f, Exp_v, Eof_v);
 
             loop
-                exit when JobCompare and Eof_v;
 
                 while random(0, 99) < OutStallPct_g and Rst = '0' loop
                     Out_Ready <= '0';
@@ -558,8 +751,12 @@ begin
                 Abort_v   := Rst = '1';
                 exit when Abort_v;
 
-                if JobCompare then
+                if Out_Last = '0' then
+                    check_value(Out_Error, '0', ERROR,
+                                "image " & to_string(img) & " byte " & to_string(Cnt_v) & ": no error flag");
+                end if;
 
+                if JobCompare then
                     Gap_v := false;
 
                     for b in 0 to OutWidth_g / 8 - 1 loop
@@ -568,8 +765,20 @@ begin
                                         "image " & to_string(img) & " byte " & to_string(Cnt_v) &
                                         ": valid bytes contiguous from byte 0");
                             check_value(not Eof_v, ERROR, "image " & to_string(img) & ": no byte beyond the end");
-                            check_value(to_integer(unsigned(Out_Data(8 * b + 7 downto 8 * b))), Exp_v, ERROR,
-                                        "image " & to_string(img) & " byte " & to_string(Cnt_v));
+                            Byte_v := to_integer(unsigned(Out_Data(8 * b + 7 downto 8 * b)));
+                            if Plan_v.Kind /= Early_c then
+                                check_value(Byte_v, Exp_v, ERROR, "image " & to_string(img) & " byte " & to_string(Cnt_v));
+                            elsif Same_v and Byte_v /= Exp_v then
+                                -- Aborted image: end of the prefix
+                                Same_v := false;
+                                Cut_v  := Cnt_v;
+                                check_value(isCut(Byte_v, Exp_v), ERROR,
+                                            "image " & to_string(img) & " byte " & to_string(Cnt_v) &
+                                            ": first bits of the compressed image, then fill bits");
+                            elsif not Same_v then
+                                check_value(Byte_v, 0, ERROR,
+                                            "image " & to_string(img) & " byte " & to_string(Cnt_v) & ": fill bits");
+                            end if;
                             Cnt_v := Cnt_v + 1;
                             readByte(Ref_f, Exp_v, Eof_v);
                         else
@@ -580,15 +789,34 @@ begin
                         end if;
                     end loop;
 
-                    check_value(Out_Last, toSl(Eof_v), ERROR,
-                                "image " & to_string(img) & " byte " & to_string(Cnt_v) & ": last flag");
-                else
-                    exit when Out_Last = '1';
+                    if Plan_v.Kind /= Early_c then
+                        check_value(Out_Last, toSl(Eof_v), ERROR,
+                                    "image " & to_string(img) & " byte " & to_string(Cnt_v) & ": last flag");
+                    end if;
                 end if;
+
+                exit when Out_Last = '1';
             end loop;
 
             file_close(Ref_f);
             exit when Abort_v;
+
+            -- Error flag on the last word; size and header of an aborted image
+            check_value(Out_Error, toSl(UseInLast_g and Plan_v.Kind /= Normal_c), ERROR,
+                        "image " & to_string(img) & ": error flag on the last word");
+            if JobCompare and Plan_v.Kind = Early_c then
+                check_value(Cnt_v mod OutputWordSize_g, 0, ERROR,
+                            "image " & to_string(img) & ": size a multiple of the output word size");
+                check_value(Same_v or Cut_v >= HeaderBytes_g, ERROR,
+                            "image " & to_string(img) & ": complete header");
+                check_value(Cnt_v >= HeaderBytes_g, ERROR, "image " & to_string(img) & ": complete header");
+                if Same_v then
+                    log(ID_SEQUENCER, "image " & to_string(img) & ": aborted, all bytes equal to the compressed image");
+                else
+                    log(ID_SEQUENCER, "image " & to_string(img) & ": aborted, fill bits from byte " &
+                        to_string(Cut_v) & " of " & to_string(Cnt_v));
+                end if;
+            end if;
             log(ID_SEQUENCER, "image " & to_string(img) & ": " & to_string(Cnt_v) & " bytes checked");
         end loop;
 

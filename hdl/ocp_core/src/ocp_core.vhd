@@ -90,6 +90,8 @@ entity ocp_core is
         BlockSize_g            : positive                  := 16;
         RestrictedCodes_g      : boolean                   := false;
         RefInterval_g          : positive range 1 to 4096  := 4096;
+        -- Image framing: In_Last marks the last sample of every image, errors are flagged on Out_Error
+        UseInLast_g            : boolean                   := false;
         -- Implementation: width of the compressed image interface in bits (8, 16, 32 or 64), speculative
         -- weight loop of the predictor, memory style
         OutWidth_g             : positive                  := 8;
@@ -99,24 +101,30 @@ entity ocp_core is
     port (
         Clk            : in    std_logic;
         Rst            : in    std_logic;
-        -- Image samples in the input order (unsigned or two's complement)
+        -- Image samples in the input order (unsigned or two's complement); In_Last on the last sample
+        -- of every image (UseInLast_g, ignored otherwise)
         In_Valid       : in    std_logic;
         In_Ready       : out   std_logic;
         In_Data        : in    std_logic_vector(DynamicRange_g - 1 downto 0);
+        In_Last        : in    std_logic                     := '0';
         -- Error limit values for periodic error limit updating
         Lim_Valid      : in    std_logic                     := '0';
         Lim_Ready      : out   std_logic;
         Lim_Data       : in    std_logic_vector(15 downto 0) := (others => '0');
         -- Compressed image: byte n of a word in Out_Data(8n + 7 downto 8n), the first byte in bits 7:0;
-        -- the last word of an image marks its valid bytes, contiguous from byte 0
+        -- the last word of an image marks its valid bytes, contiguous from byte 0; Out_Error on the
+        -- last word of an image with a framing error ('0' on every other word)
         Out_Valid      : out   std_logic;
         Out_Ready      : in    std_logic;
         Out_Data       : out   std_logic_vector(OutWidth_g - 1 downto 0);
         Out_Keep       : out   std_logic_vector(OutWidth_g / 8 - 1 downto 0);
         Out_Last       : out   std_logic;
+        Out_Error      : out   std_logic;
         -- Memory errors (pulses): corrected single error, detected double error
         Ecc_Sec        : out   std_logic;
         Ecc_Ded        : out   std_logic;
+        -- Framing error of an image (pulse): In_Last before or missing on the last sample
+        Ev_ImageError  : out   std_logic;
         -- Error injection into the next write of memory ErrInj_Channel (user guide, memories): a single
         -- (corrected) or a double (detected) bit error
         ErrInj_Channel : in    std_logic_vector(3 downto 0)  := (others => '0');
@@ -169,6 +177,18 @@ architecture rtl of ocp_core is
     signal OutValid : std_logic;
     signal OutLast  : std_logic;
 
+    -- Image framing: samples and error limit values to the predictor, image end at the bit packer
+    -- input, abort of an image (clears the predictor and the entropy coder, then ends the image)
+    signal SmpValid : std_logic;
+    signal SmpReady : std_logic;
+    signal ValValid : std_logic;
+    signal ValReady : std_logic;
+    signal PkEnd    : std_logic;
+    signal Flush    : std_logic;
+    signal PipeRst  : std_logic;
+    signal EndValid : std_logic;
+    signal EndReady : std_logic;
+
     -- Image sequencing: header first, then the body
     signal InBody    : std_logic;
     signal StartPend : std_logic;
@@ -206,9 +226,9 @@ begin
             if Hdr_Valid = '1' and Hdr_Ready = '1' and Hdr_Last = '1' then
                 InBody <= '1';
             end if;
-            -- The image ends with the last codeword; the bit packer appends the fill bits before it
-            -- takes the header of the next image
-            if Cw_Valid = '1' and Cw_Ready = '1' and Cw_Last = '1' then
+            -- The image ends with the last codeword (or the end of an aborted image); the bit packer
+            -- appends the fill bits before it takes the header of the next image
+            if PkEnd = '1' then
                 InBody    <= '0';
                 StartPend <= '1';
             end if;
@@ -222,13 +242,72 @@ begin
 
     Hdr_Start <= StartPend and toSl(Waiting > 0);
 
-    -- Bit packer input: header bytes, then the codewords of the entropy coder
-    Pk_Valid  <= Cw_Valid when InBody = '1' else Hdr_Valid;
-    Pk_Data   <= Cw_Data when InBody = '1' else std_logic_vector(resize(unsigned(Hdr_Data), CwWidth_c));
-    Pk_Length <= Cw_Length when InBody = '1' else Hdr_Length;
-    Pk_Last   <= Cw_Last when InBody = '1' else '0';
-    Cw_Ready  <= Pk_Ready when InBody = '1' else '0';
+    -- Bit packer input: header bytes, then the codewords of the entropy coder; an aborted image ends
+    -- with a last codeword of one zero bit from the image framer (a last codeword is never empty)
+    Pk_Valid  <= (Cw_Valid or EndValid) when InBody = '1' else Hdr_Valid;
+    Pk_Data   <= (others => '0') when EndValid = '1' else
+                 Cw_Data when InBody = '1' else
+                 std_logic_vector(resize(unsigned(Hdr_Data), CwWidth_c));
+    Pk_Length <= std_logic_vector(to_unsigned(1, CwLenWidth_c)) when EndValid = '1' else
+                 Cw_Length when InBody = '1' else
+                 Hdr_Length;
+    Pk_Last   <= (Cw_Last or EndValid) when InBody = '1' else '0';
+    Cw_Ready  <= Pk_Ready when InBody = '1' and EndValid = '0' else '0';
     Hdr_Ready <= Pk_Ready when InBody = '0' else '0';
+    EndReady  <= Pk_Ready;
+    PkEnd     <= Pk_Valid and Pk_Ready and Pk_Last;
+
+    -----------------------------------------------------------------------------------------------
+    -- Image framing
+    -----------------------------------------------------------------------------------------------
+    g_framer : if UseInLast_g generate
+
+        i_framer : entity work.ocp_image_framer
+            generic map (
+                XSize_g => XSize_g,
+                YSize_g => YSize_g,
+                ZSize_g => ZSize_g
+            )
+            port map (
+                Clk           => Clk,
+                Rst           => Rst,
+                In_Valid      => In_Valid,
+                In_Ready      => In_Ready,
+                In_Last       => In_Last,
+                Lim_Valid     => Lim_Valid,
+                Lim_Ready     => Lim_Ready,
+                Smp_Valid     => SmpValid,
+                Smp_Ready     => SmpReady,
+                Val_Valid     => ValValid,
+                Val_Ready     => ValReady,
+                Img_Start     => ImgStart,
+                Img_End       => PkEnd,
+                Img_Body      => InBody,
+                Flush         => Flush,
+                End_Valid     => EndValid,
+                End_Ready     => EndReady,
+                Out_Valid     => OutValid,
+                Out_Ready     => Out_Ready,
+                Out_Last      => OutLast,
+                Out_Error     => Out_Error,
+                Ev_ImageError => Ev_ImageError
+            );
+
+    end generate;
+
+    g_direct : if not UseInLast_g generate
+        SmpValid      <= In_Valid;
+        In_Ready      <= SmpReady;
+        ValValid      <= Lim_Valid;
+        Lim_Ready     <= ValReady;
+        Flush         <= '0';
+        EndValid      <= '0';
+        Out_Error     <= '0';
+        Ev_ImageError <= '0';
+    end generate;
+
+    -- An aborted image clears the predictor and the entropy coder
+    PipeRst <= Rst or Flush;
 
     -----------------------------------------------------------------------------------------------
     -- Header
@@ -339,12 +418,12 @@ begin
         )
         port map (
             Clk            => Clk,
-            Rst            => Rst,
-            In_Valid       => In_Valid,
-            In_Ready       => In_Ready,
+            Rst            => PipeRst,
+            In_Valid       => SmpValid,
+            In_Ready       => SmpReady,
             In_Data        => In_Data,
-            Lim_Valid      => Lim_Valid,
-            Lim_Ready      => Lim_Ready,
+            Lim_Valid      => ValValid,
+            Lim_Ready      => ValReady,
             Lim_Data       => Lim_Data,
             Img_Start      => ImgStart,
             Out_Valid      => Item_Valid,
@@ -382,7 +461,7 @@ begin
             )
             port map (
                 Clk           => Clk,
-                Rst           => Rst,
+                Rst           => PipeRst,
                 In_Valid      => Item_Valid,
                 In_Ready      => Item_Ready,
                 In_Data       => Item_Data,
@@ -424,7 +503,7 @@ begin
             )
             port map (
                 Clk           => Clk,
-                Rst           => Rst,
+                Rst           => PipeRst,
                 In_Valid      => Item_Valid,
                 In_Ready      => Item_Ready,
                 In_Data       => Item_Data,
@@ -459,7 +538,7 @@ begin
             )
             port map (
                 Clk           => Clk,
-                Rst           => Rst,
+                Rst           => PipeRst,
                 In_Valid      => Item_Valid,
                 In_Ready      => Item_Ready,
                 In_Data       => Item_Data,

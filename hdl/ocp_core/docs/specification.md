@@ -4,8 +4,9 @@
 
 `ocp_core` is the top level of OpenCompact: the header generator (CO-1, `ocp_header`), the predictor
 (`ocp_predictor`), the entropy coder selected by `EntropyCoder_g` (`ocp_entropy_coder`), the bit packer (CO-2,
-`ocp_bit_packer`) and the image sequencer (CO-3). It compresses images according to CCSDS 123.0-B-2 with all options of
-the standard set by generics and outputs every compressed image as a stream of words of 8 to 64 bits.
+`ocp_bit_packer`), the image sequencer (CO-3) and, with `UseInLast_g`, the image framer (CO-4, `ocp_image_framer`). It
+compresses images according to CCSDS 123.0-B-2 with all options of the standard set by generics and outputs every
+compressed image as a stream of words of 8 to 64 bits.
 
 ## 2. Requirements
 
@@ -39,7 +40,19 @@ the standard set by generics and outputs every compressed image as a stream of w
 | CO-PK-03 | Images shall be compressed one after the other; every image shall start with the initial state of the standard and with its own header. | 5.2.1 |
 | CO-TP-01 | The bit packer shall take one codeword (or header part) per clock cycle while the compressed image needs on average at most `OutWidth_g` bits per clock cycle, so that the core takes the samples of consecutive images in the cycles of the predictor. | none |
 
-### 2.4 Reset
+### 2.4 Image framer (CO-4)
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| CO-FR-01 | With `UseInLast_g` false the core shall ignore `In_Last`, compress every NX NY NZ samples as one image and keep `Out_Error` and `Ev_ImageError` at '0'. | none |
+| CO-FR-02 | With `UseInLast_g` true the core shall expect `In_Last` = '1' with the last sample of every image (sample NX NY NZ of the image in the input order) and `In_Last` = '0' with every other sample. | 5.4.2 |
+| CO-FR-03 | When a sample before the last sample of an image comes with `In_Last` = '1', the core shall take it and abort the image: the compressed image shall end after its complete header and the codewords that the entropy coder output for its samples, followed by fill bits (zeros, at least one) up to a multiple of B bytes; the predictor and the entropy coder shall return to their initial state without changing the compressed images before it, and the next sample shall be the first sample of a new image with its own header. | 5.2.2 |
+| CO-FR-04 | When the last sample of an image comes with `In_Last` = '0', the core shall complete the compressed image, then take and discard every following sample up to and including the next sample with `In_Last` = '1', one per clock cycle; the sample after it shall be the first sample of a new image. | none |
+| CO-FR-05 | `Out_Error` shall be '1' with the last word of a compressed image that was aborted (CO-FR-03) or whose last sample came without `In_Last` (CO-FR-04), and '0' with every other word. | none |
+| CO-FR-06 | The core shall pulse `Ev_ImageError` for one clock cycle for every image with an early or a missing `In_Last`. | none |
+| CO-FR-07 | From the sample that causes a framing error until the next image may start (after the end of the aborted image, or after the sample with `In_Last` of CO-FR-04) the core shall take no error limit value; the next value it takes belongs to the first frame of the next image. | 4.8.2.4 |
+
+### 2.5 Reset
 
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
@@ -62,6 +75,7 @@ predictor or the entropy coders use are described in their specifications. Gener
 | `AccuInitTable_g` | false | | Accumulator initialisation table in the header |
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits |
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (PR-TP-02); the stride order of the predictor (PR-TP-03) is always used where it applies |
+| `UseInLast_g` | false | | Image framing with `In_Last`, `Out_Error` and `Ev_ImageError` (CO-4) |
 
 ## 4. Interpretation of the standard
 
@@ -70,6 +84,7 @@ predictor or the entropy coders use are described in their specifications. Gener
 | 5.2.2 | The size of the compressed image (header and body) is a multiple of B; the header itself need not be (CCSDS 5.3.1.1 note 2). |
 | 5.3.3.3 | A table that is not included in the header (table flag false) is not output; the decompressor must know it (CCSDS 5.3.3.3.2.1 note). |
 | 2.4 | The end of a compressed image is the last byte marker of the output stream; the transport of the image to the decompressor is the task of the user. |
+| 5.2.1, 5.2.2 | An aborted image (CO-FR-03) is not a complete compressed image of the standard: its header announces more samples than its body holds. Its size is a multiple of B, so the next compressed image starts at an output word boundary of the stream as after a complete image. |
 | 1.6.3 | The standard numbers the bits of a word from the first transmitted bit, which is the most significant bit, and groups them into bytes; it does not define how bytes are placed in a wider interface word. The core keeps the bit order within every byte and places the bytes in increasing order of their position in the interface word: byte n in bits 8n + 7 to 8n. A byte stream written into memory over a byte-addressed bus, or converted to another width with the Open Logic width converters, then keeps the order of the compressed image. |
 
 ## 5. Integration constraints
@@ -77,4 +92,6 @@ predictor or the entropy coders use are described in their specifications. Gener
 | Constraint | Reason |
 | --- | --- |
 | The header of an image is output once its first sample (or error limit value) is accepted | Consecutive images on one stream; no header without image |
-| The last codeword of the body is never empty | The bit packer marks the last byte when it outputs the bits of the last codeword |
+| The last codeword of the body is never empty (the end of an aborted image is a codeword of one zero bit) | The bit packer marks the last word when it outputs the bits of the last codeword |
+| With `UseInLast_g` true, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged with `Out_Error` and the samples up to the next `In_Last` are discarded (CO-FR-04) |
+| A source of error limit values that delivers them ahead of the request starts with the values of the next image after `Ev_ImageError` | The core takes no further value for an image with a framing error (CO-FR-07) |

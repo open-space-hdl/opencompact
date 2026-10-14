@@ -15,7 +15,10 @@ The predictor is a pipeline that takes one sample per clock cycle where the conf
 band-interleaved order with enough bands, with a speculative weight update for band-sequential order and single
 bands, and in a stride order for near-lossless compression of band-interleaved images. The entropy coders take one
 sample per clock cycle, and the compressed image leaves the core in words of 8 to 64 bits. The
-[user guide](docs/user_guide.md#7-resources-and-performance) lists the throughput of every configuration.
+[user guide](docs/user_guide.md#7-resources-and-performance) lists the throughput of every configuration. With the
+optional image framing (`UseInLast_g`) an image end marker on the input lets the core detect lost samples: it
+aborts or completes the damaged image, flags it on its last word and resynchronises with the next image
+([user guide](docs/user_guide.md#42-image-framing)).
 
 ## Status
 
@@ -24,7 +27,9 @@ configurations, which together cover every option of the standard, and of 24 ran
 identically to the CNES reference software for CCSDS 123.0-B-2, in GHDL and in QuestaSim. It also reproduces the
 compressed images of 300 vectors of the CCSDS test data set, selected to cover the parameter values of the set. Unit
 testbenches verify the predictor, the entropy coders and the bit packer; single and double bit errors are injected
-into every memory through the error injection port, and every reset at a random time is followed by a correct image.
+into every memory through the error injection port, every reset at a random time is followed by a correct image,
+and with the image framing every image with an early or a missing image end marker is flagged and followed by correct
+images.
 Code coverage is closed or every remaining miss is justified ([coverage](docs/coverage.md)). The predictor testbench
 checks the throughput of every configuration cycle by cycle against the throughput model `tools/ocp_throughput.py`,
 and every configuration synthesizes. The core has not been tested on hardware and has no flight heritage; see

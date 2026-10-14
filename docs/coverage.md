@@ -25,8 +25,9 @@ Closure rules:
 
 ## 2. Results
 
-Run on 2026-10-13: 244 tests (the testbenches of the predictor, the entropy coders, the bit packer and the core with
-all configurations of `tools/ocp_configs.py`), all passed in QuestaSim as in GHDL. Numbers are covered/total bins per
+Run on 2026-10-14: 333 tests (the testbenches of the predictor, the entropy coders, the bit packer and the core with
+all configurations of `tools/ocp_configs.py`, the core configurations also with the image framing), all passed in
+QuestaSim as in GHDL. Numbers are covered/total bins per
 file; bold marks a metric with misses.
 
 | File | Statements | Branches | Conditions | Expressions | FSM States | FSM Transitions |
@@ -37,16 +38,17 @@ file; bold marks a metric with misses.
 | `ocp_hybrid_coder.vhd` | **200 / 201 (99.5 %)** | **59 / 61 (96.7 %)** | **21 / 22 (95.5 %)** | 14 / 14 | 3 / 3 | 4 / 4 |
 | `ocp_block_adaptive_coder.vhd` | **210 / 211 (99.5 %)** | **96 / 97 (99.0 %)** | **17 / 20 (85.0 %)** | 5 / 5 | | |
 | `ocp_cw_buffer.vhd` | 33 / 33 | 13 / 13 | 9 / 9 | 6 / 6 | | |
-| `ocp_header.vhd` | **161 / 167 (96.4 %)** | 60 / 60 | 2 / 2 | | | |
+| `ocp_header.vhd` | 167 / 167 | 60 / 60 | 2 / 2 | | | |
 | `ocp_bit_packer.vhd` | 105 / 105 | 31 / 31 | 2 / 2 | | | |
-| `ocp_core.vhd` | 22 / 22 | 24 / 24 | 10 / 10 | 6 / 6 | | |
-| Total | 1532 / 1554 (98.6 %) | 663 / 672 (98.7 %) | 147 / 172 (85.5 %) | 101 / 105 (96.2 %) | 3 / 3 (100.0 %) | 4 / 4 (100.0 %) |
+| `ocp_image_framer.vhd` | **51 / 52 (98.1 %)** | **31 / 32 (96.9 %)** | 13 / 13 | 3 / 3 | 4 / 4 | 6 / 6 |
+| `ocp_core.vhd` | 33 / 33 | 30 / 30 | 9 / 9 | 15 / 15 | | |
+| Total | 1600 / 1617 (98.9 %) | 700 / 710 (98.6 %) | 159 / 184 (86.4 %) | 113 / 117 (96.6 %) | 7 / 7 (100.0 %) | 10 / 10 (100.0 %) |
 
-Every statement and branch that runs in simulation is covered except three items (the recovery branch of the tail
-state machine, the wait of the flush words of the tail and the saturation of a second extension symbol), and every
-condition and expression term whose value can change is covered; section 4 lists all misses. The predictor and the
-sample-adaptive and block-adaptive coders are pipelines without state machines; the tail of the hybrid coder is the
-only state machine, and all its states and transitions are reached.
+Every statement and branch that runs in simulation is covered except four items (the recovery branches of the tail
+state machine and of the image framer, the wait of the flush words of the tail and the saturation of a second
+extension symbol), and every condition and expression term whose value can change is covered; section 4 lists all
+misses. The predictor and the sample-adaptive and block-adaptive coders are pipelines without state machines; the tail
+of the hybrid coder and the image framer are the state machines, and all their states and transitions are reached.
 
 ## 3. Gaps found and closed
 
@@ -66,15 +68,17 @@ new test variant; no gap needed a change of the design.
 | Block-adaptive coder: two fundamental sequence codewords that do not fit into one codeword together; a run of all-zeros blocks before the last block of an image | c36_block_j64_spikes: J = 64, constant bands with spikes (TC-CO-44) |
 | Block-adaptive coder: split-sample options with k >= 25 (fewer than four sets of split bits per codeword) | c37_block_d32_custom: D = 32 with noise of 1/64 of the range (TC-CO-44) |
 | Custom weight initialization with Q = Omega + 3 (no fill bits) | c37_block_d32_custom (TC-PR-36) |
+| Image framer: a reset while the framer waits for the image before an aborted one | TC-CO-47 resets the core with the error event of an image that follows a correct image back to back |
+| Image framer: the write and the read of an error flag in the same clock cycle (condition rows of the flag count) | The count is the difference of the write and the read pointer; no condition is left |
 
 ## 4. Remaining misses
 
 | Location | Item not covered | Justification |
 | --- | --- | --- |
 | `ocp_pkg.vhd` | The `failure` reports of the decoding of invalid string generics (statements and the implicit `else` branches); `bandTableStart` called from `bandsUsed` | Run during elaboration only (QuestaSim does not count elaboration); an invalid generic stops the elaboration |
-| `ocp_header.vhd` | The procedure `put` | Runs during elaboration only: the header is a constant |
 | `ocp_predictor.vhd` | The function `anyNonZero` | Runs during elaboration only (a constant of the generics) |
 | `ocp_hybrid_coder.vhd` | `when others` of the tail state machine | Recovery from an illegal state; needs an upset in the state register |
+| `ocp_image_framer.vhd` | `when others` of the framer state machine | Recovery from an illegal state; needs an upset in the state register |
 | `ocp_hybrid_coder.vhd` | Flush words of the tail waiting for room in the codeword buffer | The buffer has at least two free entries when the last item of an image enters the coder, and the short flush words join in the held codeword: the wait needs flush words that fill more than one codeword while the output takes none, which the regression does not produce |
 | `ocp_block_adaptive_coder.vhd` | Saturation of a second extension symbol above 8191 | Requires a pair of values with a sum of 127; such a symbol never gives the shortest option |
 | `ocp_block_adaptive_coder.vhd` | Condition terms `r.Idx /= J_c - 1` and `r.S2Valid = '0'` false while the selection stage holds a block | With three block buffers, a block in the selection stage moves on within one cycle: a held selection stage would need a fourth buffer |

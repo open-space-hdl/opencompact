@@ -89,6 +89,7 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | --- | --- | --- | --- |
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits (section 4) |
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 7) |
+| `UseInLast_g` | false | | Image framing with `In_Last`: early and missing image ends are detected, flagged and resynchronised (section 4.2) |
 | `RamStyle_g` | "auto" | | Implementation of the memories (Open Logic) |
 
 The stride order of the predictor is used wherever it applies (section 7.1); it has no generic at the core level.
@@ -111,9 +112,12 @@ only after it has been written in the same image.
 | Port | Direction | Width | Description |
 | --- | --- | --- | --- |
 | `In_Valid`, `In_Ready`, `In_Data` | in, out, in | D | Samples, unsigned or two's complement, in the input order of the compressed image |
+| `In_Last` | in | 1 | '1' with the last sample of every image (`UseInLast_g`, section 4.2); unused otherwise, may stay open |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in, out, in | 16 | Error limit values for periodic updating (unused otherwise) |
 | `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out, in, out, out, out | `OutWidth_g`, `OutWidth_g` / 8 | Compressed image in words: byte n of a word in `Out_Data` bits 8n + 7 to 8n, so the first byte of the image is in bits 7 to 0 of the first word; `Out_Last` on the last word of an image, whose valid bytes `Out_Keep` marks (bit n for byte n, contiguous from bit 0); all other words are complete |
+| `Out_Error` | out | 1 | Valid with `Out_Last`: '1' when the image had a framing error (section 4.2); '0' on every other word and without `UseInLast_g` |
 | `Ecc_Sec`, `Ecc_Ded` | out | 1 | One-cycle pulses: corrected single error, detected double error in a memory |
+| `Ev_ImageError` | out | 1 | One-cycle pulse per image with a framing error (section 4.2), for a counter or an interrupt |
 | `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | 4, 1, 1 | Error injection for tests: a pulse on `ErrInj_Valid` flips one bit (`ErrInj_Double` = '0') or two bits of the next word written into the memory of channel `ErrInj_Channel` (section 4.1); tie to '0' in operation |
 
 All streams use the AXI4-Stream handshake: a transfer takes place in a cycle with valid and ready high.
@@ -167,6 +171,39 @@ again, or that is read only in a cycle without an item, raises no alarm. An inje
 no effect.
 `tools/ocp_throughput.py` (`ecc_channels`) lists the channels of a configuration.
 
+### 4.2 Image framing
+
+The core counts the NX NY NZ samples of an image by itself. When samples get lost upstream, for example in a lost
+packet, it would compress the samples of the next image as the rest of the damaged one, and every following image
+would start at the wrong sample. With `UseInLast_g` the core checks the image end marker `In_Last` against its count
+and resynchronises:
+
+| Case | Behaviour of the core |
+| --- | --- |
+| `In_Last` with the last sample | Correct image: `Out_Error` = '0' on its last word |
+| `In_Last` before the last sample (samples lost inside the image) | The image is aborted. The sample with `In_Last` is taken; once the earlier images have left the entropy coder, the predictor and the coder are cleared. The compressed image ends after its complete header and the codewords already produced, with at least one fill bit up to a multiple of B bytes, and its last word carries `Out_Error` = '1'. The next sample starts a new image with its own header; no sample of it is lost. |
+| No `In_Last` with the last sample (the end marker was lost) | The image is completed normally; its last word carries `Out_Error` = '1'. The core then takes the following samples and discards them, one per clock cycle, up to and including the next sample with `In_Last`; the sample after it starts a new image. |
+
+`Ev_ImageError` pulses once for every image with an error, when the error is detected at the input. An aborted image is
+not decodable as a whole (its header announces the full image); its first part is the compressed image of the
+samples before the loss. An image without its end marker is complete, but its last samples may belong to the next
+image. The system marks or discards both kinds by `Out_Error`. The stream stays aligned to B bytes, so the next image
+starts like after a correct one.
+
+Error limit values (periodic updating): the core takes none from the sample with the error until the next image may
+start, and the next value it takes belongs to the first frame of the next image. A source that computes the values on
+request (`Lim_Ready`) needs no action; a source that delivers them ahead (a buffer) drops the remaining values of the
+damaged image on `Ev_ImageError`. The limit values are part of the compressed image, so values that do not match
+their frame change only the compression of that image, never its decodability.
+
+Integration with OpenSPP: the samples arrive as Octet String SDUs. The sender marks the last SDU of an image (for
+example by its APID or a field of the Packet Secondary Header), and the adapter between OpenSPP and the core sets
+`In_Last` on the last sample of that SDU. A lost SDU inside an image makes the marked SDU arrive early: the image is
+aborted (`In_Last` before the last sample). A lost marked SDU makes the core complete the image with the first
+samples of the next one and discard the rest of that image: the core is back in step with the stream at the next
+marked SDU. The Data Loss Indicator of OpenSPP (`TUser` bit 12 of the first SDU after the gap, with the continuity
+check of the APID enabled) and `Ev_ImageError` together tell the system which images are affected.
+
 ## 5. Operating sequence
 
 1. Release the reset.
@@ -176,6 +213,8 @@ no effect.
    image starts with a new word.
 4. Send the next image; it is compressed independently with the same parameters. The samples of the next image may
    follow the last sample of an image without a gap.
+5. With `UseInLast_g`, set `In_Last` on the last sample of every image and check `Out_Error` on the last word of every
+   compressed image (section 4.2).
 
 The output can be stalled at any time; the core then stops taking samples after its internal buffers are full.
 
@@ -192,6 +231,7 @@ nothing; its counter is a measure of the upset rate.
 | The parameter ranges of section 2 are checked only where the elaboration would otherwise be wrong (register size, width 1, vmin and vmax, periodic updating with BSQ); the user keeps the other ranges of the standard | Header fields have the widths of the standard |
 | The decompressor must know the tables that are not included in the header (table flags false) and the initial accumulators of the hybrid coder | CCSDS 5.3.3.3.2.1, 5.4.3.3.4.3 |
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
+| With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
 
 ## 7. Resources and performance
 
@@ -262,9 +302,11 @@ such widths is an open item of the [roadmap](roadmap.md).
 
 The logic grows with D, with the number of local differences C and, for the speculative weight loop, four times with
 C; the memories grow with the image (NX NZ D bits for the sample representatives in BI order, the input and output
-buffers of the stride order) and with C (Omega + 3) bits per band for the weights.
-`python tools/synth_libero.py --config <configuration> [--impl]` repeats a run; `python tools/libero_summary.py` lists
-the results.
+buffers of the stride order) and with C (Omega + 3) bits per band for the weights. The image framing (`UseInLast_g`)
+adds 93 LUTs and 49 flip-flops and no memory; it puts one more multiplexer level between the codeword buffer and the
+bit packer, which in c01 is the critical path (place and route at 125 MHz instead of 133 MHz).
+`python tools/synth_libero.py --config <configuration> [--impl] [--in-last]` repeats a run;
+`python tools/libero_summary.py` lists the results.
 
 ## 8. Conformance statement
 

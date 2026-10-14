@@ -171,6 +171,7 @@ header and the codewords to the compressed image, adds the fill bits after the l
 | D9 | The low-entropy codes of the hybrid coder are state machines whose states are the active prefixes; their code and flush tables (CCSDS annex B) are ROM constants generated from the tables of the standard | Exact transcription of the 32 normative tables; one table lookup per low-entropy symbol |
 | D10 | Supplementary information tables are given as their encoded header bits (`SupTableData_g`) | Tables are data for the user of the image, not used by the compression |
 | D13 | Byte n of an interface word is in bits 8n + 7 to 8n, the first byte of the compressed image in bits 7 to 0; within a byte the first bit is the most significant bit; the valid bytes of the last word are contiguous from byte 0 | The standard fixes the bit order within a byte (CCSDS 1.6.3), not the place of a byte in a wider word. This order is the one of byte-addressed memory buses and of the Open Logic width converters, so the compressed image can be written into memory, converted in width or passed to a packet or encryption stage without reordering |
+| D14 | Optional image framing (`UseInLast_g`): an early `In_Last` aborts the image (the predictor and the entropy coder are cleared once the earlier images have left them, the image ends with fill bits at the bit packer); a missing `In_Last` completes the image and discards the samples up to the next `In_Last`; the error flag of every image travels in a queue of 16 register bits from the input to the last word of the image | A lost packet upstream must not shift every following image. Clearing only the predictor and the coder keeps the images before and after the damaged one intact and the stream aligned to B bytes. The flag is known at the input long before the last word leaves, so the output is never held. Sixteen flags of one bit are registers; a memory would need SECDED protection |
 
 ### Clock and reset
 
@@ -183,11 +184,11 @@ before the first image. The memories are not reset: every word is written in an 
 
 | Interface | Between | Payload | Protocol |
 | --- | --- | --- | --- |
-| Samples | User to PR-1 | D-bit sample, unsigned or two's complement | Valid / ready |
+| Samples | User to PR-1 (through CO-4 with `UseInLast_g`) | D-bit sample, unsigned or two's complement; end of image marker (CO-4) | Valid / ready |
 | Error limits | User to PR-1 | 16-bit error limit value | Valid / ready |
 | Entropy coder input | Predictor to EC-1, EC-2, EC-3 | Value (mapped quantizer index or error limit), kind, band, first sample of the band (t = 0), first coded sample (t = 1), last item of the image | Valid / ready |
 | Codewords | CO-1, EC-1, EC-2, EC-3 to CO-2 | Up to 96 bits, length, last codeword of the image | Valid / ready |
-| Compressed image | CO-2 to user | Word of 8, 16, 32 or 64 bits, byte n in bits 8n + 7 to 8n (D13), valid bytes, last word of the image | Valid / ready |
+| Compressed image | CO-2 to user | Word of 8, 16, 32 or 64 bits, byte n in bits 8n + 7 to 8n (D13), valid bytes, last word of the image, framing error flag of the image (CO-4) | Valid / ready |
 
 ### Performance
 
@@ -238,6 +239,7 @@ built from and the clauses it owns (P1: no clause is owned twice).
 | CO-1 | Header generator | Image metadata with supplementary information tables, predictor metadata with weight, quantization and sample representative subparts, entropy coder metadata | none | 3.5, 5.3 |
 | CO-2 | Bit packer | Codewords to interface words, fill bits up to the output word boundary, end of the compressed image | none | 5.2 |
 | CO-3 | Image sequencer | Header before the body of every image, end of the image after the last codeword, ECC events of all memories | none | 5.2.1 |
+| CO-4 | Image framer (`UseInLast_g`) | Check of `In_Last` against the number of samples of an image, abort of an image that ends early (clear of the predictor and the entropy coder, end at the bit packer), discard of the samples after a missing `In_Last`, error flag of every image on its last word, framing error event | none | 5.2.2 |
 
 ### 7.4 Common definitions (`ocp_pkg`)
 
@@ -383,13 +385,13 @@ module specifications and the verification plans, lists the requirements and tes
 | 4.8.1 | Quantizer output | PR-4 |  | Unit |
 | 4.8.2.1, 4.8.2.2 | Controlling maximum error, allowed error limit values | PR-4 | CO-1 | Unit |
 | 4.8.2.3 | Error limit assignment methods | PR-1 | CO-1 | Unit |
-| 4.8.2.4 | Periodic error limit updating | PR-1 | EC-1, EC-2, EC-3 | Core |
+| 4.8.2.4 | Periodic error limit updating | PR-1 | EC-1, EC-2, EC-3, CO-4 | Core |
 | 4.9 | Sample representatives | PR-5 | CO-1 | Unit |
 | 4.10 | Weight update | PR-5 |  | Unit |
 | 4.11 | Mapped quantizer index | PR-6 |  | Unit |
-| 5.2 | General: compressed image, output word size | CO-2 | CO-3 | Core |
+| 5.2 | General: compressed image, output word size | CO-2 | CO-3, CO-4 | Core |
 | 5.3 | Header | CO-1 |  | Core |
-| 5.4.2 | Input order | PR-1 | EC-3 | Unit |
+| 5.4.2 | Input order | PR-1 | EC-3, CO-4 | Unit |
 | 5.4.3.2 | Sample-adaptive entropy coder | EC-1 |  | Core |
 | 5.4.3.3 | Hybrid entropy coder | EC-2 | PK-2 | Core |
 | 5.4.3.4 | Block-adaptive entropy coder | EC-3 |  | Core |

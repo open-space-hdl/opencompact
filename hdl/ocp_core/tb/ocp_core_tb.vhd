@@ -516,6 +516,21 @@ begin
                     check_value(ErrCount, 0, ERROR, "no framing error after the reset");
                 end loop;
 
+                -- In_Last on the first sample of an image that follows a correct image back to back, a
+                -- reset with the error event (the abort waits for the image before), then a correct image
+                Plan_v    := NormalPlan_c;
+                Plan_v(2) := (Early_c,
+                              0);
+                reset;
+                start(2, true, Plan_v);
+                wait until rising_edge(Clk) and Ev_ImageError = '1';
+                reset;
+                if SinkDone /= Job_v then
+                    wait until SinkDone = Job_v;
+                end if;
+                job(1, true);
+                check_value(ErrCount, 0, ERROR, "no framing error after the reset");
+
                 checkIdle;
 
             end if;

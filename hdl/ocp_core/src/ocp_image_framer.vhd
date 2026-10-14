@@ -85,7 +85,8 @@ architecture rtl of ocp_image_framer is
 
     constant Last_c : unsigned(CntW_c - 1 downto 0) := lastIndex;
 
-    -- Error flags of the images whose input ended and whose compressed image is not yet output
+    -- Error flags of the images whose input ended and whose compressed image is not yet output; the
+    -- pointers have one bit more than the index, so their difference is the number of flags
     constant Depth_c : positive := 16;
     constant PtrW_c  : positive := log2ceil(Depth_c);
     constant CtrW_c  : positive := log2ceil(Depth_c + 2);
@@ -100,9 +101,8 @@ architecture rtl of ocp_image_framer is
         Remain : unsigned(CntW_c - 1 downto 0);
         Images : unsigned(CtrW_c - 1 downto 0);
         Err    : std_logic_vector(Depth_c - 1 downto 0);
-        WrPtr  : unsigned(PtrW_c - 1 downto 0);
-        RdPtr  : unsigned(PtrW_c - 1 downto 0);
-        Level  : unsigned(CtrW_c - 1 downto 0);
+        WrPtr  : unsigned(PtrW_c downto 0);
+        RdPtr  : unsigned(PtrW_c downto 0);
         Flush  : std_logic;
         Ev     : std_logic;
     end record;
@@ -120,7 +120,6 @@ begin
         variable v       : TwoProcess_r;
         variable Push_v  : boolean;
         variable PushE_v : std_logic;
-        variable Pop_v   : boolean;
     begin
         v       := r;
         v.Flush := '0';
@@ -138,7 +137,7 @@ begin
 
             when Run_s =>
                 -- A sample is taken while there is room for the error flag of its image
-                if r.Level < Depth_c then
+                if r.WrPtr - r.RdPtr < Depth_c then
                     In_Ready  <= Smp_Ready;
                     Smp_Valid <= In_Valid;
                     if In_Valid = '1' and Smp_Ready = '1' then
@@ -201,21 +200,15 @@ begin
         end if;
 
         -- Error flags in the order of the images: written with the last sample, read with the last word
-        Pop_v := Out_Valid = '1' and Out_Ready = '1' and Out_Last = '1';
         if Push_v then
-            v.Err(to_integer(r.WrPtr)) := PushE_v;
-            v.WrPtr                    := r.WrPtr + 1;
+            v.Err(to_integer(r.WrPtr(PtrW_c - 1 downto 0))) := PushE_v;
+            v.WrPtr                                         := r.WrPtr + 1;
         end if;
-        if Pop_v then
+        if Out_Valid = '1' and Out_Ready = '1' and Out_Last = '1' then
             v.RdPtr := r.RdPtr + 1;
         end if;
-        if Push_v and not Pop_v then
-            v.Level := r.Level + 1;
-        elsif Pop_v and not Push_v then
-            v.Level := r.Level - 1;
-        end if;
 
-        Out_Error <= Out_Valid and Out_Last and r.Err(to_integer(r.RdPtr));
+        Out_Error <= Out_Valid and Out_Last and r.Err(to_integer(r.RdPtr(PtrW_c - 1 downto 0)));
 
         r_next <= v;
     end process;
@@ -233,7 +226,6 @@ begin
                 r.Images <= (others => '0');
                 r.WrPtr  <= (others => '0');
                 r.RdPtr  <= (others => '0');
-                r.Level  <= (others => '0');
                 r.Flush  <= '0';
                 r.Ev     <= '0';
             end if;

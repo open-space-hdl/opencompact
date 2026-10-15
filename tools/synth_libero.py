@@ -5,8 +5,10 @@
 """Synthesis (and optionally place and route with timing) of ocp_core with Microchip Libero SoC.
 
 Usage: python tools/synth_libero.py --config <configuration> [--family F --die D --package P] [--clk-mhz F] [--impl]
+       [--in-last]
 Writes libero_out/<configuration>/ (synthesis top level of the configuration, Tcl script, project and reports) and
-runs Libero in batch mode (`libero` must be on the PATH, for example Libero_SoC/Designer/bin).
+runs Libero in batch mode (`libero` must be on the PATH, for example Libero_SoC/Designer/bin). With --in-last the core
+has the image framing (UseInLast_g) and the results go to libero_out/<configuration>_last/.
 """
 
 import argparse
@@ -90,14 +92,16 @@ def main():
     parser.add_argument("--device", default="polarfire", choices=sorted(DEVICES))
     parser.add_argument("--clk-mhz", type=float, default=100.0)
     parser.add_argument("--impl", action="store_true")
+    parser.add_argument("--in-last", action="store_true", help="image framing (UseInLast_g)")
     parser.add_argument("--libero", default=shutil.which("libero") or
                         r"D:\Microchip\Libero_SoC_2025.2\Libero_SoC\Designer\bin\libero.exe")
     args = parser.parse_args()
-    out = ROOT / "libero_out" / args.device / args.config
+    out = ROOT / "libero_out" / args.device / (args.config + ("_last" if args.in_last else ""))
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
-    (out / "ocp_synth_top.vhd").write_text(ocp_wrapper.wrapper(ocp_configs.CONFIGS[args.config]), encoding="utf-8")
+    top = ocp_wrapper.wrapper(ocp_configs.CONFIGS[args.config], use_in_last=args.in_last)
+    (out / "ocp_synth_top.vhd").write_text(top, encoding="utf-8")
     script = out / "synth.tcl"
     script.write_text(tcl(out, args.device, args.clk_mhz, args.impl), encoding="utf-8")
     with open(out / "libero.log", "w") as log:

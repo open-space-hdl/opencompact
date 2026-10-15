@@ -9,7 +9,8 @@ The core is at **TRL 3**: fully verified by simulation. It compresses the test i
 cover every option of CCSDS 123.0-B-2, and of 24 random configurations identically to the CNES reference software, in
 GHDL and in QuestaSim, at up to one sample per clock cycle, and reproduces the compressed images of 300 vectors of the
 CCSDS test data set. Unit testbenches verify the predictor, the entropy coders and the bit packer; error injection
-reaches every memory; resets at random times are followed by correct images; code coverage is closed or justified
+reaches every memory; resets at random times are followed by correct images; images with an early or a missing
+image end marker are flagged and followed by correct images (image framing); code coverage is closed or justified
 ([coverage](coverage.md)). The core is not tested on hardware and has no flight heritage. The
 [TRL page](https://openspacehdl.org/trl/) explains what the levels mean for an IP core.
 
@@ -25,7 +26,7 @@ reaches every memory; resets at random times are followed by correct images; cod
 | `ocp_pkg` | PK-1, PK-2 (common definitions, low-entropy code tables) | Verified: tables checked against the standard, used by all testbenches |
 | `ocp_predictor` | PR-1 to PR-6 (predictor, quantizer, mapper) | Verified: unit testbench against the reference model and the throughput model |
 | `ocp_entropy_coder` | EC-1 to EC-3 (sample-adaptive, hybrid, block-adaptive coder) | Verified: unit testbench and core testbench against the CNES reference software |
-| `ocp_core` | CO-1 to CO-3 (header, bit packer, image sequencing) | Verified: core testbench against the CNES reference software and the CCSDS test data set, error injection, resets; unit testbench of the bit packer |
+| `ocp_core` | CO-1 to CO-4 (header, bit packer, image sequencing, image framing) | Verified: core testbench against the CNES reference software and the CCSDS test data set, error injection, resets, early and missing image end markers; unit testbench of the bit packer |
 
 ## Open items
 

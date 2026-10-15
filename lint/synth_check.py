@@ -5,8 +5,9 @@
 """Synthesis check of OpenCompact with GHDL: elaborates ocp_core with the generics of every configuration of
 tools/ocp_configs.py.
 
-Usage: python lint/synth_check.py [configuration ...]
+Usage: python lint/synth_check.py [--in-last] [configuration ...]
 Without arguments the named configurations are checked; any configuration of ALL (also the random ones) can be named.
+With --in-last the core is elaborated with the image framing (UseInLast_g).
 Uses the libraries compiled by the regression runner (run `python run.py --compile` first).
 Exit code 0 when every configuration synthesizes without error and without inferred latch.
 This is a technology-independent check of synthesizability; resources and timing need the FPGA tools.
@@ -25,11 +26,11 @@ import ocp_configs  # noqa: E402
 import ocp_wrapper  # noqa: E402
 
 
-def synth(name, cfg, out_dir):
+def synth(name, cfg, out_dir, use_in_last=False):
     work = out_dir / name
     work.mkdir()
     top = work / "ocp_synth_top.vhd"
-    top.write_text(ocp_wrapper.wrapper(cfg), encoding="utf-8")
+    top.write_text(ocp_wrapper.wrapper(cfg, use_in_last=use_in_last), encoding="utf-8")
     common = ["--std=08", "-frelaxed", f"-P{LIBS / 'olo'}", f"-P{LIBS / 'opencompact'}", f"--workdir={work}"]
     res = subprocess.run(["ghdl", "-a"] + common + [str(top)], capture_output=True, text=True)
     log = res.stdout + res.stderr
@@ -51,9 +52,11 @@ def synth(name, cfg, out_dir):
 def main():
     if not LIBS.exists():
         raise SystemExit("compiled libraries not found, run: python run.py --compile")
-    names = sys.argv[1:] or list(ocp_configs.CONFIGS)
+    args = sys.argv[1:]
+    in_last = "--in-last" in args
+    names = [a for a in args if a != "--in-last"] or list(ocp_configs.CONFIGS)
     with tempfile.TemporaryDirectory() as tmp:
-        results = [synth(n, ocp_configs.ALL[n], Path(tmp)) for n in names]
+        results = [synth(n, ocp_configs.ALL[n], Path(tmp), in_last) for n in names]
     sys.exit(0 if all(results) else 1)
 
 

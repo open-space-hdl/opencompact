@@ -16,7 +16,7 @@ image end marker are flagged and followed by correct images (image framing); cod
 
 | Next level | What is needed | State |
 | --- | --- | --- |
-| TRL 4 | Synthesis with timing closure on a target FPGA and a hardware test with images compressed on the FPGA and decompressed by the CNES reference software; hardware test plan and report | Open: synthesis, place and route at 100 MHz on PolarFire for eleven configurations ([user guide](user_guide.md#7-resources-and-performance)); hardware test open |
+| TRL 4 | Synthesis with timing closure on a target FPGA and a hardware test with images compressed on the FPGA and decompressed by the CNES reference software; hardware test plan and report | Open: synthesis, place and route at 100 MHz on PolarFire for eleven configurations ([user guide](user_guide.md#8-resources-and-performance)); hardware test open |
 | TRL 5 | Single-event effects test (beam test) on a radiation-tolerant FPGA with the core in operation | Open |
 
 ## Modules
@@ -32,10 +32,10 @@ image end marker are flagged and followed by correct images (image framing); cod
 
 | Item | State |
 | --- | --- |
-| Throughput | One sample per clock cycle in BI order with enough bands, with the speculative weight loop (BSQ, BIL; C <= 3) and in stride order (BIP, near-lossless); the entropy coders take one item per cycle ([user guide](user_guide.md#7-resources-and-performance)). Open: BIL input with encoding in BI order with several bands (a buffer of some lines) for configurations with more than three local differences; more than one sample per clock cycle (several datapaths for the bands of a pixel, or several cores on parts of an image) |
+| Throughput | One sample per clock cycle in BI order with enough bands, with the speculative weight loop (BSQ, BIL; C <= 3) and in stride order (BIP, near-lossless); the entropy coders take one item per cycle ([user guide](user_guide.md#8-resources-and-performance)). Open: BIL input with encoding in BI order with several bands (a buffer of some lines) for configurations with more than three local differences; more than one sample per clock cycle (several datapaths for the bands of a pixel, or several cores on parts of an image) |
 | CCSDS test data set in CI | The data set carries no licence statement and is not part of the repository; `tools/ocp_testvectors.py` prepares a selection locally and the regression runs it with `OCP_TESTVECTORS` |
 | Scrubbing of the memories | The memories correct single errors on every read; an upset in a word that is not read again in the image is overwritten by the next image. Scrubbing of the memories during an image is open |
 | Run-time configuration | Open: all parameters are generics; a register interface for the image size, the error limits and the tables would allow one bitstream for several instrument modes |
 | External memory for large images in BSQ order | Open: BSQ order keeps the local differences of a band in an internal memory of NX NY words |
 | Products of wide operands | Open: with D = 32 and Omega >= 16 the products of the predictor need a cascade of four math blocks in one clock cycle (81 MHz on PolarFire); a second product stage for such widths |
-| Synthesis and timing on a radiation-tolerant target (RTG4, RT PolarFire, NG-Ultra, Versal XQR) | Open; on PolarFire every measured configuration except one with D = 32 reaches 100 MHz after place and route ([user guide](user_guide.md#7-resources-and-performance)) |
+| Synthesis and timing on a radiation-tolerant target (RTG4, RT PolarFire, NG-Ultra, Versal XQR) | Open; on PolarFire every measured configuration except one with D = 32 reaches 100 MHz after place and route ([user guide](user_guide.md#8-resources-and-performance)) |

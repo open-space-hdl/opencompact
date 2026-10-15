@@ -133,7 +133,7 @@ Three properties of the standard shape the architecture more than any single fea
 | P2 | Streams everywhere | Every data path between blocks is a valid / ready stream (Open Logic AXI4-Stream conventions). |
 | P3 | One clock domain | All blocks run in `Clk`. |
 | P4 | Configuration by generics | Every parameter of the standard is a generic of `ocp_core`; per-band tables are `integer_vector` generics whose last element repeats. |
-| P5 | Fault tolerance by construction | All memories are `olo_ft_*` entities (SECDED ECC) with their single and double error events at the ports of the core. State machines have a defined recovery state. |
+| P5 | Fault tolerance by construction | All memories are `olo_ft_*` entities (SECDED ECC) with their single and double error events at the ports of the core. State machines have a defined recovery state. All other logic relies on the TMR of the synthesis tool ([user guide, section 6](user_guide.md#6-protection-scope)). |
 | P6 | Exact to the bit | The compressed image is identical to the one of the CNES reference software for the same configuration and image. |
 | P7 | No hidden state between images | Every image starts with the initial state of the standard; consecutive images are independent compressed images. |
 | P8 | Verifiable in isolation | Each module has a specification and a testbench that drives only its ports. Reference data comes from the CNES reference software and from an independent reference model. |

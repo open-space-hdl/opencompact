@@ -44,6 +44,20 @@ remaining values of an aborted image, and the next image takes its own values. E
 specification is covered. All 62 configurations synthesize with GHDL without errors and without latches, with and
 without the image framing (`python lint/synth_check.py [--in-last]`).
 
+Golden data of c38_header_bounds (TC-CO-48): the supplementary tables encoder of the CNES reference software stops
+for more than 13 tables, so `tools/golden.py` encodes the table elements of the 15 tables in two groups and joins
+them bit by bit. This gives the header of the standard. The table count is a field of the Essential subpart
+(CCSDS 5.3.2.2, table 5-3), which the header tool writes with the full count of 15. The Supplementary Information
+Tables subpart is the sequence of the tables (5.3.2.3.1.2); every table consists of its 16-bit description (table
+5-4) and a Table Data subblock with only its own bit depths and elements, ending with fill bits to the next byte
+boundary (5.3.2.3.2.2, 5.3.2.3.2.3). No field of a table depends on another table, and every table starts on a byte
+boundary, so the element sequences of a group are those of its tables, and the header tool adds the description and
+the fill bits of every table. Three checks confirm it: with 12 tables a single call and groups of 5 and of 1 table
+give the same compressed image; the reference model, which writes the header from the clauses of the standard,
+produces the same compressed image as the CNES software for all 15 tables; and the supplementary tables decoder of
+the CNES software decodes each of the 15 tables from the compressed image to its values (`tools/golden.py` checks
+this for every configuration with tables).
+
 Findings:
 
 | Finding | Resolution |

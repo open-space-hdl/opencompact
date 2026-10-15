@@ -25,6 +25,7 @@ Usage: python tools/golden.py [--cnes-bin <dir>] [configuration ...]
 
 import argparse
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -156,6 +157,11 @@ def sit_text(c, t):
     return "\n".join(",".join(fmt(e) for e in r) for r in rows) + "\n"
 
 
+def table_values(text):
+    """Values of a plain-text supplementary information table, in order."""
+    return [float(v) for v in re.split(r"[\s,]+", text.strip()) if v]
+
+
 def write_raw(c, samples, path):
     nb = ocp_configs.sample_bytes(c)
     signed = c["sample_type"] == 1
@@ -265,6 +271,13 @@ def generate(name, c, cnes_bin):
     maxerr = max(abs(a - b) for a, b in zip(samples, decoded))
     if c["quantizer_fidelity_control_method"] == 0 and maxerr:
         raise RuntimeError("{}: lossless image not reconstructed exactly".format(name))
+    # Every supplementary information table decodes from the compressed image to its values (this also checks the
+    # tables that were encoded in separate groups)
+    for i, t in enumerate(c["supplementary_information_tables"]):
+        run(cnes_bin, ["lcnl_supplementary_tables_decoder"] + dec[1:] +
+            ["compressed.bin", str(i), "sit_decoded_{}.txt".format(i)], tmp)
+        if table_values((tmp / "sit_decoded_{}.txt".format(i)).read_text()) != table_values(sit_text(c, t)):
+            raise RuntimeError("{}: supplementary information table {} does not decode to its values".format(name, i))
     (out / "delta.txt").write_text(delta_text(c, img, limits), newline="\n")
     for _ in range(10):
         try:

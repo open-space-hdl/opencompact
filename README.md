@@ -15,7 +15,7 @@ The predictor is a pipeline that takes one sample per clock cycle where the conf
 band-interleaved order with enough bands, with a speculative weight update for band-sequential order and single
 bands, and in a stride order for near-lossless compression of band-interleaved images. The entropy coders take one
 sample per clock cycle, and the compressed image leaves the core in words of 8 to 64 bits. The
-[user guide](docs/user_guide.md#7-resources-and-performance) lists the throughput of every configuration. With the
+[user guide](docs/user_guide.md#8-resources-and-performance) lists the throughput of every configuration. With the
 optional image framing (`UseInLast_g`) an image end marker on the input lets the core detect lost samples: it
 aborts or completes the damaged image, flags it on its last word and resynchronises with the next image
 ([user guide](docs/user_guide.md#42-image-framing)).

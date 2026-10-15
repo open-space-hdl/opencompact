@@ -9,7 +9,7 @@ statement.
 
 | Library | Files | Content |
 | --- | --- | --- |
-| `olo` | All of `open-logic/src/base` and `open-logic/src/ft` in the order of `open-logic/compile_order.txt` (used: `olo_ft_ram_sdp`, `olo_ft_fifo_sync`, `olo_base_pl_stage` and their dependencies) | Open Logic, fault-tolerant fork, tag `4.7.0-ft.2` |
+| `olo` | All of `open-logic/src/base` and `open-logic/src/ft` in the order of `open-logic/compile_order.txt` (used: `olo_ft_ram_sdp`, `olo_ft_fifo_sync`, `olo_base_pl_stage` and their dependencies) | Open Logic, fault-tolerant fork, tag `4.7.0-ft.6` |
 | `opencompact` | `hdl/<module>/src/*.vhd` of every module of `component_list.txt`, in the order of `compile_order.txt`: the modules in the order of `component_list.txt`, within a module packages first | OpenCompact; top level `ocp_core` |
 
 All sources are VHDL-2008 and contain no vendor primitive. `tools/synth_libero.py` shows a complete synthesis and

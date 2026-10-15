@@ -47,9 +47,10 @@ without the image framing (`python lint/synth_check.py [--in-last]`).
 In the 12 configurations of TC-CO-50 (every coder without and with the stride order, from one sample per cycle to
 25 cycles per sample, periodic error limit updating) the first sample of the second image is accepted exactly
 `image_period` cycles after the first sample of the first image, also with the image framing (24 of 24 tests); in
-stride order this is up to about 15 times the input span of the image (c33: 1739 cycles for 120 samples). Every compressed
-image of the regression and of the CCSDS test data set is at most `max_image_bytes` long (TC-CO-51, 362 images, the
-largest ratio 1.00 for small images of the test data set); for incompressible images the bound is reached to 99 %
+stride order this is up to about 15 times the input span of the image (c33: 1739 cycles for 120 samples). Every
+compressed image of the regression and of the CCSDS test data set is at most `max_image_bytes` long (TC-CO-51, 362
+images, the largest ratio 1.00 for small images of the test data set); for incompressible images the bound is reached
+to 99 %
 (block-adaptive coder, c18), 70 % (sample-adaptive coder, c15) and 35 % (hybrid coder, c20).
 
 Golden data of c38_header_bounds (TC-CO-48): the supplementary tables encoder of the CNES reference software stops

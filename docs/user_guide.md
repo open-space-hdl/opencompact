@@ -10,7 +10,7 @@ statement.
 | Library | Files | Content |
 | --- | --- | --- |
 | `olo` | All of `open-logic/src/base` and `open-logic/src/ft` in the order of `open-logic/compile_order.txt` (used: `olo_ft_ram_sdp`, `olo_ft_fifo_sync`, `olo_base_pl_stage` and their dependencies) | Open Logic, fault-tolerant fork, tag `4.7.0-ft.6` |
-| `opencompact` | `hdl/ocp_pkg/src/ocp_pkg.vhd`, `hdl/ocp_pkg/src/ocp_low_entropy_pkg.vhd`, `hdl/ocp_predictor/src/*.vhd`, `hdl/ocp_entropy_coder/src/*.vhd`, `hdl/ocp_core/src/*.vhd` | OpenCompact; top level `ocp_core` |
+| `opencompact` | `hdl/<module>/src/*.vhd` of every module of `component_list.txt`, in the order of `compile_order.txt`: the modules in the order of `component_list.txt`, within a module packages first | OpenCompact; top level `ocp_core` |
 
 All sources are VHDL-2008 and contain no vendor primitive. `tools/synth_libero.py` shows a complete synthesis and
 place and route flow (Microchip Libero SoC); `tools/ocp_wrapper.py` writes a synthesis top level with the generics of a
@@ -88,11 +88,11 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | Generic | Default | Range | Description |
 | --- | --- | --- | --- |
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits (section 4) |
-| `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 7) |
+| `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 8) |
 | `UseInLast_g` | false | | Image framing with `In_Last`: early and missing image ends are detected, flagged and resynchronised (section 4.2) |
 | `RamStyle_g` | "auto" | | Implementation of the memories (Open Logic) |
 
-The stride order of the predictor is used wherever it applies (section 7.1); it has no generic at the core level.
+The stride order of the predictor is used wherever it applies (section 8.1); it has no generic at the core level.
 
 The supplementary information tables are given as their encoded subpart: per table the 16 bits of table type, purpose,
 structure and user-defined data, then the Table Data subblock with its fill bits (5.3.2.3). The function
@@ -162,7 +162,7 @@ injection:
 | 6 | Band-dependent absolute error limits | periodic error limit updating with band-dependent absolute limits |
 | 7 | Band-dependent relative error limits | periodic error limit updating with band-dependent relative limits |
 | 8 | Output FIFO of the predictor | always |
-| 9, 10, 11 | Input buffer, output buffer and local differences of the stride order | stride order (section 7.1) |
+| 9, 10, 11 | Input buffer, output buffer and local differences of the stride order | stride order (section 8.1) |
 | 12 | Statistics of the entropy coder | sample-adaptive and hybrid coder |
 | 13 | Codeword buffer of the entropy coder | always |
 
@@ -222,7 +222,39 @@ A detected double error (`Ecc_Ded`) may falsify the compressed image in progress
 image. The system discards that image and resets the core before the next image. A corrected single error changes
 nothing; its counter is a measure of the upset rate.
 
-## 6. Integration constraints
+## 6. Protection scope
+
+The core is designed for radiation environments together with the triple modular redundancy (TMR) of the synthesis
+tool, like the Open Logic ft entities it is built on. It protects the parts in the first rows itself and relies on
+TMR for all other logic:
+
+| Part | Protection | Indication and test |
+| --- | --- | --- |
+| Memories of the predictor (sample representatives, window of the previous line, previous and first sample representatives, central local differences, weights, band-dependent error limits, output FIFO, buffers of the stride order) and of the entropy coder (statistics, codeword buffer): `olo_ft_ram_sdp` and `olo_ft_fifo_sync`, channels 0 to 13 of section 4.1 | SECDED ECC of the Open Logic ft entities: a single error is corrected, a double error is detected; the compressed image in progress may then be wrong, and the system discards it and resets the core before the next image (section 5) | `Ecc_Sec`, `Ecc_Ded`; error injection through `ErrInj_Channel`, `ErrInj_Double` and `ErrInj_Valid` (section 4.1) |
+| Clock domain crossings and reset synchronisers | None in the core: it runs in one clock domain, and the release of `Rst` is synchronised outside the core (section 3). Use triplicated synchronisers there (`SyncTmr_g` = true, for example `olo_base_reset_gen`): three synchroniser chains and a majority voter. Their registers carry the Synplify attribute `syn_radhardlevel` = `none`, so the TMR of the synthesis tool adds no voters between the stages | none |
+| State machines | Recovery state through the `when others` branch and the reset | none |
+| All other logic: registers of the control and data paths, counters, pointers, pipeline registers | TMR of the synthesis tool (for example `syn_radhardlevel` = `tmr` with Synplify, or the equivalent setting of the tool chain). The core adds no protection of its own for this logic; without TMR, an upset in it is not covered | synthesis report |
+
+The block buffers of the block-adaptive coder and the error flags of the image framer are registers: attributes keep
+synthesis from mapping them into RAM primitives without ECC, and they rely on TMR like all other logic. `Out_Error` and
+`Ev_ImageError` report framing errors of the input (section 4.2), not memory errors. The tables of the configuration
+(section 4.1) are constants and belong to the configuration memory of the FPGA.
+
+The integrator:
+
+- enables the TMR of the synthesis tool for the core and the logic around it,
+- checks in the synthesis report that TMR was applied, that the synchroniser chains of the crossings were not
+  triplicated a second time, and that no register-based storage meant to be protected by TMR was inferred as a RAM
+  primitive,
+- requests safe state machines, so that synthesis keeps the `when others` branches (AMD Vivado: property
+  `FSM_SAFE_STATE` = `default_state` on the state registers; Synplify: attribute `syn_encoding` = `safe`),
+- protects the configuration memory of SRAM-based FPGAs by scrubbing; this is part of the FPGA design, not of the
+  core.
+
+The ECC paths are verified in simulation by error injection. Whether the protection as a whole meets the
+requirements of a mission is shown by a radiation test with the core in operation (TRL 5).
+
+## 7. Integration constraints
 
 | Constraint | Reason |
 | --- | --- |
@@ -231,11 +263,12 @@ nothing; its counter is a measure of the upset rate.
 | The parameter ranges of section 2 are checked only where the elaboration would otherwise be wrong (register size, width 1, vmin and vmax, periodic updating with BSQ); the user keeps the other ranges of the standard | Header fields have the widths of the standard |
 | The decompressor must know the tables that are not included in the header (table flags false) and the initial accumulators of the hybrid coder | CCSDS 5.3.3.3.2.1, 5.4.3.3.4.3 |
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
+| TMR of the synthesis tool enabled for the core | The core protects its memories itself and relies on TMR for all other logic (section 6) |
 | With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
 
-## 7. Resources and performance
+## 8. Resources and performance
 
-### 7.1 Throughput
+### 8.1 Throughput
 
 The predictor is a pipeline that starts one sample per clock cycle as long as dependent samples are far enough apart
 (see the [architecture of the predictor](../hdl/ocp_predictor/docs/architecture.md)). The rate depends on the
@@ -275,11 +308,11 @@ testbenches cycle by cycle):
 | c02, c03, c07, c08, c17, c34, c37 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
 | c05, c10, c19, c21, c31, c32 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
 
-### 7.2 Resources
+### 8.2 Resources
 
 Resources and clock frequency with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a PolarFire MPF100T (FCG484,
 STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the place and route results
-for a 100 MHz constraint; the cycles per sample are those of the throughput model (section 7.1; for c29 and c30 the
+for a 100 MHz constraint; the cycles per sample are those of the throughput model (section 8.1; for c29 and c30 the
 small test images make the per-image skew of the stride order visible).
 
 | Configuration | Cycles per sample | LUT | Flip-flops | LSRAM | uSRAM | Math blocks | Clock frequency |
@@ -308,7 +341,7 @@ bit packer, which in c01 is the critical path (place and route at 125 MHz instea
 `python tools/synth_libero.py --config <configuration> [--impl] [--in-last]` repeats a run;
 `python tools/libero_summary.py` lists the results.
 
-## 8. Conformance statement
+## 9. Conformance statement
 
 The implementation conformance statement of CCSDS 123.0-B-2 annex A for the compressor `ocp_core`: every item of the
 requirements list is supported with the full range of values of the standard.
@@ -330,7 +363,7 @@ The decompressor is not part of the core. The verification compares the compress
 the CNES reference software for the configurations of the regression; the [compliance matrix](compliance.md) traces
 every clause to its requirements and test cases.
 
-## 9. Generating reference data
+## 10. Generating reference data
 
 `tools/golden.py` regenerates the golden data of the regression (`tb/golden/`) with the CNES reference software for
 CCSDS 123.0-B-2 (Linux executables, on Windows through WSL):

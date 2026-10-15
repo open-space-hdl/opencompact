@@ -22,7 +22,7 @@ aborts or completes the damaged image, flags it on its last word and resynchroni
 
 ## Status
 
-**Technology readiness level: TRL 3** (fully verified by simulation). The core compresses the test images of 37
+**Technology readiness level: TRL 3** (fully verified by simulation). The core compresses the test images of 38
 configurations, which together cover every option of the standard, and of 24 random configurations byte for byte
 identically to the CNES reference software for CCSDS 123.0-B-2, in GHDL and in QuestaSim. It also reproduces the
 compressed images of 300 vectors of the CCSDS test data set, selected to cover the parameter values of the set. Unit
@@ -97,7 +97,7 @@ Checks besides the regression:
 
 ```shell
 python lint/lint.py                         # VSG, no errors and no warnings
-python lint/synth_check.py                  # synthesizability of the configurations with GHDL
+python lint/synth_check.py                  # GHDL synthesis: configurations, generic bounds, invalid values
 python tools/compliance.py --check          # traceability of every clause
 python tools/gen_low_entropy_pkg.py --check # low-entropy code tables up to date
 python tools/check_model_testvectors.py <dir>   # reference model against the CCSDS test data set

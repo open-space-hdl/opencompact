@@ -81,7 +81,9 @@ entity ocp_predictor_tb is
         RelErrorLimits_g       : string   := "0";
         SampleRepResolution_g  : natural  := 0;
         Damping_g              : string   := "0";
-        Offset_g               : string   := "0"
+        Offset_g               : string   := "0";
+        -- Speculative weight loop where it applies
+        Speculation_g          : boolean  := true
     );
 end entity;
 
@@ -160,7 +162,8 @@ begin
             RelErrorLimits_g       => parseIntVec(RelErrorLimits_g),
             SampleRepResolution_g  => SampleRepResolution_g,
             Damping_g              => parseIntVec(Damping_g),
-            Offset_g               => parseIntVec(Offset_g)
+            Offset_g               => parseIntVec(Offset_g),
+            Speculation_g          => Speculation_g
         )
         port map (
             Clk       => Clk,

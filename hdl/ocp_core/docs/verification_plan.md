@@ -6,7 +6,8 @@ The testbench compresses the test image of a configuration twice in a row and co
 byte and including the last-word marker and the valid bytes of the last word, with the compressed image of the CNES
 reference software (`tb/golden/<configuration>/compressed.bin`). The configurations are the 30 configurations that cover
 the options of the standard, four configurations with small images for the error injection and the reset tests, two
-configurations for rare paths of the speculative weight loop and of the block-adaptive coder (c35 to c37) and 24 random
+configurations for rare paths of the speculative weight loop and of the block-adaptive coder (c35 to c37), one
+configuration at the bounds of the header fields (c38) and 24 random
 configurations (`r01_random` to `r24_random`, all parameters drawn in the ranges of the standard,
 `tools/ocp_configs.py`). Locally the testbench also runs a selection of the CCSDS test data set
 (`tools/ocp_testvectors.py`): compressed images of randomly chosen configurations whose golden data does not come from
@@ -94,8 +95,10 @@ directory prepared by `tools/ocp_testvectors.py` (not in CI). Simulators: GHDL a
 | `test_golden` c22_single_pixel_hybrid_seq, c31_small_bi_periodic_abs_seq, c34_small_bsq_lossless_seq (TC-CO-43) | Ten images in a row with 70 % output stalls: several images wait for their header while the bit packer takes the body of an earlier image, and an image starts in the cycle in which the header of a waiting image starts | CO-IF-01, CO-PK-03 |
 | `test_golden` c35_small_bil_periodic_spec, c36_block_j64_spikes, c37_block_d32_custom (TC-CO-44) | BIL order with periodic updating of band-dependent absolute error limits every row and reduced prediction with narrow neighbour-oriented local sums: the error limit values pass the speculative weight loop; block-adaptive coder with J = 64 on constant bands with spikes: two fundamental sequence codewords that do not fit into one codeword together, a run of all-zeros blocks before the last block of the image; block-adaptive coder with D = 32 on noise: split-sample options with k >= 25, custom weight initialization with Q = Omega + 3 | CO-IF-01, CO-HD-04, CO-HD-05, EC-BA-01, EC-BA-03 |
 | `test_byte_order` ocp_bit_packer_tb w8_b1, w16_b1, w32_b1, w64_b1, w32_b3 (TC-CO-45) | One image of 2 `OutWidth_g` / 8 - 1 numbered bytes (1, 2, 3, ...) as 8-bit codewords, at every interface width; with B = 3 the last word holds a fill byte only: byte n of every word in `Out_Data` bits 8n + 7 to 8n (for 32 bits the words x"04030201", x"00070605"), `Out_Keep` contiguous from byte 0 in the last word, all bytes valid in the others | CO-IF-02, CO-PK-02 |
-| `test_golden`, `test_ecc`, `test_reset` with the suffix `_last` (TC-CO-46) | Every configuration of TC-CO-01 to TC-CO-44 again with `UseInLast_g` and `In_Last` on the last sample of every image: the same compressed images, `Out_Error` '0' on every word and no `Ev_ImageError`; without `UseInLast_g` the source drives random values on `In_Last` | CO-FR-01, CO-FR-02, CO-FR-05, CO-FR-06 |
+| `test_golden`, `test_ecc`, `test_reset` with the suffix `_last` (TC-CO-46) | Every configuration of TC-CO-01 to TC-CO-44 and TC-CO-48 again with `UseInLast_g` and `In_Last` on the last sample of every image: the same compressed images, `Out_Error` '0' on every word and no `Ev_ImageError`; without `UseInLast_g` the source drives random values on `In_Last` | CO-FR-01, CO-FR-02, CO-FR-05, CO-FR-06 |
 | `test_framing` (TC-CO-47) | Eleven images back to back: correct images and images with `In_Last` on the first sample, in the middle of the image, on the last sample but one and on a random sample (aborted: complete header, a prefix of the compressed image cut at a codeword, at least one zero fill bit up to a multiple of B, `Out_Error` on the last word), and with `In_Last` missing (complete compressed image with `Out_Error`, then a random number of samples or one sample up to the next `In_Last`, each taken in the cycle it is offered); every correct image before and after an error equals the compressed image of the CNES reference software; one `Ev_ImageError` per image with an error. The error limit source drops the values of an aborted image. Then eight resets at random times of an image with an error (during the abort, the discarded samples or the next image) and one reset with the error event of an image that follows a correct image back to back (the abort still waits for the image before), each followed by a correct image. Twelve small configurations: BSQ, BIL, BIP and BI order with sub-frames, the stride order, the speculative weight loop, periodic error limits, the three coders, B from 1 to 8, interface widths of 8 to 64 bits, four of them with input gaps and output stalls | CO-FR-02, CO-FR-03, CO-FR-04, CO-FR-05, CO-FR-06, CO-FR-07, CO-RS-01, CO-PK-02, CO-PK-03 |
+| `test_golden` c38_header_bounds (TC-CO-48) | Bounds of the header fields: user-defined data 255, 15 supplementary information tables, error limit update period 2^9, DA = DR = 16 (encoded as 0) with D = 20, K = min(D - 2, 14) = 14, gamma* = gamma0 + 1 = 8, Umax = 32 | CO-HD-02, CO-HD-03, CO-HD-05, CO-HD-07 |
+| TC-CO-49 (`lint/synth_check.py`) | GHDL synthesis of `ocp_core` with every configuration of the regression at the interface width of its test, without and with `UseInLast_g`; the bounds that no configuration of the regression reaches: NX, NY, NZ and M of 65536 (the other dimensions 1 or 2), `Speculation_g` false, `RamStyle_g` "block"; ten configurations outside the ranges of the standard (M above NZ, J = 12, restricted code options with D = 5, gamma* below gamma0 + 1, K above D - 2, `OutWidth_g` = 12, width 1 with full prediction, R below D + Omega + 2, vmin above vmax, periodic updating in BSQ order) stop the elaboration with their message | CO-CF-01, CO-CF-02, CO-CF-03, CO-IF-02 |
 
 ## 4. Requirement coverage
 
@@ -103,9 +106,10 @@ directory prepared by `tools/ocp_testvectors.py` (not in CI). Simulators: GHDL a
 | --- | --- |
 | CO-IF-01, CO-IF-02 | TC-CO-01, TC-CO-10, TC-CO-19 to TC-CO-36, TC-CO-39 to TC-CO-41, TC-CO-45 (byte order); interface widths of 8, 16, 32 and 64 bits |
 | CO-IF-03, CO-IF-04 | TC-CO-37 (no error in all other test cases) |
-| CO-HD-01 to CO-HD-07 | TC-CO-01 to TC-CO-24, TC-CO-35, TC-CO-36 |
+| CO-HD-01 to CO-HD-07 | TC-CO-01 to TC-CO-24, TC-CO-35, TC-CO-36, TC-CO-48 (bounds of the header fields) |
 | CO-PK-01 to CO-PK-03 | all (two images per test), TC-CO-39 to TC-CO-41, TC-CO-43 (ten images per test) |
 | CO-TP-01 | TC-CO-25 to TC-CO-28, TC-CO-39 |
 | CO-RS-01 | TC-CO-37, TC-CO-38, TC-CO-47 |
-| CO-FR-01 | TC-CO-01 to TC-CO-44 (random `In_Last` without `UseInLast_g`) |
+| CO-FR-01 | TC-CO-01 to TC-CO-44, TC-CO-48 (random `In_Last` without `UseInLast_g`) |
+| CO-CF-01 to CO-CF-03 | TC-CO-49 |
 | CO-FR-02 to CO-FR-07 | TC-CO-46, TC-CO-47 |

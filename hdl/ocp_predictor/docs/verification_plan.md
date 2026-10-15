@@ -60,6 +60,8 @@ gaps and 40 % output stalls (suffix `_bp`). Simulator: GHDL.
 | `test_golden` c31_small_bi_periodic_abs to c34_small_bsq_lossless (TC-PR-35) | Small images: BI order with M = 2 and periodic band-dependent absolute limits, BIP with periodic band-dependent relative limits, stride order, BSQ lossless with full prediction | PR-IF-04, PR-QU-03, PR-TP-03 |
 | `test_golden` c35_small_bil_periodic_spec, c36_block_j64_spikes, c37_block_d32_custom (TC-PR-36) | BIL order with periodic updating of band-dependent absolute error limits every row, reduced prediction with P = 2 and narrow neighbour-oriented local sums: the error limit values pass the speculative weight loop at one sample per clock cycle; BSQ order with P = 0 on constant bands with spikes; D = 32 with custom weight initialization, Q = Omega + 3 | PR-IF-04, PR-PD-02, PR-TP-02, PR-WU-02 |
 | `test_golden` c29_tp_bip_near_stride_stall, c30_tp_bip_both_stride_stall, c35_small_bil_periodic_spec_stall (TC-PR-37) | 80 % output stalls: the output buffer and the output FIFO of the stride order fill and stop the issue of samples; the output FIFO is full when the error limit values of an update period are due | PR-IF-03, PR-IF-04, PR-TP-03 |
+| `test_golden` c38_header_bounds (TC-PR-38) | BI order with M = 2, periodic updating every 2^9 frames of band-dependent absolute and relative error limits with DA = DR = 16 (D = 20) | PR-IF-04, PR-QU-02, PR-QU-03 |
+| `test_golden` c13_single_band_hybrid_nospec, c25_tp_bsq_lossless_nospec, c26_tp_bil_near_abs_nospec, c28_tp_bsq_near_abs_nospec, c35_small_bil_periodic_spec_nospec (TC-PR-39) | The configurations of the speculative weight loop with `Speculation_g` = false: the same mapped quantizer indices, and the samples are accepted in the cycles of the throughput model without the loop | PR-TP-01, PR-TP-02, PR-WU-02 |
 
 Every test also checks that no memory error is signalled (PR-FT-01, no error injection) and that no item follows the
 last one.
@@ -71,15 +73,15 @@ last one.
 | PR-IF-01 | TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11 to TC-PR-13, TC-PR-18, TC-PR-19 |
 | PR-IF-02 | TC-PR-01 to TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-08, TC-PR-17 |
 | PR-IF-03 | TC-PR-01, TC-PR-14, TC-PR-31 to TC-PR-33, TC-PR-37 |
-| PR-IF-04 | TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-33, TC-PR-35, TC-PR-36 |
+| PR-IF-04 | TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-33, TC-PR-35, TC-PR-36, TC-PR-38 |
 | PR-IF-05 | TC-PR-31; in the core the header of every image (TC-CO-01 to TC-CO-34) |
 | PR-LS-01 to PR-LS-04 | TC-PR-01 to TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-11 to TC-PR-13 |
 | PR-PD-01 to PR-PD-03 | TC-PR-01, TC-PR-02, TC-PR-09, TC-PR-11, TC-PR-15 |
-| PR-QU-01 to PR-QU-03 | TC-PR-01, TC-PR-04 to TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19 |
+| PR-QU-01 to PR-QU-03 | TC-PR-01, TC-PR-04 to TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-38 |
 | PR-SR-01 | TC-PR-04, TC-PR-06, TC-PR-34 |
 | PR-WU-01, PR-WU-02 | TC-PR-01, TC-PR-03, TC-PR-09, TC-PR-11, TC-PR-15 |
 | PR-MP-01 | TC-PR-01 to TC-PR-06, TC-PR-11, TC-PR-16, TC-PR-19 (all test cases check the mapped quantizer indices) |
 | PR-TP-01 | all test cases without back pressure (cycles of the input against the throughput model), TC-PR-25 to TC-PR-30 |
-| PR-TP-02 | TC-PR-13, TC-PR-25, TC-PR-26, TC-PR-28 |
+| PR-TP-02 | TC-PR-13, TC-PR-25, TC-PR-26, TC-PR-28; without the loop (`Speculation_g` false) TC-PR-39 |
 | PR-TP-03 | TC-PR-04, TC-PR-06, TC-PR-16, TC-PR-29, TC-PR-30 (cycles of the output against the throughput model) |
 | PR-FT-01, PR-FT-02 | TC-CO-37 of `ocp_core` (error injection into every memory); no error in all other test cases |

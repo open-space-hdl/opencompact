@@ -90,9 +90,16 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits (section 4) |
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 7) |
 | `UseInLast_g` | false | | Image framing with `In_Last`: early and missing image ends are detected, flagged and resynchronised (section 4.2) |
-| `RamStyle_g` | "auto" | | Implementation of the memories (Open Logic) |
+| `RamStyle_g` | "auto" | | Implementation of the memories: passed unchanged to `RamStyle_g` of the Open Logic RAMs and FIFOs, which set the synthesis attributes `ram_style` and `ramstyle` with it (values of the synthesis tool, for example "block" or "distributed"); the simulation does not depend on it |
 
 The stride order of the predictor is used wherever it applies (section 7.1); it has no generic at the core level.
+
+The elaboration stops for parameter values that the standard does not allow (section 6). Every value of a generic that
+changes the structure of the core is simulated, and the bounds of every numeric range are synthesised; the
+verification report of `ocp_core` lists the simulated and synthesised values of every generic. The image dimensions
+are verified in part: NX, NY, NZ and M are simulated from 1 to 64, 64, 48 and 48 (the CCSDS test data set reaches 66
+columns, 513 rows, 239 bands and M = 32) and synthesised in these ranges and at 65536, with the other dimensions at 1
+or 2. Larger images are not verified.
 
 The supplementary information tables are given as their encoded subpart: per table the 16 bits of table type, purpose,
 structure and user-defined data, then the Table Data subblock with its fill bits (5.3.2.3). The function
@@ -228,7 +235,7 @@ nothing; its counter is a measure of the upset rate.
 | --- | --- |
 | Periodic error limit updating requires BI order | CCSDS 4.8.2.4.4 |
 | An image of width 1 requires reduced prediction and column-oriented local sums | CCSDS 4.3.1, 4.4.1 (elaboration stops otherwise) |
-| The parameter ranges of section 2 are checked only where the elaboration would otherwise be wrong (register size, width 1, vmin and vmax, periodic updating with BSQ); the user keeps the other ranges of the standard | Header fields have the widths of the standard |
+| The elaboration stops for the parameter values of section 2 that the standard does not allow: register size below max(32, D + Omega + 2), width 1 with full prediction or neighbour-oriented local sums, vmin above vmax, periodic updating in BSQ order, M above NZ, block sizes other than 8, 16, 32 and 64, restricted code options with D above 4, rescaling counter sizes below max(4, gamma0 + 1) and accumulator initialisation values above min(D - 2, 14). The user keeps the other ranges of the standard, for example the values of the error limit and weight tables | The header fields have the widths of the standard and would carry most of these values; the compressed image would contradict its header |
 | The decompressor must know the tables that are not included in the header (table flags false) and the initial accumulators of the hybrid coder | CCSDS 5.3.3.3.2.1, 5.4.3.3.4.3 |
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
 | With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
@@ -273,7 +280,7 @@ testbenches cycle by cycle):
 | c04, c06, c16 | BIP with 10 to 16 bands, near-lossless, stride order | 2.3 to 3.8 |
 | c33 | BIP with 6 bands, near-lossless, stride order, image of 20 pixels | 14.2 (the per-image cycles of the stride order dominate) |
 | c02, c03, c07, c08, c17, c34, c37 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
-| c05, c10, c19, c21, c31, c32 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
+| c05, c10, c19, c21, c31, c32, c38 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
 
 ### 7.2 Resources
 
@@ -353,3 +360,9 @@ testbenches then run them as well:
 python tools/ocp_testvectors.py /path/to/testdata --out /path/to/selection --count 300
 OCP_TESTVECTORS=/path/to/selection python run.py -p 4
 ```
+
+## 10. Corrected defects
+
+| Defect | Affected | Effect | Correction |
+| --- | --- | --- | --- |
+| `BlockSize_g` other than 8, 16, 32 and 64 was accepted | All versions before the generic range checks | The header carries the block size code of 64 while the block-adaptive coder codes blocks of the given size, so the compressed image cannot be decompressed | The elaboration stops (CO-CF-02, section 6) |

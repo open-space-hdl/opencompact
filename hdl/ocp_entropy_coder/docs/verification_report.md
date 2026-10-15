@@ -5,13 +5,13 @@
 Run on 2026-10-12 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b):
 `python run.py "*ocp_entropy_coder*"`; the coders are also part of every test of `ocp_core_tb`
 ([ocp_core verification report](../../ocp_core/docs/verification_report.md)).
-The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code coverage is in
-[coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL on 2026-10-12
-(`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+The same tests except c38_header_bounds pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code coverage
+is in [coverage.md](../../../docs/coverage.md). The QuestaSim run of c38_header_bounds follows. The tests of the
+CCSDS test data set ran in GHDL on 2026-10-12 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
-| `ocp_entropy_coder_tb` | 63 (61 configurations: 24 sample-adaptive, 17 hybrid, 20 block-adaptive, every second with back pressure; 2 hybrid configurations also with strong sink stalls) | 63 |
+| `ocp_entropy_coder_tb` | 64 (62 configurations: 25 sample-adaptive, 17 hybrid, 20 block-adaptive, every second with back pressure; 2 hybrid configurations also with strong sink stalls) | 64 |
 | `ocp_entropy_coder_tb` with the CCSDS test data set | 300 (99 sample-adaptive, 54 hybrid, 147 block-adaptive; every second with back pressure) | 300 |
 
 ## 2. Summary

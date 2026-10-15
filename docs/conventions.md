@@ -31,8 +31,9 @@ document. This page lists the rules and the few OpenCompact-specific additions.
 - VSG 3.27 with the Open Logic configuration in `lint/config` must report no errors and no warnings:
   `python lint/lint.py`. Safe automatic fixes: `python lint/lint.py --fix`.
 - The design must be synthesizable in a technology-independent way: `python lint/synth_check.py` synthesizes
-  `ocp_core` with every configuration of the regression with GHDL (after `python run.py --compile`) and fails on
-  errors and inferred latches.
+  `ocp_core` with GHDL (after `python run.py --compile`) with every configuration of the regression and at the bounds
+  of the generic ranges, fails on errors and inferred latches, and checks that every configuration outside the ranges
+  of the standard stops the elaboration with its message. A new generic gets its bounds there.
 - Generated files are never edited by hand: `hdl/ocp_pkg/src/ocp_low_entropy_pkg.vhd`
   (`tools/gen_low_entropy_pkg.py`) and `docs/compliance.md` (`tools/compliance.py`).
 - Traceability: every requirement of a specification is verified by at least one test case of the verification plan,

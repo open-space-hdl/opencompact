@@ -30,6 +30,11 @@ BACK_PRESSURE = ["c01_lossless_bip", "c05_near_rel_bi4_signed", "c10_periodic_li
 # is full when the error limit values of an update period are due (c35)
 STALL = ["c29_tp_bip_near_stride", "c30_tp_bip_both_stride", "c35_small_bil_periodic_spec"]
 
+# Configurations of the speculative weight loop that also run without it (Speculation_g = false): one band, BSQ and
+# BIL, lossless and near-lossless, periodic error limit updating
+NO_SPECULATION = ["c13_single_band_hybrid", "c25_tp_bsq_lossless", "c26_tp_bil_near_abs", "c28_tp_bsq_near_abs",
+                  "c35_small_bil_periodic_spec"]
+
 
 def add(tb, name, cfg, golden_dir, back_pressure=False):
     all_generics = ocp_generics.generics(cfg)
@@ -42,6 +47,10 @@ def add(tb, name, cfg, golden_dir, back_pressure=False):
         tb.add_config(name=name + "_bp", generics=dict(gen, InGapPct_g=30, OutStallPct_g=40))
     if name in STALL:
         tb.add_config(name=name + "_stall", generics=dict(gen, OutStallPct_g=80))
+    if name in NO_SPECULATION:
+        tb.add_config(name=name + "_nospec", generics=dict(
+            gen, Speculation_g=False, ExpCycles_g=ocp_throughput.issue_span(all_generics, speculation=False),
+            ExpOutCycles_g=ocp_throughput.output_span(all_generics, speculation=False)))
 
 
 def configure(lib):

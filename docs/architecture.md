@@ -349,6 +349,7 @@ cover all options of the standard:
 | c35_small_bil_periodic_spec | BIL with periodic updating of band-dependent absolute error limits every row, reduced prediction with narrow neighbour-oriented local sums: error limit values in the speculative weight loop |
 | c36_block_j64_spikes | Block-adaptive coder with J = 64 on constant bands with spikes: two fundamental sequence codewords that do not fit into one codeword together, a run of all-zeros blocks before the last block |
 | c37_block_d32_custom | Block-adaptive coder with D = 32 on noise: split-sample options with k >= 25 (fewer than four sets of split bits per codeword); custom weight initialization with Q = Omega + 3 |
+| c38_header_bounds | Bounds of the header fields: user-defined data 255, 15 supplementary information tables, error limit update period 2^9, DA = DR = 16, K = min(D - 2, 14), gamma* = gamma0 + 1 |
 | r01_random to r24_random | Random configurations: every parameter drawn in the range of the standard (image size, D, orders, prediction, error limits, sample representatives, weights, tables, coders) |
 
 ### Framework

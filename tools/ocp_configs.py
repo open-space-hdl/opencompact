@@ -472,6 +472,19 @@ def random_config(seed, max_samples=480):
     return c
 
 
+# Bounds of the header fields: user-defined data 255, 15 supplementary information tables, error limit update period
+# 2^9, error limit bit depths DA = DR = 16 (D = 20), the accumulator initialization constant K = min(D - 2, 14) and
+# the rescaling counter size gamma* = gamma0 + 1 of the sample-adaptive coder
+CONFIGS["c38_header_bounds"] = cfg(
+    large_n_x=6, large_n_y=3, large_n_z=3, large_d=20, large_m=2, large_b=2, user_defined_data=255,
+    supplementary_information_tables=[random_sup_table(random.Random(380 + i), 6, 3, 3) for i in range(15)],
+    large_p=2, prediction_mode=1, local_sum_type=1, large_omega=16, large_r=48, log_two_t_inc=4, v_min=-1, v_max=3,
+    quantizer_fidelity_control_method=3, periodic_updating_flag=1, u=9,
+    absolute_error_limit_assignment_method=1, large_d_large_a=16,
+    relative_error_limit_assignment_method=1, large_d_large_r=16,
+    large_u_max=32, gamma_star=8, gamma_0=7, k_prime_prime_vector=[14],
+    image="scene", seed=38)
+
 # Random configurations of the regression: r<seed>
 RANDOM = {"r{:02d}_random".format(s): random_config(s) for s in range(1, 25)}
 

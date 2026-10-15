@@ -5,7 +5,7 @@ every module; a module is done when its verification report is written and its r
 
 ## Technology readiness
 
-The core is at **TRL 3**: fully verified by simulation. It compresses the test images of 37 configurations, which
+The core is at **TRL 3**: fully verified by simulation. It compresses the test images of 38 configurations, which
 cover every option of CCSDS 123.0-B-2, and of 24 random configurations identically to the CNES reference software, in
 GHDL and in QuestaSim, at up to one sample per clock cycle, and reproduces the compressed images of 300 vectors of the
 CCSDS test data set. Unit testbenches verify the predictor, the entropy coders and the bit packer; error injection

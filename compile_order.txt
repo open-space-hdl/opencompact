@@ -1,0 +1,11 @@
+hdl/ocp_pkg/src/ocp_pkg.vhd
+hdl/ocp_pkg/src/ocp_low_entropy_pkg.vhd
+hdl/ocp_predictor/src/ocp_predictor.vhd
+hdl/ocp_entropy_coder/src/ocp_cw_buffer.vhd
+hdl/ocp_entropy_coder/src/ocp_sample_adaptive_coder.vhd
+hdl/ocp_entropy_coder/src/ocp_hybrid_coder.vhd
+hdl/ocp_entropy_coder/src/ocp_block_adaptive_coder.vhd
+hdl/ocp_core/src/ocp_image_framer.vhd
+hdl/ocp_core/src/ocp_header.vhd
+hdl/ocp_core/src/ocp_bit_packer.vhd
+hdl/ocp_core/src/ocp_core.vhd

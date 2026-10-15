@@ -110,7 +110,7 @@ Generics of `ocp_core` (simulated: in a test of the regression or of the CCSDS t
 | `DampingBandVarying_g`, `DampingTable_g`, `Damping_g`, `OffsetBandVarying_g`, `OffsetTable_g`, `Offset_g` | Flags; values 0 to 2^Theta - 1 | Type of the flags | Both values of the flags; values 0 to 15 | Both values of the flags; values 0 to 15 |
 | `UnaryLimit_g` | 8 to 32 | Type | 8 to 32 (16 values) | 8 to 32 (16 values) |
 | `RescaleCounterSize_g`, `InitialCountExp_g` | gamma\* max(4, gamma0 + 1) to 11, gamma0 1 to 8 | Type; `ocp_core` (CO-CF-03) | gamma\* 4 to 11, gamma0 1 to 8 | gamma\* 4 to 11, gamma0 1 to 8; gamma\* 4 with gamma0 4 stops |
-| `AccuInitBandVarying_g`, `AccuInitTable_g`, `AccuInit_g` | Flags; 0 to min(D - 2, 14) | Type of the flags; `ocp_core` (CO-CF-03) | Both values of the flags; 0 to 14 | Both values of the flags; 0 to 14; 7 with D = 8 stops |
+| `AccuInitBandVarying_g`, `AccuInitTable_g`, `AccuInit_g` | Flags; 0 to min(D - 2, 14) | Type of the flags; `ocp_core` (CO-CF-03) | Both values of the flags; 0 to 14 | Both values of the flags; 0 to 14, also band-varying vectors shorter than NZ; 7 with D = 8 stops, as K and as a band-varying value |
 | `HybridAccuInit_g`, `HybridAccuInitHigh_g` | 0 to 2^(D + gamma0) - 1 | User | Up to 2^33 - 1 | Up to 2^33 - 1 |
 | `BlockSize_g` | 8, 16, 32, 64 | `ocp_core` (CO-CF-02) | 8, 16, 32, 64 | 8, 16, 32, 64; 12 stops |
 | `RestrictedCodes_g` | Only with D <= 4 | `ocp_core` (CO-CF-02) | Both values | Both values; with D = 5 stops |

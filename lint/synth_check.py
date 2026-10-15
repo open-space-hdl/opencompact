@@ -65,6 +65,10 @@ NEGATIVE = {
                             "RescaleCounterSize_g must be max(4, InitialCountExp_g + 1) to 11"),
     "n05_accu_init": (dict(_SAMPLE, large_d=8, large_r=32, large_omega=16, k_prime_prime_vector=[7]), 32, {},
                       "AccuInit_g values must be 0 to min(DynamicRange_g - 2, 14)"),
+    # Band-varying values with fewer values than bands (the last one repeats, as in c02_lossless_bil_column)
+    "n11_accu_init_bands": (dict(_SAMPLE, large_d=8, large_r=32, large_omega=16, band_varying_k_flag=1,
+                                 k_prime_prime_vector=[3, 7]), 32, {},
+                            "AccuInit_g values must be 0 to min(DynamicRange_g - 2, 14)"),
     "n06_out_width_12": (_SAMPLE, 12, {}, "OutWidth_g must be 8, 16, 32 or 64"),
     "n07_width_1_full": (dict(_SAMPLE, large_n_x=1), 32, {}, "images of width 1 need reduced prediction"),
     "n08_register_size": (dict(_SAMPLE, large_omega=19, large_r=36), 32, {}, "RegisterSize_g must be at least"),

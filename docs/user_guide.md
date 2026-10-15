@@ -282,6 +282,32 @@ testbenches cycle by cycle):
 | c02, c03, c07, c08, c17, c34, c37 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
 | c05, c10, c19, c21, c31, c32, c38 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
 
+Consecutive images: `image_period(g)` of `tools/ocp_throughput.py` gives the cycles between the first samples of two
+images that follow each other without gaps and without back pressure. Outside stride order an image follows the
+previous one like the samples of one image: its first sample waits only for the samples it depends on. In stride
+order the next image starts once all slots of the image have passed and its last item has been read from the output
+buffer; the input buffer takes the first sample of the next image four cycles after that read. The period then
+exceeds the input span of an image by the stride skew and the latency of the output buffer (c29: 4322 cycles for
+2880 samples). TC-CO-50 checks the period exactly.
+
+Size of a compressed image: `max_image_bytes(cfg)` of `tools/ocp_model.py` is a strict upper bound on the size of
+the compressed image of any image of a configuration; its docstring names the clause of every term:
+
+| Part | Bits |
+| --- | --- |
+| Header | 8 H, with H bytes from `header(cfg)` |
+| Error limit values (periodic updating) | DA per absolute and DR per relative value: NZ or 1 of each at every update frame |
+| Sample-adaptive coder | D per band (first index) plus Umax + D per further index |
+| Hybrid coder | D per band (first index) plus Umax + D + 21 per further index (length-limited codeword or escape residual, and the longest low-entropy output codeword), one bit per rescaling of the statistics of a band (counted from the counter, which does not depend on the data), and the tail: 130 (longest flush codeword of each low-entropy code) + NZ (2 + D + gamma\*) + 1 |
+| Block-adaptive coder | ceil((NX NY NZ + error limit values) / J) blocks of at most ID + J D bits (no-compression option; option identifier ID of 1 to 5 bits) |
+| Fill bits | Up to the next multiple of B bytes |
+
+Every compressed image of the regression and of the CCSDS test data set is at most this size (TC-CO-51). For
+incompressible images the block-adaptive bound is reached to 99 % (c18, D = 24, noise in every second band: 4629 of
+4659 bytes) and the sample-adaptive bound to 70 % (c15, noise: 2145 of 3083 bytes); small images of the test data set
+reach it exactly. The hybrid bound is reached to 35 % (c20, D = 28: 2315 of 6605 bytes): it allows an escape residual
+and the longest low-entropy output codeword for every index, more than any image produces at every index.
+
 ### 7.2 Resources
 
 Resources and clock frequency with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a PolarFire MPF100T (FCG484,

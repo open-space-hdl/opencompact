@@ -59,6 +59,12 @@ entity ocp_core_tb is
         -- Largest number of cycles between the acceptance of the first and of the last sample of all
         -- images (throughput model tools/ocp_throughput.py); 0: not checked
         ExpCycles_g            : natural  := 0;
+        -- Cycles between the acceptance of the first samples of the first two images (throughput model,
+        -- image_period); 0: not checked
+        ExpPeriod_g            : natural  := 0;
+        -- Upper bound on the size of a compressed image in bytes (ocp_model.max_image_bytes); 0: not
+        -- checked
+        MaxBytes_g             : natural  := 0;
         -- Error injection channels of the memories of the configuration (test_ecc)
         EccChannels_g          : string   := "";
         -- Number of resets at random times (test_reset)
@@ -212,9 +218,10 @@ architecture sim of ocp_core_tb is
     signal ErrCount : natural := 0;
 
     -- Throughput: cycles of the first and the last accepted sample of a job, number of samples
-    signal RateFirst : natural := 0;
-    signal RateLast  : natural := 0;
-    signal RateCount : natural := 0;
+    signal RateFirst  : natural := 0;
+    signal RateSecond : natural := 0;
+    signal RateLast   : natural := 0;
+    signal RateCount  : natural := 0;
 
     -- Memory error pulses since the start of the job
     signal SecCount : natural := 0;
@@ -393,6 +400,10 @@ begin
                 if ExpCycles_g > 0 then
                     check_value(RateLast - RateFirst <= ExpCycles_g, ERROR,
                                 "cycles between the first and the last sample at most " & to_string(ExpCycles_g));
+                end if;
+                if ExpPeriod_g > 0 then
+                    check_value(RateSecond - RateFirst, ExpPeriod_g, ERROR,
+                                "cycles between the first samples of the first two images");
                 end if;
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
                 check_value(ErrCount, 0, ERROR, "no framing error");
@@ -634,7 +645,8 @@ begin
         SrcDone <= JobStart;
     end process;
 
-    -- Throughput: cycle of the first and the last accepted sample of a job
+    -- Throughput: cycle of the first and the last accepted sample of a job and of the first sample of the
+    -- second image
     p_rate : process is
         variable Cycle_v : natural := 0;
         variable Count_v : natural := 0;
@@ -649,6 +661,9 @@ begin
         if In_Valid = '1' and In_Ready = '1' then
             if Count_v = 0 then
                 RateFirst <= Cycle_v;
+            end if;
+            if Count_v = Samples_c then
+                RateSecond <= Cycle_v;
             end if;
             RateLast  <= Cycle_v;
             Count_v   := Count_v + 1;
@@ -819,6 +834,11 @@ begin
             -- Error flag on the last word; size and header of an aborted image
             check_value(Out_Error, toSl(UseInLast_g and Plan_v.Kind /= Normal_c), ERROR,
                         "image " & to_string(img) & ": error flag on the last word");
+            if JobCompare and MaxBytes_g > 0 then
+                check_value(Cnt_v <= MaxBytes_g, ERROR,
+                            "image " & to_string(img) & ": " & to_string(Cnt_v) & " bytes, at most " &
+                            to_string(MaxBytes_g));
+            end if;
             if JobCompare and Plan_v.Kind = Early_c then
                 check_value(Cnt_v mod OutputWordSize_g, 0, ERROR,
                             "image " & to_string(img) & ": size a multiple of the output word size");

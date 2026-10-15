@@ -48,6 +48,13 @@ WIDTHS = [8, 16, 32, 64]
 # Throughput configurations: the core accepts the samples of both images in the cycles of the predictor model
 THROUGHPUT = ["c25_tp_bsq_lossless", "c26_tp_bil_near_abs", "c27_tp_bip_full", "c28_tp_bsq_near_abs"]
 
+# Image period: the first sample of the second image is accepted exactly image_period cycles after the first sample
+# of the first image. Every coder without and with the stride order, at one sample per cycle and at lower rates, and
+# with periodic error limit updating
+PERIOD = ["c03_lossless_bsq_narrow", "c25_tp_bsq_lossless", "c29_tp_bip_near_stride", "c05_near_rel_bi4_signed",
+          "c26_tp_bil_near_abs", "c04_near_abs_hybrid", "c30_tp_bip_both_stride", "c07_lossless_block_bsq",
+          "c27_tp_bip_full", "c06_near_both_block", "c33_small_bip_stride_block", "c35_small_bil_periodic_spec"]
+
 # Error injection and resets at random times: small images; together the configurations have every memory of the
 # core, every coder, BSQ and BI order, periodic error limits and the stride order (and the tail of the hybrid coder
 # of a single-pixel image)
@@ -87,13 +94,15 @@ def configure(lib):
         gen = ocp_generics.generics(cfg)
         gen["GoldenDir_g"] = (ROOT / "tb" / "golden" / name).as_posix()
         gen["Images_g"] = IMAGES
+        gen["MaxBytes_g"] = ocp_model.max_image_bytes(cfg)
         gen["OutWidth_g"] = 32 if name in THROUGHPUT else WIDTHS[n % len(WIDTHS)]
         exp = ocp_throughput.issue_span(gen, images=IMAGES) if name in THROUGHPUT else 0
+        period = ocp_throughput.image_period(gen) if name in PERIOD else 0
         if name in ocp_configs.RANDOM and n % 3 == 0:
             # Every third random configuration runs with back pressure only
             add(golden, name, dict(gen, InGapPct_g=30, OutStallPct_g=60))
         else:
-            add(golden, name, dict(gen, ExpCycles_g=exp))
+            add(golden, name, dict(gen, ExpCycles_g=exp, ExpPeriod_g=period))
         if name in BACK_PRESSURE:
             add(golden, name + "_bp", dict(gen, InGapPct_g=30, OutStallPct_g=60))
         if name in SEQUENCE:
@@ -112,7 +121,8 @@ def configure(lib):
         cfg = ocp_configs.ALL[name]
         gen = ocp_generics.generics(cfg)
         gen.update(GoldenDir_g=(ROOT / "tb" / "golden" / name).as_posix(), OutWidth_g=width, UseInLast_g=True,
-                   HeaderBytes_g=len(ocp_model.header(cfg)), InGapPct_g=bp, OutStallPct_g=2 * bp)
+                   HeaderBytes_g=len(ocp_model.header(cfg)), InGapPct_g=bp, OutStallPct_g=2 * bp,
+                   MaxBytes_g=ocp_model.max_image_bytes(cfg))
         framing.add_config(name=name, generics=gen)
 
     # Bit packer: interface widths and output word sizes; without back pressure, with back pressure and with small
@@ -141,6 +151,7 @@ def configure(lib):
             gen = ocp_generics.generics(cfg)
             gen["GoldenDir_g"] = (tv_dir / name).as_posix()
             gen["Images_g"] = IMAGES
+            gen["MaxBytes_g"] = ocp_model.max_image_bytes(cfg)
             gen["OutWidth_g"] = WIDTHS[n % len(WIDTHS)]
             if n % 4 == 3:
                 gen.update(InGapPct_g=30, OutStallPct_g=60)

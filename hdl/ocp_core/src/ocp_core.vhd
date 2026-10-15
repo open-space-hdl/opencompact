@@ -229,8 +229,8 @@ begin
         severity failure;
 
     g_accu_init : for i in 0 to AccuCount_c - 1 generate
-        assert Coder_c /= CoderSample_c or (AccuInit_g(AccuInit_g'low + i) >= 0 and
-                                            AccuInit_g(AccuInit_g'low + i) <= minimum(DynamicRange_g - 2, 14))
+        assert Coder_c /= CoderSample_c or (vecElem(AccuInit_g, i) >= 0 and
+                                            vecElem(AccuInit_g, i) <= minimum(DynamicRange_g - 2, 14))
             report "ocp_core: AccuInit_g values must be 0 to min(DynamicRange_g - 2, 14) (CCSDS 5.4.3.2.3.3)"
             severity failure;
     end generate;

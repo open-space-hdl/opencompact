@@ -33,6 +33,9 @@ document. This page lists the rules and the few OpenCompact-specific additions.
 - The design must be synthesizable in a technology-independent way: `python lint/synth_check.py` synthesizes
   `ocp_core` with every configuration of the regression with GHDL (after `python run.py --compile`) and fails on
   errors and inferred latches.
+- `compile_order.txt` lists the synthesis sources of the library `opencompact` in compile order. After adding,
+  removing or renaming a source file, regenerate it with `python run.py --compile-order`; the CI fails when it is out
+  of date.
 - Generated files are never edited by hand: `hdl/ocp_pkg/src/ocp_low_entropy_pkg.vhd`
   (`tools/gen_low_entropy_pkg.py`) and `docs/compliance.md` (`tools/compliance.py`).
 - Traceability: every requirement of a specification is verified by at least one test case of the verification plan,

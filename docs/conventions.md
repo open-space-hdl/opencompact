@@ -92,6 +92,8 @@ and explains how to run the tests.
 - Tests observe ports only, never internal signals.
 - GHDL is the default simulator; QuestaSim (`python run.py --questa`) is used for code coverage. Every test passes in
   both simulators.
+- `run.py` gives every GHDL simulation its own copy of the option `ghdl.sim_flags` and stops when a simulation command
+  does not carry exactly the generics of its configuration (VUnit 5.0.0.dev7 shares that list between configurations).
 - A side effect is never obtained by calling an impure function and discarding its result: QuestaSim may remove such
   a call.
 

@@ -58,12 +58,12 @@ def stride_params(g, lat):
     return {"s": s, "m": m, "skew": (m - 1) * (s - 1)}
 
 
-def stride_spans(g, lat, st):
+def stride_cycles(g, lat, st):
     """Cycle-accurate model of the stride order of one image: the input buffer accepts a sample per cycle while it
     has room for the unprocessed samples; the slots advance one per cycle, a sample is issued once it has arrived,
     the samples it depends on have left the feedback loops and the output buffer has room; the output buffer is
-    read in the input order once a sample is finished. Returns the cycles between the first and the last sample at
-    the input and between the first and the last item at the output."""
+    read in the input order once a sample is finished. Returns the cycles in which the samples are accepted at the
+    input and in which the items are read from the output buffer."""
     m, s = st["m"], st["s"]
     nx, npix = g["XSize_g"], g["XSize_g"] * g["YSize_g"]
     narr = npix * m
@@ -136,6 +136,13 @@ def stride_spans(g, lat, st):
                 o_slot += s
         arr = arr_next
         cyc += 1
+    return in_cyc, out_cyc
+
+
+def stride_spans(g, lat, st):
+    """Cycles between the first and the last sample at the input and between the first and the last item at the
+    output of one image in stride order."""
+    in_cyc, out_cyc = stride_cycles(g, lat, st)
     return in_cyc[-1] - in_cyc[0], out_cyc[-1] - out_cyc[0]
 
 
@@ -302,6 +309,22 @@ def issue_span(g, speculation=True, images=1):
         return stride_spans(g, lat, st)[0]
     cycles = issue_cycles(g, speculation, images)
     return cycles[-1] - cycles[0]
+
+
+def image_period(g, speculation=True):
+    """Cycles between the acceptance of the first samples of two consecutive images (back to back, without back
+    pressure at the input and the output). Outside stride order the issue cycles of two images give it. In stride
+    order the next image starts once all slots of the image have passed and its last item has been read from the
+    output buffer: the read takes two cycles, and the input buffer accepts the first sample of the next image one
+    cycle after the start, four cycles after the read of the last item."""
+    lat = latencies(g, speculation)
+    st = stride_params(g, lat)
+    if st is not None:
+        in_cyc, out_cyc = stride_cycles(g, lat, st)
+        return out_cyc[-1] + 4 - in_cyc[0]
+    n = g["XSize_g"] * g["YSize_g"] * g["ZSize_g"]
+    cycles = issue_cycles(g, speculation, images=2)
+    return cycles[n] - cycles[0]
 
 
 def output_span(g, speculation=True):

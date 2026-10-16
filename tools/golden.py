@@ -25,6 +25,7 @@ Usage: python tools/golden.py [--cnes-bin <dir>] [configuration ...]
 
 import argparse
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -39,6 +40,9 @@ import ocp_model  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 GOLDEN = ROOT / "tb" / "golden"
 WINDOWS = os.name == "nt"
+# Plain tables per call of lcnl_supplementary_tables_encoder: it stops with "Invalid number of arguments" for 14 or
+# 15 tables, although the standard allows 15
+SIT_GROUP = int(os.environ.get("OCP_SIT_GROUP", "13"))
 
 # Header tool parameters in the order in which they are set (vectors depend on N_Z, P and the prediction mode)
 SCALARS = [
@@ -123,6 +127,13 @@ def sit_args(c):
     return args
 
 
+def sit_element_bits(c, t):
+    """Bits of the elements of a supplementary information table (CCSDS 5.3.2.3): DI per integer element, 1 + DE + DF
+    per float element."""
+    n = [1, c["large_n_z"], c["large_n_z"] * c["large_n_x"], c["large_n_y"] * c["large_n_x"]][t["structure"]]
+    return n * (t["di"] if t["type"] in (0, 1) else 1 + t["de"] + t["df"])
+
+
 def sit_text(c, t):
     """Plain-text table of the supplementary tables encoder (one row per z or y, columns along x)."""
     def fmt(e):
@@ -144,6 +155,11 @@ def sit_text(c, t):
         n = c["large_n_x"]
         rows = [data[i:i + n] for i in range(0, len(data), n)]
     return "\n".join(",".join(fmt(e) for e in r) for r in rows) + "\n"
+
+
+def table_values(text):
+    """Values of a plain-text supplementary information table, in order."""
+    return [float(v) for v in re.split(r"[\s,]+", text.strip()) if v]
 
 
 def write_raw(c, samples, path):
@@ -200,13 +216,28 @@ def generate(name, c, cnes_bin):
     if c["supplementary_information_tables"]:
         run(cnes_bin, ["lcnl_header_tool"] + hdr_args + sit_args(c) +
             ["-s", "/dev/zero", "-o", "opt_tmp.bin", "hdr_tmp"], tmp)
-        texts = []
-        for i, t in enumerate(c["supplementary_information_tables"]):
-            (tmp / "sit_{}.txt".format(i)).write_text(sit_text(c, t))
-            texts.append("sit_{}.txt".format(i))
         opt_tmp = ["-o", "opt_tmp.bin"] if (tmp / "opt_tmp.bin").exists() and (tmp / "opt_tmp.bin").stat().st_size \
             else []
-        run(cnes_bin, ["lcnl_supplementary_tables_encoder"] + opt_tmp + ["hdr_tmp", "sit.bin"] + texts, tmp)
+        # The supplementary tables encoder takes at most SIT_GROUP plain tables per call: the tables are encoded in
+        # groups, each with a header that describes the tables of the group. Its output holds the table elements bit
+        # by bit, padded with zeros to a byte only at the end, so the groups are joined bit by bit
+        sits = c["supplementary_information_tables"]
+        bits = ""
+        for first in range(0, len(sits), SIT_GROUP):
+            group = dict(c, supplementary_information_tables=sits[first:first + SIT_GROUP])
+            run(cnes_bin, ["lcnl_header_tool"] + hdr_args + sit_args(group) +
+                ["-s", "/dev/zero", "-o", "opt_tmp.bin", "hdr_group"], tmp)
+            texts = []
+            for i, t in enumerate(group["supplementary_information_tables"]):
+                (tmp / "sit_{}.txt".format(first + i)).write_text(sit_text(c, t))
+                texts.append("sit_{}.txt".format(first + i))
+            run(cnes_bin, ["lcnl_supplementary_tables_encoder"] + opt_tmp + ["hdr_group", "sit_group.bin"] + texts,
+                tmp)
+            data = (tmp / "sit_group.bin").read_bytes()
+            length = sum(sit_element_bits(c, t) for t in group["supplementary_information_tables"])
+            bits += "".join(format(byte, "08b") for byte in data)[:length]
+        bits += "0" * (-len(bits) % 8)
+        (tmp / "sit.bin").write_bytes(bytes(int(bits[i:i + 8], 2) for i in range(0, len(bits), 8)))
         hdr_args = (["-t", "opt_tmp.bin"] if opt_tmp else []) + ["-d", "hdr_tmp", "-s", "sit.bin"]
     run(cnes_bin, ["lcnl_header_tool"] + hdr_args + ["-o", "optional_tables.bin", "header.bin"], tmp)
     enc = ["lcnl_encoder"]
@@ -240,6 +271,13 @@ def generate(name, c, cnes_bin):
     maxerr = max(abs(a - b) for a, b in zip(samples, decoded))
     if c["quantizer_fidelity_control_method"] == 0 and maxerr:
         raise RuntimeError("{}: lossless image not reconstructed exactly".format(name))
+    # Every supplementary information table decodes from the compressed image to its values (this also checks the
+    # tables that were encoded in separate groups)
+    for i, t in enumerate(c["supplementary_information_tables"]):
+        run(cnes_bin, ["lcnl_supplementary_tables_decoder"] + dec[1:] +
+            ["compressed.bin", str(i), "sit_decoded_{}.txt".format(i)], tmp)
+        if table_values((tmp / "sit_decoded_{}.txt".format(i)).read_text()) != table_values(sit_text(c, t)):
+            raise RuntimeError("{}: supplementary information table {} does not decode to its values".format(name, i))
     (out / "delta.txt").write_text(delta_text(c, img, limits), newline="\n")
     for _ in range(10):
         try:

@@ -2,14 +2,16 @@
 
 ## 1. Test results
 
-Run on 2026-10-12 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b): `python run.py "*predictor*"`.
-The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code coverage is in
-[coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL on 2026-10-12
-(`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+Run on 2026-10-15 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b),
+Open Logic 4.7.0-ft.6: `python run.py "*predictor*"`.
+The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3, 2026-10-16), with code coverage and in
+the optimised run without it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the
+CCSDS test data set ran in GHDL 6.0.0 on 2026-10-15 and 2026-10-16 (`OCP_TESTVECTORS`, selection of
+`tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
-| `ocp_predictor_tb` | 69 (61 configurations, 5 of them also with back pressure, 3 also with strong output stalls) | 69 |
+| `ocp_predictor_tb` | 75 (62 configurations, 5 of them also with back pressure, 3 also with strong output stalls, 5 also without the speculative weight loop) | 75 |
 | `ocp_predictor_tb` with the CCSDS test data set | 375 (300 test vectors, 75 of them also with back pressure) | 375 |
 
 ## 2. Summary

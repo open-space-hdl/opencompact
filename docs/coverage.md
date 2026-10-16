@@ -25,12 +25,11 @@ Closure rules:
 
 ## 2. Results
 
-Run on 2026-10-14: 333 tests (the testbenches of the predictor, the entropy coders, the bit packer and the core with
-all configurations of `tools/ocp_configs.py`, the core configurations also with the image framing), all passed in
-QuestaSim as in GHDL, with code coverage and in the optimised run without it. The runs used Open Logic 4.7.0-ft.2 and
-apply to 4.7.0-ft.6: between the two tags no Open Logic file that OpenCompact uses changed (only the AXI masters, the
-new `olo_base_chunker` and `olo_axi_lite_decoder` and test and documentation files), and the HDL of OpenCompact is
-the same. Numbers are covered/total bins per file; bold marks a metric with misses.
+Run on 2026-10-16 with Open Logic 4.7.0-ft.6: 342 tests (the testbenches of the predictor, the entropy coders, the
+bit packer and the core with all configurations of `tools/ocp_configs.py`, the core configurations also with the image
+framing), all passed in QuestaSim as in GHDL, with code coverage and in the optimised run without it. The regression
+ran in seven parts by testbench; `vcover merge` combines the coverage databases of the parts. Numbers are
+covered/total bins per file; bold marks a metric with misses.
 
 | File | Statements | Branches | Conditions | Expressions | FSM States | FSM Transitions |
 | --- | --- | --- | --- | --- | --- | --- |

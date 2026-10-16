@@ -138,9 +138,11 @@ end entity;
 ---------------------------------------------------------------------------------------------------
 architecture rtl of ocp_core is
 
-    constant Coder_c : natural  := entropyCoderCode(EntropyCoder_g);
-    constant ItemW_c : positive := maximum(DynamicRange_g, 16);
-    constant ZW_c    : positive := log2ceil(ZSize_g + 1);
+    constant Coder_c     : natural := entropyCoderCode(EntropyCoder_g);
+    -- Accumulator initialisation values in use: k''_z of every band or the constant K (CCSDS 5.4.3.2.3.3)
+    constant AccuCount_c : positive := choose(AccuInitBandVarying_g, ZSize_g, 1);
+    constant ItemW_c     : positive := maximum(DynamicRange_g, 16);
+    constant ZW_c        : positive := log2ceil(ZSize_g + 1);
 
     -- Entropy coder input sequence
     signal Item_Valid : std_logic;
@@ -206,6 +208,32 @@ begin
     assert OutWidth_g = 8 or OutWidth_g = 16 or OutWidth_g = 32 or OutWidth_g = 64
         report "ocp_core: OutWidth_g must be 8, 16, 32 or 64"
         severity failure;
+
+    -- Parameter ranges of the standard that depend on other parameters (CO-CF-01 to CO-CF-03): the elaboration stops
+    -- instead of producing compressed images that contradict their header
+    assert encodingOrderCode(EncodingOrder_g) = OrderBsq_c or SubFrameDepth_g <= ZSize_g
+        report "ocp_core: SubFrameDepth_g must be 1 to ZSize_g (CCSDS 5.4.2.2.1)"
+        severity failure;
+
+    assert Coder_c /= CoderBlock_c or BlockSize_g = 8 or BlockSize_g = 16 or BlockSize_g = 32 or BlockSize_g = 64
+        report "ocp_core: BlockSize_g must be 8, 16, 32 or 64 (CCSDS 5.4.3.4.2.4)"
+        severity failure;
+
+    assert Coder_c /= CoderBlock_c or not RestrictedCodes_g or DynamicRange_g <= 4
+        report "ocp_core: RestrictedCodes_g requires DynamicRange_g <= 4 (CCSDS 5.3.4.4, 5.4.3.4.2.6)"
+        severity failure;
+
+    assert Coder_c = CoderBlock_c or RescaleCounterSize_g >= maximum(4, InitialCountExp_g + 1)
+        report "ocp_core: RescaleCounterSize_g must be max(4, InitialCountExp_g + 1) to 11 (CCSDS 5.4.3.2.3.4, " &
+               "5.4.3.3.4.5)"
+        severity failure;
+
+    g_accu_init : for i in 0 to AccuCount_c - 1 generate
+        assert Coder_c /= CoderSample_c or (vecElem(AccuInit_g, i) >= 0 and
+                                            vecElem(AccuInit_g, i) <= minimum(DynamicRange_g - 2, 14))
+            report "ocp_core: AccuInit_g values must be 0 to min(DynamicRange_g - 2, 14) (CCSDS 5.4.3.2.3.3)"
+            severity failure;
+    end generate;
 
     -----------------------------------------------------------------------------------------------
     -- Image sequencing

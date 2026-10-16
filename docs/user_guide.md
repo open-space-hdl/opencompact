@@ -2,8 +2,8 @@
 
 OpenCompact compresses multispectral and hyperspectral images according to CCSDS 123.0-B-2, Low-Complexity Lossless
 and Near-Lossless Multispectral and Hyperspectral Image Compression. This guide explains how to integrate the core:
-sources, generics, interfaces, operating sequence, integration constraints, performance and the conformance
-statement.
+sources, generics, interfaces, operating sequence, protection scope, integration constraints, performance, the
+conformance statement and the corrected defects.
 
 ## 1. Sources
 
@@ -90,9 +90,16 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits (section 4) |
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 8) |
 | `UseInLast_g` | false | | Image framing with `In_Last`: early and missing image ends are detected, flagged and resynchronised (section 4.2) |
-| `RamStyle_g` | "auto" | | Implementation of the memories (Open Logic) |
+| `RamStyle_g` | "auto" | | Implementation of the memories: passed unchanged to `RamStyle_g` of the Open Logic RAMs and FIFOs, which set the synthesis attributes `ram_style` and `ramstyle` with it (values of the synthesis tool, for example "block" or "distributed"); the simulation does not depend on it |
 
 The stride order of the predictor is used wherever it applies (section 8.1); it has no generic at the core level.
+
+The elaboration stops for parameter values that the standard does not allow (section 7). Every value of a generic that
+changes the structure of the core is simulated, and the bounds of every numeric range are synthesised; the
+verification report of `ocp_core` lists the simulated and synthesised values of every generic. The image dimensions
+are verified in part: NX, NY, NZ and M are simulated from 1 to 64, 64, 48 and 48 (the CCSDS test data set reaches 66
+columns, 513 rows, 239 bands and M = 32) and synthesised in these ranges and at 65536, with the other dimensions at 1
+or 2. Larger images are not verified.
 
 The supplementary information tables are given as their encoded subpart: per table the 16 bits of table type, purpose,
 structure and user-defined data, then the Table Data subblock with its fill bits (5.3.2.3). The function
@@ -260,7 +267,7 @@ requirements of a mission is shown by a radiation test with the core in operatio
 | --- | --- |
 | Periodic error limit updating requires BI order | CCSDS 4.8.2.4.4 |
 | An image of width 1 requires reduced prediction and column-oriented local sums | CCSDS 4.3.1, 4.4.1 (elaboration stops otherwise) |
-| The parameter ranges of section 2 are checked only where the elaboration would otherwise be wrong (register size, width 1, vmin and vmax, periodic updating with BSQ); the user keeps the other ranges of the standard | Header fields have the widths of the standard |
+| The elaboration stops for the parameter values of section 2 that the standard does not allow: register size below max(32, D + Omega + 2), width 1 with full prediction or neighbour-oriented local sums, vmin above vmax, periodic updating in BSQ order, M above NZ, block sizes other than 8, 16, 32 and 64, restricted code options with D above 4, rescaling counter sizes below max(4, gamma0 + 1) and accumulator initialisation values above min(D - 2, 14). The user keeps the other ranges of the standard, for example the values of the error limit and weight tables | The header fields have the widths of the standard and would carry most of these values; the compressed image would contradict its header |
 | The decompressor must know the tables that are not included in the header (table flags false) and the initial accumulators of the hybrid coder | CCSDS 5.3.3.3.2.1, 5.4.3.3.4.3 |
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
 | TMR of the synthesis tool enabled for the core | The core protects its memories itself and relies on TMR for all other logic (section 6) |
@@ -306,7 +313,33 @@ testbenches cycle by cycle):
 | c04, c06, c16 | BIP with 10 to 16 bands, near-lossless, stride order | 2.3 to 3.8 |
 | c33 | BIP with 6 bands, near-lossless, stride order, image of 20 pixels | 14.2 (the per-image cycles of the stride order dominate) |
 | c02, c03, c07, c08, c17, c34, c37 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
-| c05, c10, c19, c21, c31, c32 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
+| c05, c10, c19, c21, c31, c32, c38 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
+
+Consecutive images: `image_period(g)` of `tools/ocp_throughput.py` gives the cycles between the first samples of two
+images that follow each other without gaps and without back pressure. Outside stride order an image follows the
+previous one like the samples of one image: its first sample waits only for the samples it depends on. In stride
+order the next image starts once all slots of the image have passed and its last item has been read from the output
+buffer; the input buffer takes the first sample of the next image four cycles after that read. The period then
+exceeds the input span of an image by the stride skew and the latency of the output buffer (c29: 4322 cycles for
+2880 samples). TC-CO-50 checks the period exactly.
+
+Size of a compressed image: `max_image_bytes(cfg)` of `tools/ocp_model.py` is a strict upper bound on the size of
+the compressed image of any image of a configuration; its docstring names the clause of every term:
+
+| Part | Bits |
+| --- | --- |
+| Header | 8 H, with H bytes from `header(cfg)` |
+| Error limit values (periodic updating) | DA per absolute and DR per relative value: NZ or 1 of each at every update frame |
+| Sample-adaptive coder | D per band (first index) plus Umax + D per further index |
+| Hybrid coder | D per band (first index) plus Umax + D + 21 per further index (length-limited codeword or escape residual, and the longest low-entropy output codeword), one bit per rescaling of the statistics of a band (counted from the counter, which does not depend on the data), and the tail: 130 (longest flush codeword of each low-entropy code) + NZ (2 + D + gamma\*) + 1 |
+| Block-adaptive coder | ceil((NX NY NZ + error limit values) / J) blocks of at most ID + J D bits (no-compression option; option identifier ID of 1 to 5 bits) |
+| Fill bits | Up to the next multiple of B bytes |
+
+Every compressed image of the regression and of the CCSDS test data set is at most this size (TC-CO-51). For
+incompressible images the block-adaptive bound is reached to 99 % (c18, D = 24, noise in every second band: 4629 of
+4659 bytes) and the sample-adaptive bound to 70 % (c15, noise: 2145 of 3083 bytes); small images of the test data set
+reach it exactly. The hybrid bound is reached to 35 % (c20, D = 28: 2315 of 6605 bytes): it allows an escape residual
+and the longest low-entropy output codeword for every index, more than any image produces at every index.
 
 ### 8.2 Resources
 
@@ -386,3 +419,9 @@ testbenches then run them as well:
 python tools/ocp_testvectors.py /path/to/testdata --out /path/to/selection --count 300
 OCP_TESTVECTORS=/path/to/selection python run.py -p 4
 ```
+
+## 11. Corrected defects
+
+| Defect | Affected | Effect | Correction |
+| --- | --- | --- | --- |
+| `BlockSize_g` other than 8, 16, 32 and 64 was accepted | All versions before the generic range checks | The header carries the block size code of 64 while the block-adaptive coder codes blocks of the given size, so the compressed image cannot be decompressed | The elaboration stops (CO-CF-02, section 7) |

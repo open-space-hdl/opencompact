@@ -811,6 +811,78 @@ def pad_to_word(cfg, w, header_bits):
 
 
 # ------------------------------------------------------------------------------------------------
+# Largest compressed image
+# ------------------------------------------------------------------------------------------------
+# Longest output codeword of the low-entropy codes (tables B-1 to B-16) and sum of the longest flush codeword of
+# every code (tables B-17 to B-32)
+LE_MAX_OUT = max(len(c) for code in CODES for c in code.values())
+LE_MAX_FLUSH = sum(max(len(f) for f in flush.values()) for flush in FLUSH)
+
+
+def max_image_bytes(cfg):
+    """Strict upper bound on the size in bytes of the compressed image of any image of the configuration.
+
+    - Header: exactly header(cfg) (5.3).
+    - Error limit values of periodic updating: NZ or 1 absolute and NZ or 1 relative values at every update frame,
+      DA or DR bits each (4.8.2.4, 5.4.2.2.2; 5.4.3.2.4.1, 5.4.3.3.5.1.1; in the block-adaptive coder they are
+      entries of the input sequence).
+    - Sample-adaptive coder: the first mapped quantizer index of every band uncoded with D bits (5.4.3.2.4.2); every
+      further index a length-limited GPO2 codeword of at most Umax + D bits (5.4.3.2.2.1 and its note).
+    - Hybrid coder: the first index of every band with D bits (5.4.3.3.5.1.3); every further index either a reversed
+      length-limited GPO2 codeword of at most Umax + D bits (5.4.3.3.3.2.1, 5.4.3.3.5.2) or, in low-entropy
+      processing, at most one output codeword of the selected code (5.4.3.3.5.3.5; LE_MAX_OUT bits, tables B-1 to
+      B-16) and an escape residual coded with k = 0, at most Umax + D bits (5.4.3.3.5.3.3); one bit per rescaling of
+      the statistics of a band (5.4.3.3.5.1.2), counted exactly from the counter, which does not depend on the data
+      (5.4.3.3.4.2, 5.4.3.3.4.4); the tail: the longest flush codeword of each of the 16 codes (5.4.3.3.5.4.2,
+      LE_MAX_FLUSH bits), the final accumulator of every band with 2 + D + gamma* bits (5.4.3.3.5.4.3) and one bit
+      (5.4.3.3.5.4.4).
+    - Block-adaptive coder: the input sequence padded with zeros to a multiple of J (5.4.3.4.2.7); every block at most
+      the option identifier and J D bits, the length of the no-compression option (CCSDS 121.0-B-3 3.6.1, table
+      5-1), because the coder selects the shortest option (3.7.3); a zero-block CDS for k all-zeros blocks (3.5.3,
+      3.7.2) has at most identifier + 2 + k bits, less than k blocks without compression.
+    - Fill bits up to the next multiple of B bytes (5.4.3.2.4.4, 5.4.3.3.5.4.5, 5.4.3.4.3.2).
+    """
+    pr = Params(cfg)
+    d, nz = pr.d, pr.nz
+    t_band = pr.nx * pr.ny
+    n_lim, lim_bits = 0, 0
+    if pr.periodic:
+        frames = (pr.ny + (1 << pr.u) - 1) >> pr.u
+        if pr.use_abs:
+            n = nz if cfg["absolute_error_limit_assignment_method"] else 1
+            n_lim += frames * n
+            lim_bits += frames * n * cfg["large_d_large_a"]
+        if pr.use_rel:
+            n = nz if cfg["relative_error_limit_assignment_method"] else 1
+            n_lim += frames * n
+            lim_bits += frames * n * cfg["large_d_large_r"]
+    umax = cfg["large_u_max"]
+    ec = cfg["entropy_coder_type"]
+    if ec == 0:
+        body = lim_bits + nz * d + nz * (t_band - 1) * (umax + d)
+    elif ec == 1:
+        gs, g0 = cfg["gamma_star"], cfg["gamma_0"]
+        cnt, rescales = 1 << g0, 0
+        for _ in range(1, t_band):
+            if cnt < (1 << gs) - 1:
+                cnt += 1
+            else:
+                rescales += 1
+                cnt = (cnt + 1) >> 1
+        per_index = LE_MAX_OUT + umax + d
+        body = (lim_bits + nz * d + nz * (t_band - 1) * per_index + nz * rescales + LE_MAX_FLUSH +
+                nz * (2 + d + gs) + 1)
+    else:
+        idb, _ = block_options(d, cfg["restricted_code_options_flag"] == 1)
+        jsz = cfg["large_j"]
+        blocks = (nz * t_band + n_lim + jsz - 1) // jsz
+        body = blocks * (idb + jsz * d)
+    unit = 8 * cfg["large_b"]
+    bits = 8 * len(header(cfg)) + body
+    return (bits + unit - 1) // unit * cfg["large_b"]
+
+
+# ------------------------------------------------------------------------------------------------
 # Compressor
 # ------------------------------------------------------------------------------------------------
 def compress(cfg, img, error_limit_updates=None):

@@ -2,12 +2,13 @@
 
 ## 1. Test results
 
-Run on 2026-10-12 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b):
-`python run.py "*ocp_entropy_coder*"`; the coders are also part of every test of `ocp_core_tb`
-([ocp_core verification report](../../ocp_core/docs/verification_report.md)).
-The same tests except c38_header_bounds pass in QuestaSim (Questa Pro Microchip Edition 2024.3); the code coverage
-is in [coverage.md](../../../docs/coverage.md). The QuestaSim run of c38_header_bounds follows. The tests of the
-CCSDS test data set ran in GHDL on 2026-10-12 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+Run on 2026-10-15 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b),
+Open Logic 4.7.0-ft.6: `python run.py "*ocp_entropy_coder*"`; the coders are also part of every test of
+`ocp_core_tb` ([ocp_core verification report](../../ocp_core/docs/verification_report.md)).
+The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3, 2026-10-16), with code coverage and in
+the optimised run without it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the
+CCSDS test data set ran in GHDL 6.0.0 on 2026-10-15 and 2026-10-16 (`OCP_TESTVECTORS`, selection of
+`tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |

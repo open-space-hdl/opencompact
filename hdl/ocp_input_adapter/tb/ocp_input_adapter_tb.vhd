@@ -310,10 +310,17 @@ begin
 
         -- Waits until the sink has checked every expected sample, then compares the events
         procedure drain is
+            variable Cycles_v : natural := 0;
         begin
 
+            -- Watchdog: every expected sample within a time limit
             while GotCount /= Count_v loop
                 wait until rising_edge(Clk);
+                Cycles_v := Cycles_v + 1;
+                if Cycles_v > 1000000 then
+                    alert(ERROR, "every expected sample within the time limit");
+                    exit;
+                end if;
             end loop;
 
             for i in 1 to 4 loop

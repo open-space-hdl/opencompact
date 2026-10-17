@@ -87,6 +87,19 @@ mapped quantizer indices at their input index and is read in the input order onc
 passed. The central local differences of the previous bands come from a memory per band. The next image starts when
 all slots of the image have passed and its output has been read.
 
+Early end (`In_End`, PR-FR-02): the input buffer records the input index L of the end sample (`EndA`) and takes no
+further sample. Slot n of index a = t M + z is n = a + z (S - 1), at most `Skew_c` = (M - 1)(S - 1) slots after its
+index, so every slot of an index up to L lies at or before L + `Skew_c` and every later slot belongs to an index above
+L. The sequencer skips the slots of indices above L in one cycle each, like the slots outside the image, issues the
+others as usual, and ends the image when L + 1 samples have been issued (`IssCnt`), at the last slot of an index up to
+L instead of the last slot of the image. The output buffer is read up to index L, which carries the last-item flag;
+the next image starts at slot 0 when index L has been read. Compared with the arrival of the end sample, the
+sequencer needs at most the slots between its current slot and that last slot, which the input buffer bounds to
+`InDepth_c` + `Skew_c` slots.
+
+In the input order (all other cases) the issue stage marks the sample with `In_End` as the last item and resets its
+position (column, row, band, sub-frame, error limit state) as after the last sample of an image (PR-FR-01).
+
 ## 5. Memories
 
 | Memory | Depth | Width | Content |
@@ -125,7 +138,7 @@ q (2 m + 1) = sgn(residual) (|residual| + m - remainder).
 
 | Port | Direction | Description |
 | --- | --- | --- |
-| `In_Valid`, `In_Ready`, `In_Data` | in | Samples (D bits) in the input order |
+| `In_Valid`, `In_Ready`, `In_Data`, `In_End` | in | Samples (D bits) in the input order; `In_End` with a sample that ends its image early (PR-FR-01, PR-FR-02) |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in | 16-bit error limit values (periodic updating) |
 | `Img_Start` | out | Pulse: the first item of an image is accepted |
 | `Out_Valid`, `Out_Ready`, `Out_Data` | out | Item value, max(D, 16) bits |

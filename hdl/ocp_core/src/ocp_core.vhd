@@ -193,10 +193,7 @@ architecture rtl of ocp_core is
     signal ValValid : std_logic;
     signal ValReady : std_logic;
     signal PkEnd    : std_logic;
-    signal Flush    : std_logic;
-    signal PipeRst  : std_logic;
-    signal EndValid : std_logic;
-    signal EndReady : std_logic;
+    signal SmpEnd   : std_logic;
 
     -- Image sequencing: header first, then the body
     signal InBody    : std_logic;
@@ -261,8 +258,8 @@ begin
             if Hdr_Valid = '1' and Hdr_Ready = '1' and Hdr_Last = '1' then
                 InBody <= '1';
             end if;
-            -- The image ends with the last codeword (or the end of an aborted image); the bit packer
-            -- appends the fill bits before it takes the header of the next image
+            -- The image ends with the last codeword; the bit packer appends the fill bits before it takes
+            -- the header of the next image
             if PkEnd = '1' then
                 InBody    <= '0';
                 StartPend <= '1';
@@ -277,19 +274,15 @@ begin
 
     Hdr_Start <= StartPend and toSl(Waiting > 0);
 
-    -- Bit packer input: header bytes, then the codewords of the entropy coder; an aborted image ends
-    -- with a last codeword of one zero bit from the image framer (a last codeword is never empty)
-    Pk_Valid  <= (Cw_Valid or EndValid) when InBody = '1' else Hdr_Valid;
-    Pk_Data   <= (others => '0') when EndValid = '1' else
-                 Cw_Data when InBody = '1' else
+    -- Bit packer input: header bytes, then the codewords of the entropy coder
+    Pk_Valid  <= Cw_Valid when InBody = '1' else Hdr_Valid;
+    Pk_Data   <= Cw_Data when InBody = '1' else
                  std_logic_vector(resize(unsigned(Hdr_Data), CwWidth_c));
-    Pk_Length <= std_logic_vector(to_unsigned(1, CwLenWidth_c)) when EndValid = '1' else
-                 Cw_Length when InBody = '1' else
+    Pk_Length <= Cw_Length when InBody = '1' else
                  Hdr_Length;
-    Pk_Last   <= (Cw_Last or EndValid) when InBody = '1' else '0';
-    Cw_Ready  <= Pk_Ready when InBody = '1' and EndValid = '0' else '0';
+    Pk_Last   <= Cw_Last when InBody = '1' else '0';
+    Cw_Ready  <= Pk_Ready when InBody = '1' else '0';
     Hdr_Ready <= Pk_Ready when InBody = '0' else '0';
-    EndReady  <= Pk_Ready;
     PkEnd     <= Pk_Valid and Pk_Ready and Pk_Last;
 
     -----------------------------------------------------------------------------------------------
@@ -314,14 +307,9 @@ begin
                 Lim_Ready     => Lim_Ready,
                 Smp_Valid     => SmpValid,
                 Smp_Ready     => SmpReady,
+                Smp_End       => SmpEnd,
                 Val_Valid     => ValValid,
                 Val_Ready     => ValReady,
-                Img_Start     => ImgStart,
-                Img_End       => PkEnd,
-                Img_Body      => InBody,
-                Flush         => Flush,
-                End_Valid     => EndValid,
-                End_Ready     => EndReady,
                 Out_Valid     => OutValid,
                 Out_Ready     => Out_Ready,
                 Out_Last      => OutLast,
@@ -336,14 +324,10 @@ begin
         In_Ready      <= SmpReady;
         ValValid      <= Lim_Valid;
         Lim_Ready     <= ValReady;
-        Flush         <= '0';
-        EndValid      <= '0';
+        SmpEnd        <= '0';
         Out_Error     <= '0';
         Ev_ImageError <= '0';
     end generate;
-
-    -- An aborted image clears the predictor and the entropy coder
-    PipeRst <= Rst or Flush;
 
     -----------------------------------------------------------------------------------------------
     -- Header
@@ -454,10 +438,11 @@ begin
         )
         port map (
             Clk            => Clk,
-            Rst            => PipeRst,
+            Rst            => Rst,
             In_Valid       => SmpValid,
             In_Ready       => SmpReady,
             In_Data        => In_Data,
+            In_End         => SmpEnd,
             Lim_Valid      => ValValid,
             Lim_Ready      => ValReady,
             Lim_Data       => Lim_Data,
@@ -497,7 +482,7 @@ begin
             )
             port map (
                 Clk           => Clk,
-                Rst           => PipeRst,
+                Rst           => Rst,
                 In_Valid      => Item_Valid,
                 In_Ready      => Item_Ready,
                 In_Data       => Item_Data,
@@ -539,7 +524,7 @@ begin
             )
             port map (
                 Clk           => Clk,
-                Rst           => PipeRst,
+                Rst           => Rst,
                 In_Valid      => Item_Valid,
                 In_Ready      => Item_Ready,
                 In_Data       => Item_Data,
@@ -574,7 +559,7 @@ begin
             )
             port map (
                 Clk           => Clk,
-                Rst           => PipeRst,
+                Rst           => Rst,
                 In_Valid      => Item_Valid,
                 In_Ready      => Item_Ready,
                 In_Data       => Item_Data,

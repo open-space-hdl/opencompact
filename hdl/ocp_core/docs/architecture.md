@@ -49,22 +49,18 @@ from NX NY NZ - 1 and compares the count with `In_Last` when a sample is taken. 
 
 | State | Samples and error limit values | Leaves on |
 | --- | --- | --- |
-| Run | Passed to the predictor | The last sample of the image without `In_Last` (to Discard); `In_Last` before the last sample, with or without `In_Error` (to Drain) |
-| Drain | Not taken | The predictor and the entropy coder hold only the aborted image: one-cycle `Flush` (to Close) |
-| Close | Not taken | The end of the aborted image is taken by the bit packer (to Run) |
+| Run | Passed to the predictor | The last sample of the image without `In_Last` (to Discard) |
 | Discard | Samples taken at once and dropped, error limit values not taken | The sample with `In_Last` (to Run) |
 
-Images overlap in the pipeline: when an image ends early, the predictor may still hold samples of it and the entropy
-coder the last codewords of the image before. The framer therefore counts the images in the predictor, the entropy
-coder and the path to the bit packer (+1 with `Img_Start` of the predictor, -1 when the bit packer takes the last
-codeword of an image) and waits in Drain until only the aborted image is left. `Flush` then resets the predictor and
-the entropy coder for one clock cycle (as `Rst`); the header generator, the image sequencer and the bit packer keep
-their state. In Close the framer waits until the header of the aborted image is taken and offers a last codeword
-of one zero bit to the bit packer through the source multiplexer; the bit packer appends the fill bits. The aborted
-image consists of its header, the codewords the entropy coder output before the flush and at least one zero fill
-bit up to a multiple of B bytes: a prefix of the compressed image of the complete image, cut at a codeword boundary.
-An empty last codeword would not do: the words of the aborted image may all have left the bit packer before the
-abort, and then no word could carry `Out_Last`.
+A sample with `In_Last` before the last sample of the image goes to the predictor with `Smp_End` (`In_End` of the
+predictor); the framer stays in Run and counts the next image from the next sample. The predictor makes that sample
+the last item of its image and starts the next image from its first position (`ocp_predictor` architecture, section
+4 for the stride order); the entropy coder ends the image on that item with its normal end of an image (the hybrid
+coder with its flush codewords and accumulator tail, the block-adaptive coder with the last block of fewer than J
+values), and the bit packer appends the fill bits. The aborted image is therefore the compressed image of the samples
+taken, whatever the timing (CO-FR-03, CO-FR-09), and the image before it is not touched. For three clock cycles
+after the sample with the early `In_Last` the framer takes no error limit value (CO-FR-07), so that a source that
+delivers the values ahead can drop those of the aborted image on `Ev_ImageError`.
 
 With `In_Last` and `In_Error` on the last sample (CO-FR-08) the image is complete: the framer stays in Run, the next
 sample starts a new image, and only the error flag and `Ev_ImageError` mark the image. `In_Error` without `In_Last` and

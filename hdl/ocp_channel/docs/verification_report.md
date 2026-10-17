@@ -21,11 +21,11 @@ software, for D from 8 to 32 and the three coders, through the input converter a
 without it, through the output converter (also to a narrower stream) and without it, with input gaps and output stalls,
 and with the error limit values of periodic updating through `Lim_*`. All bytes of a packet are valid except in its last
 beat, whose valid bytes are contiguous from byte 0. In the error scenarios every packet, its error flag and every
-counter step of the specification hold: an aborted image is its header, a prefix of the reference and fill bits; an
-image ended by a faulty last SDU or without its end mark equals the reference and carries `Out_Error`; the images
-discarded by the adapter or swallowed by the core produce no packet; every correct image after an error equals the
-reference. Single and double bit errors injected through `ErrInj_*` are counted in ECC_CORRECTED and ECC_UNCORRECTABLE.
-A reset clears the counters.
+counter step of the specification hold: an aborted image equals the compressed image of the samples taken
+(`aborted_<n>.bin`, the SDU with the fault or the end mark ends at that sample); an image ended by a faulty last SDU or
+without its end mark equals the reference and carries `Out_Error`; the images discarded by the adapter or swallowed by
+the core produce no packet; every correct image after an error equals the reference. Single and double bit errors
+injected through `ErrInj_*` are counted in ECC_CORRECTED and ECC_UNCORRECTABLE. A reset clears the counters.
 
 ## 3. Generic ranges
 

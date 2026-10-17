@@ -906,9 +906,20 @@ def max_image_bytes(cfg):
 # ------------------------------------------------------------------------------------------------
 def compress(cfg, img, error_limit_updates=None):
     """Returns the compressed image (header and body) as bytes."""
+    return compress_aborted(cfg, img, None, error_limit_updates)
+
+
+def compress_aborted(cfg, img, taken, error_limit_updates=None):
+    """Returns the compressed image of the first `taken` samples in the input order (all samples for None) and of the
+    error limit values before them: the header of the complete image, the codewords of the samples taken with the end
+    of the image of the entropy coder after the last one, and the fill bits (an image aborted by an early In_Last,
+    CO-FR-03). A decoder that is given the number of samples taken decodes it; the header announces the complete
+    image."""
     hdr = header(cfg)
     delta, limits = predict(cfg, img, error_limit_updates)
     seq = input_sequence(cfg, delta, limits)
+    if taken is not None:
+        seq = _first_samples(seq, taken)
     body = BitWriter()
     hb = 8 * len(hdr)
     ec = cfg["entropy_coder_type"]
@@ -919,6 +930,17 @@ def compress(cfg, img, error_limit_updates=None):
     else:
         encode_block_adaptive(cfg, seq, body, header_bits=hb)
     return hdr + body.to_bytes()
+
+
+def _first_samples(seq, taken):
+    """The items of the input sequence up to and including sample number `taken` (counted from 1)."""
+    n = 0
+    for item in seq:
+        yield item
+        if item[0] == "sample":
+            n += 1
+            if n == taken:
+                return
 
 
 # ------------------------------------------------------------------------------------------------

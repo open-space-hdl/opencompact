@@ -12,6 +12,9 @@ For every configuration of tools/ocp_configs.py (ALL) the script writes into tb/
 - error_limits.bin     periodic error limit values, 16-bit big-endian (only with periodic error limit updating)
 - delta.txt            mapped quantizer indices and error limit values in entropy coder input order, from the
                        reference model (tools/ocp_model.py), for the unit testbench of the predictor
+- aborted_<n>.bin      (with --aborted) the image aborted by an early In_Last on sample n (counted from 0 in the
+                       input order), from the reference model (ocp_model.compress_aborted): the CNES software has no
+                       such output; the model reproduces the CNES encoder for every complete image
 
 The script checks that the reference model produces the same compressed image as the CNES encoder and that the
 CNES decoder reconstructs the image within the error limits.
@@ -21,10 +24,12 @@ lcnl_supplementary_tables_encoder) runs natively on Linux or through WSL on Wind
 --cnes-bin or the environment variable OCP_CNES_BIN (a path of the Linux file system).
 
 Usage: python tools/golden.py [--cnes-bin <dir>] [configuration ...]
+       python tools/golden.py --aborted [configuration ...]   (aborted images only; no CNES software needed)
 """
 
 import argparse
 import os
+import random
 import re
 import shlex
 import shutil
@@ -43,6 +48,17 @@ WINDOWS = os.name == "nt"
 # Plain tables per call of lcnl_supplementary_tables_encoder: it stops with "Invalid number of arguments" for 14 or
 # 15 tables, although the standard allows 15
 SIT_GROUP = int(os.environ.get("OCP_SIT_GROUP", "13"))
+
+# Configurations with aborted images (test_framing of ocp_core_tb, test_errors of ocp_channel_tb): every
+# encoding order and coder, the stride order, periodic error limits
+ABORTED = ["c22_single_pixel_hybrid", "c31_small_bi_periodic_abs", "r01_random", "c32_small_bip_periodic_rel",
+           "c37_block_d32_custom", "r04_random", "c33_small_bip_stride_block", "c35_small_bil_periodic_spec",
+           "r13_random", "c34_small_bsq_lossless", "r22_random", "r08_random", "c29_tp_bip_near_stride",
+           "c30_tp_bip_both_stride",
+           # hybrid coder in BSQ and BIL order (tail of bands without statistics)
+           "r21_random", "c26_tp_bil_near_abs",
+           # ocp_channel_tb
+           "c36_block_j64_spikes", "r09_random", "r17_random", "r24_random"]
 
 # Header tool parameters in the order in which they are set (vectors depend on N_Z, P and the prediction mode)
 SCALARS = [
@@ -290,11 +306,41 @@ def generate(name, c, cnes_bin):
                                                                                       len(golden), ratio, maxerr))
 
 
+def abort_positions(name, c):
+    """Samples with the early In_Last (counted from 0 in the input order): the first sample, the middle, the last but
+    one and one position drawn with the configuration name as seed; in BI order also the last band of the first pixel,
+    the first band of the second pixel, the last band of the last pixel but one and the middle band of the middle pixel
+    (the classes of the slot window of the stride order)."""
+    n = c["large_n_x"] * c["large_n_y"] * c["large_n_z"]
+    nz = c["large_n_z"]
+    pos = {0, n // 2, max(n - 2, 0), random.Random(name).randint(0, max(n - 2, 0))}
+    if c["sample_encoding_order"] == 0 and nz > 1:
+        pos |= {nz - 1, nz, n - nz - 1, (n // nz // 2) * nz + nz // 2}
+    return sorted(p for p in pos if 0 <= p < n - 1)
+
+
+def write_aborted(name, c):
+    """Aborted images of a configuration at its abort positions, from the reference model."""
+    out = GOLDEN / name
+    img = ocp_configs.make_image(c)
+    limits = ocp_configs.error_limit_updates(c)
+    for old in out.glob("aborted_*.bin"):
+        old.unlink()
+    for p in abort_positions(name, c):
+        (out / "aborted_{}.bin".format(p)).write_bytes(ocp_model.compress_aborted(c, img, p + 1, limits))
+    print("{:28s} aborted at {}".format(name, ", ".join(str(p) for p in abort_positions(name, c))))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cnes-bin", default=os.environ.get("OCP_CNES_BIN"))
+    ap.add_argument("--aborted", action="store_true", help="write only the aborted images (reference model)")
     ap.add_argument("configs", nargs="*")
     args = ap.parse_args()
+    if args.aborted:
+        for name in args.configs or ABORTED:
+            write_aborted(name, ocp_configs.ALL[name])
+        return
     if not args.cnes_bin:
         raise SystemExit("give the bin directory of the CNES reference software with --cnes-bin or OCP_CNES_BIN")
     names = args.configs or list(ocp_configs.ALL)

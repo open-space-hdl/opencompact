@@ -64,8 +64,10 @@ entity ocp_channel_tb is
         OutStallPct_g          : natural  := 0;
         -- Largest SDU in samples
         MaxSdu_g               : positive := 40;
-        -- Size of the header in bytes
+        -- Size of the header in bytes; samples with the early end of the aborted images of
+        -- tb/golden/<config>/aborted_<n>.bin
         HeaderBytes_g          : natural  := 0;
+        AbortPos_g             : string   := "0";
         -- Error injection channels (test_ecc)
         EccChannels_g          : string   := "";
         -- Widths of the channel
@@ -161,28 +163,23 @@ architecture sim of ocp_channel_tb is
 
     type Plan_t is array (1 to MaxPlan_c) of natural;
 
-    -- Expected packets: reference image, reference image with error flag, aborted (prefix of the
-    -- reference, fill bits, error flag), header only (other samples than the reference, error flag)
+    -- Expected packets: reference image, reference image with error flag, aborted image after sample n
+    -- (tb/golden/<config>/aborted_<n>.bin, error flag), header only (other samples than the reference,
+    -- error flag), any (not compared)
     constant PkGolden_c    : natural  := 0;
     constant PkGoldenErr_c : natural  := 1;
-    constant PkPrefix_c    : natural  := 2;
+    constant PkAborted_c   : natural  := 2;
     constant PkHeader_c    : natural  := 3;
     constant PkAny_c       : natural  := 4;
     constant PkDepth_c     : positive := 64;
 
     type PkArr_t is array (0 to PkDepth_c - 1) of natural;
 
-    -- Aborted image: byte o of the output is the first k bits (0 to 7) of the expected byte e, then zero bits
-    function isCut (o : natural; e : natural) return boolean is
+    -- Sample with the early end of an aborted image (the positions of AbortPos_g in turn)
+    function abortPos (i : natural) return natural is
+        constant P_c : integer_vector := parseIntVec(AbortPos_g);
     begin
-
-        for k in 0 to 7 loop
-            if o = (e / 2 ** (8 - k)) * 2 ** (8 - k) then
-                return true;
-            end if;
-        end loop;
-
-        return false;
+        return P_c(P_c'low + i mod P_c'length);
     end function;
 
     signal Clk            : std_logic                                      := '0';
@@ -232,6 +229,7 @@ architecture sim of ocp_channel_tb is
     signal JobPlan   : Plan_t   := (others => Normal_c);
     signal SrcDone   : natural  := 0;
     signal Pk        : PkArr_t;
+    signal PkPos     : PkArr_t;
     signal PkCount   : natural  := 0;
     signal PkChecked : natural  := 0;
     signal PkDrop    : boolean  := false;
@@ -420,17 +418,25 @@ begin
             syncClk;
         end procedure;
 
-        -- Runs a job and waits until the sink has checked every expected packet
+        -- Runs a job and waits until the sink has checked every expected packet; a job that does not end
+        -- within its time limit fails the test (watchdog)
         procedure job (images : positive; plan : Plan_t) is
+            variable Cycles_v : natural := 0;
         begin
             JobImages <= images;
             JobPlan   <= plan;
             Job_v     := Job_v + 1;
             JobStart  <= Job_v;
-            wait until SrcDone = Job_v;
+            wait until SrcDone = Job_v for images * (Samples_c * 400 + 50000) * ClkPeriod_c;
+            check_value(SrcDone = Job_v, ERROR, "job " & to_string(Job_v) & ": the source ends within its time limit");
 
             while PkChecked /= PkCount loop
                 syncClk;
+                Cycles_v := Cycles_v + 1;
+                if Cycles_v > images * (Samples_c * 400 + 50000) then
+                    alert(ERROR, "job " & to_string(Job_v) & ": every expected packet within the time limit");
+                    exit;
+                end if;
             end loop;
 
             for i in 1 to 20 loop
@@ -526,7 +532,8 @@ begin
 
                 reset;
                 if SrcDone /= Job_v then
-                    wait until SrcDone = Job_v;
+                    wait until SrcDone = Job_v for 10 ms;
+                    check_value(SrcDone = Job_v, ERROR, "the source stops after the reset");
                 end if;
                 reset;
                 chk(RegImagesDone_c, 0, "IMAGES_DONE after the reset");
@@ -561,11 +568,12 @@ begin
 
         file Img_f : ByteFile_t;
 
-        procedure expect (kind : natural) is
+        procedure expect (kind : natural; pos : natural := 0) is
         begin
-            Pk(Pk_v mod PkDepth_c) <= kind;
-            Pk_v                   := Pk_v + 1;
-            PkCount                <= Pk_v;
+            Pk(Pk_v mod PkDepth_c)    <= kind;
+            PkPos(Pk_v mod PkDepth_c) <= pos;
+            Pk_v                      := Pk_v + 1;
+            PkCount                   <= Pk_v;
             if kind = PkGolden_c or kind = PkAny_c then
                 Done_v := Done_v + 1;
             else
@@ -659,6 +667,9 @@ begin
 
         variable Plan_v    : natural;
         variable J_v       : natural;
+        variable Split_v   : natural;
+        variable Pos_v     : natural;
+        variable Got_v     : natural;
         variable Mark_v    : boolean;
         variable Rem_v     : natural;
         variable Swallow_v : boolean;
@@ -681,9 +692,17 @@ begin
         for img in 1 to JobImages loop
             Plan_v := JobPlan(img);
 
-            -- SDU lengths: random, a few single-sample SDUs, at least three SDUs
+            -- SDU lengths: random, a few single-sample SDUs; when the image ends early (faulty SDU J, end
+            -- mark on SDU J), SDU J ends with a sample of AbortPos_g, so that the aborted image has a golden
+            Split_v := 0;
+            if Plan_v = FaultMid_c or Plan_v = FaultLost_c or Plan_v = EarlyMark_c then
+                Pos_v   := abortPos(random(0, 7));
+                Split_v := Pos_v + 1;
+            end if;
             NSdu_v := 0;
             Rem_v  := Samples_c;
+            Got_v  := 0;
+            J_v    := 0;
 
             while Rem_v > 0 loop
                 NSdu_v := NSdu_v + 1;
@@ -692,10 +711,19 @@ begin
                 else
                     Sizes_v(NSdu_v) := minimum(Rem_v, random(1, minimum(MaxSdu_g, maximum(1, Samples_c / 3))));
                 end if;
+                if Got_v < Split_v then
+                    Sizes_v(NSdu_v) := minimum(Sizes_v(NSdu_v), Split_v - Got_v);
+                end if;
                 Rem_v := Rem_v - Sizes_v(NSdu_v);
+                Got_v := Got_v + Sizes_v(NSdu_v);
+                if Split_v > 0 and Got_v = Split_v and J_v = 0 then
+                    J_v := NSdu_v;
+                end if;
             end loop;
 
-            J_v := random(1, maximum(NSdu_v - 1, 1));
+            if J_v = 0 then
+                J_v := random(1, maximum(NSdu_v - 1, 1));
+            end if;
 
             -- Expected packets; after a lost end SDU, a missing end mark or a faulty SDU with a lost end SDU
             -- the next image produces no packet
@@ -711,11 +739,11 @@ begin
                         expect(PkGolden_c);
                     end if;
                 when Unchecked_c => expect(PkAny_c);
-                when FaultMid_c | FaultLost_c => expect(PkPrefix_c);
+                when FaultMid_c | FaultLost_c => expect(PkAborted_c, Pos_v);
                 when FaultEnd_c | MissingMark_c => expect(PkGoldenErr_c);
                 when LostMid_c | LostEnd_c | LengthMid_c => expect(PkHeader_c);
                 when EarlyMark_c =>
-                    expect(PkPrefix_c);
+                    expect(PkAborted_c, Pos_v);
                     expect(PkHeader_c);
                 when others => null;
             end case;
@@ -805,7 +833,6 @@ begin
         variable Cnt_v  : natural;
         variable Gap_v  : boolean;
         variable Byte_v : natural;
-        variable Same_v : boolean;
         variable Kind_v : natural;
         variable Got_v  : natural := 0;
 
@@ -819,9 +846,12 @@ begin
             Out_Ready <= '1';
         elsif Got_v < PkCount then
             Kind_v := Pk(Got_v mod PkDepth_c);
-            file_open(Ref_f, GoldenDir_g & "/compressed.bin", read_mode);
-            Cnt_v  := 0;
-            Same_v := true;
+            if Kind_v = PkAborted_c then
+                file_open(Ref_f, GoldenDir_g & "/aborted_" & to_string(PkPos(Got_v mod PkDepth_c)) & ".bin", read_mode);
+            else
+                file_open(Ref_f, GoldenDir_g & "/compressed.bin", read_mode);
+            end if;
+            Cnt_v := 0;
             readByte(Ref_f, Exp_v, Eof_v);
 
             loop
@@ -840,18 +870,11 @@ begin
                             Byte_v := to_integer(unsigned(Out_Data(8 * b + 7 downto 8 * b)));
                             if Kind_v = PkAny_c then
                                 null;
-                            elsif Kind_v = PkGolden_c or Kind_v = PkGoldenErr_c then
+                            elsif Kind_v = PkGolden_c or Kind_v = PkGoldenErr_c or Kind_v = PkAborted_c then
                                 check_value(not Eof_v, ERROR, "packet " & to_string(Got_v) & ": no byte beyond the end");
                                 check_value(Byte_v, Exp_v, ERROR, "packet " & to_string(Got_v) & " byte " & to_string(Cnt_v));
                             elsif Cnt_v < HeaderBytes_g then
                                 check_value(Byte_v, Exp_v, ERROR, "packet " & to_string(Got_v) & " header byte " & to_string(Cnt_v));
-                            elsif Kind_v = PkPrefix_c and Same_v and (Eof_v or Byte_v /= Exp_v) then
-                                -- Aborted image: end of the prefix, first bits of the byte, then fill bits
-                                Same_v := false;
-                                check_value(not Eof_v and isCut(Byte_v, Exp_v), ERROR,
-                                            "packet " & to_string(Got_v) & " byte " & to_string(Cnt_v) & ": prefix, then fill bits");
-                            elsif Kind_v = PkPrefix_c and not Same_v then
-                                check_value(Byte_v, 0, ERROR, "packet " & to_string(Got_v) & " byte " & to_string(Cnt_v) & ": fill bits");
                             end if;
                             Cnt_v := Cnt_v + 1;
                             readByte(Ref_f, Exp_v, Eof_v);
@@ -865,7 +888,7 @@ begin
                         check_value(Out_Error, toSl(Kind_v /= PkGolden_c), ERROR, "packet " & to_string(Got_v) & ": error flag");
                         check_value(Cnt_v mod OutputWordSize_g, 0, ERROR, "packet " & to_string(Got_v) & ": multiple of B bytes");
                         check_value(Cnt_v >= HeaderBytes_g, ERROR, "packet " & to_string(Got_v) & ": complete header");
-                        if Kind_v = PkGolden_c or Kind_v = PkGoldenErr_c then
+                        if Kind_v = PkGolden_c or Kind_v = PkGoldenErr_c or Kind_v = PkAborted_c then
                             check_value(Eof_v, ERROR, "packet " & to_string(Got_v) & ": complete image");
                         end if;
                     end if;
@@ -883,6 +906,25 @@ begin
             -- No packet expected: none may arrive
             Out_Ready <= '1';
             check_value(Out_Valid, '0', ERROR, "no packet expected");
+        end if;
+    end process;
+
+    -- Watchdog: while a job runs, a beat is transferred at the input or the output at least every
+    -- WatchdogCycles_c clock cycles (a hang fails the test instead of running without end)
+    p_watchdog : process is
+        constant WatchdogCycles_c : positive := 20000;
+        variable Idle_v           : natural  := 0;
+    begin
+        wait until rising_edge(Clk);
+        if Rst = '1' or (SrcDone = JobStart and PkChecked = PkCount) or (In_Valid = '1' and In_Ready = '1') or
+           (Out_Valid = '1' and Out_Ready = '1') then
+            Idle_v := 0;
+        else
+            Idle_v := Idle_v + 1;
+            if Idle_v = WatchdogCycles_c then
+                alert(ERROR, "no transfer for " & to_string(WatchdogCycles_c) & " clock cycles while job " &
+                      to_string(JobStart) & " runs");
+            end if;
         end if;
     end process;
 

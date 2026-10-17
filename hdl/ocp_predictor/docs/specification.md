@@ -19,6 +19,13 @@ with periodic error limit updating, the error limit values at the start of every
 | PR-IF-04 | With periodic error limit updating the predictor shall read the error limit values (A\* or a_z for every band, then R\* or r_z for every band) at the start of every frame y with y mod 2^u = 0, use them for the frames of the update period and insert them into the entropy coder input sequence before the first sample of the frame. | 4.8.2.4, 5.4.2.2.2 |
 | PR-IF-05 | The predictor shall signal with a pulse on `Img_Start` that it has accepted the first item (sample or error limit value) of an image. | none |
 
+### 2.1a Early end of an image (PR-1)
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| PR-FR-01 | A sample that comes with `In_End` = '1' shall be the last item of its image at the output (`Out_Last`), after every item of the samples taken before it; the next sample shall be the first sample of a new image (t = 0, initial weights, error limit values read at its first frame). | 5.4.2 |
+| PR-FR-02 | In stride order, after a sample with `In_End` at input index L the predictor shall take no further sample of the image, process every slot of an input index up to L, skip the slots of the indices above L without waiting for their samples, end the image when L + 1 samples have been processed and output the indices 0 to L in input order with index L as the last item. | 5.4.2 |
+
 ### 2.2 Local sums and local differences (PR-2)
 
 | ID | Requirement | CCSDS |

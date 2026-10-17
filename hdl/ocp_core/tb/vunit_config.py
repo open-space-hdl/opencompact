@@ -34,6 +34,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
+import golden as golden_tool  # noqa: E402
 import ocp_configs  # noqa: E402
 import ocp_generics  # noqa: E402
 import ocp_model  # noqa: E402
@@ -73,7 +74,9 @@ SEQUENCE = {"c22_single_pixel_hybrid": 100, "c31_small_bi_periodic_abs": 10, "c3
 FRAMING = [("c22_single_pixel_hybrid", 8, 30), ("c31_small_bi_periodic_abs", 8, 0), ("r01_random", 8, 0),
            ("c32_small_bip_periodic_rel", 16, 0), ("c37_block_d32_custom", 16, 0), ("r04_random", 16, 30),
            ("c33_small_bip_stride_block", 32, 0), ("c35_small_bil_periodic_spec", 32, 0), ("r13_random", 32, 30),
-           ("c34_small_bsq_lossless", 64, 0), ("r22_random", 64, 0), ("r08_random", 64, 30)]
+           ("c34_small_bsq_lossless", 64, 0), ("r22_random", 64, 0), ("r08_random", 64, 30),
+           ("c29_tp_bip_near_stride", 16, 0), ("c30_tp_bip_both_stride", 64, 30),
+           ("r21_random", 8, 0), ("c26_tp_bil_near_abs", 32, 0)]
 
 IMAGES = 2
 
@@ -122,7 +125,8 @@ def configure(lib):
         gen = ocp_generics.generics(cfg)
         gen.update(GoldenDir_g=(ROOT / "tb" / "golden" / name).as_posix(), OutWidth_g=width, UseInLast_g=True,
                    HeaderBytes_g=len(ocp_model.header(cfg)), InGapPct_g=bp, OutStallPct_g=2 * bp,
-                   MaxBytes_g=ocp_model.max_image_bytes(cfg))
+                   MaxBytes_g=ocp_model.max_image_bytes(cfg),
+                   AbortPos_g=",".join(str(p) for p in golden_tool.abort_positions(name, cfg)))
         framing.add_config(name=name, generics=gen)
 
     # Bit packer: interface widths and output word sizes; without back pressure, with back pressure and with small

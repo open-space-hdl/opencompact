@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
+import golden as golden_tool  # noqa: E402
 import ocp_configs  # noqa: E402
 import ocp_generics  # noqa: E402
 import ocp_model  # noqa: E402
@@ -43,6 +44,7 @@ def configure(lib):
         gen = ocp_generics.generics(cfg)
         gen.update({"GoldenDir_g": (ROOT / "tb" / "golden" / name).as_posix(),
                     "HeaderBytes_g": len(ocp_model.header(cfg)),
+                    "AbortPos_g": ",".join(str(p) for p in golden_tool.abort_positions(name, cfg)),
                     "InStreamWidth_g": in_w, "OutWidth_g": out_w, "OutStreamWidth_g": stream_w})
         if bp:
             gen.update({"InGapPct_g": 30, "OutStallPct_g": 50})

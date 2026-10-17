@@ -83,10 +83,12 @@ entity ocp_predictor is
     port (
         Clk            : in    std_logic;
         Rst            : in    std_logic;
-        -- Image samples in the input order
+        -- Image samples in the input order; In_End with a sample that ends its image early (the sample
+        -- is the last item of the image, the next sample starts a new image)
         In_Valid       : in    std_logic;
         In_Ready       : out   std_logic;
         In_Data        : in    std_logic_vector(DynamicRange_g - 1 downto 0);
+        In_End         : in    std_logic                     := '0';
         -- Error limit values for periodic error limit updating (entropy coder input order)
         Lim_Valid      : in    std_logic                     := '0';
         Lim_Ready      : out   std_logic;
@@ -740,6 +742,10 @@ architecture rtl of ocp_predictor is
         OBand2   : unsigned(ZW_c - 1 downto 0);
         OFlags1  : std_logic_vector(2 downto 0);
         OFlags2  : std_logic_vector(2 downto 0);
+        -- Stride order, early end: input index of the sample with In_End, samples issued in the image
+        EndV     : std_logic;
+        EndA     : unsigned(AW_c - 1 downto 0);
+        IssCnt   : unsigned(AW_c - 1 downto 0);
     end record;
 
     signal r, r_next : TwoProcess_r;
@@ -1188,6 +1194,18 @@ begin
                             v.Z := r.Z + 1;
                         end if;
                     end if;
+
+                    -- Early end of the image (CO-FR-03): this sample is the last item, the next sample
+                    -- is the first sample of a new image
+                    if In_End = '1' then
+                        O_v.Last  := '1';
+                        v.X       := (others => '0');
+                        v.Y       := (others => '0');
+                        v.Z       := (others => '0');
+                        v.SubLow  := (others => '0');
+                        v.RowBase := (others => '0');
+                        v.LimDone := '0';
+                    end if;
                 end if;
             end if;
         else
@@ -1195,19 +1213,26 @@ begin
             -- processed (all of them have an input index of at least LowA)
             Block_v  := false;
             StartS_v := '0';
-            if r.ArrIn < NArr_c and r.ArrIn - r.LowA < InDepth_c then
+            if r.ArrIn < NArr_c and r.ArrIn - r.LowA < InDepth_c and r.EndV = '0' then
                 In_Ready <= '1';
                 if In_Valid = '1' then
                     InWrEna  <= '1';
                     v.ArrIn  := r.ArrIn + 1;
                     StartS_v := toSl(r.ArrIn = 0);
+                    -- Early end: the image ends with this sample (PR-FR-02)
+                    if In_End = '1' then
+                        v.EndV := '1';
+                        v.EndA := r.ArrIn;
+                    end if;
                 end if;
             end if;
 
             if r.PDone = '0' then
                 -- Slot t M + z S: empty outside the image, else the sample once it has arrived, the
                 -- samples it depends on have left the feedback loops and the output buffer has room
-                Advance_v := r.ST < 0 or r.ST >= signed(resize(NPix_c, r.ST'length));
+                -- (after an early end also the slots of the samples after the end sample)
+                Advance_v := r.ST < 0 or r.ST >= signed(resize(NPix_c, r.ST'length)) or
+                             (r.EndV = '1' and r.SA > signed(resize(r.EndA, r.SA'length)));
                 if not Advance_v then
                     First_v := r.ST = 0;
                     Init_v  := r.ST = 1;
@@ -1256,7 +1281,8 @@ begin
                         if r.SZ = M_c - 1 then
                             v.LowA := r.LowA + M_c;
                         end if;
-                        if O_v.Last = '1' then
+                        v.IssCnt := r.IssCnt + 1;
+                        if O_v.Last = '1' or (r.EndV = '1' and r.IssCnt = r.EndA) then
                             v.PDone := '1';
                         end if;
                     end if;
@@ -1286,7 +1312,7 @@ begin
 
                     v.SSlot := r.SSlot + 1;
                 end if;
-            elsif r.OA = NArr_c and r.ORd = "00" then
+            elsif (r.OA = NArr_c or (r.EndV = '1' and r.OA = r.EndA + 1)) and r.ORd = "00" then
                 -- Image processed and output: the next image starts with slot 0
                 v.ArrIn  := (others => '0');
                 v.LowA   := (others => '0');
@@ -1301,6 +1327,8 @@ begin
                 v.OZ     := (others => '0');
                 v.OSlot  := (others => '0');
                 v.DoneOk := '0';
+                v.EndV   := '0';
+                v.IssCnt := (others => '0');
             end if;
         end if;
         v.P(0) := O_v;
@@ -1893,14 +1921,15 @@ begin
             v.ORd     := '0' & r.ORd(1);
             v.OBand2  := r.OBand1;
             v.OFlags2 := r.OFlags1;
-            if r.OA < NArr_c and r.DoneOk = '1' and r.OSlot <= r.DoneSlot and
+            if r.OA < NArr_c and not (r.EndV = '1' and r.OA > r.EndA) and r.DoneOk = '1' and
+               r.OSlot <= r.DoneSlot and
                to_integer(unsigned(FifoLevel)) + 4 <= FifoDepth_c then
                 v.ORd(1) := '1';
                 v.OBand1 := r.OZ;
                 -- First sample (t = 0), first coded sample (t = 1), last sample of the image
                 v.OFlags1(0) := toSl(r.OA < M_c);
                 v.OFlags1(1) := toSl(r.OA >= M_c and r.OA < 2 * M_c);
-                v.OFlags1(2) := toSl(r.OA = NArr_c - 1);
+                v.OFlags1(2) := toSl(r.OA = NArr_c - 1 or (r.EndV = '1' and r.OA = r.EndA));
                 v.OA         := r.OA + 1;
                 if r.OZ = M_c - 1 then
                     v.OZ    := (others => '0');
@@ -2026,6 +2055,8 @@ begin
                 r.OSlot    <= (others => '0');
                 r.DoneOk   <= '0';
                 r.ORd      <= "00";
+                r.EndV     <= '0';
+                r.IssCnt   <= (others => '0');
                 r.WinValid <= '0';
                 r.Inflight <= 0;
                 r.EccSec   <= '0';

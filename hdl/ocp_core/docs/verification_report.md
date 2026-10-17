@@ -15,7 +15,7 @@ CCSDS test data set ran in GHDL 6.0.0 on 2026-10-15 and 2026-10-16 (`OCP_TESTVEC
 | `ocp_core_tb` `test_golden` | 69 (62 configurations, every third random configuration with back pressure; 4 configurations also with back pressure; 3 sequences of 10 to 100 small images), each also with `UseInLast_g` (`_last`) | 138 |
 | `ocp_core_tb` `test_ecc` | 4 (every memory of the core), each also with `UseInLast_g` | 8 |
 | `ocp_core_tb` `test_reset` | 5, each also with `UseInLast_g` | 10 |
-| `ocp_core_tb` `test_framing` | 12 (eleven images with four early and two missing image end markers; eight images with `In_Error`; eight resets during the error handling) | 12 |
+| `ocp_core_tb` `test_framing` | 16 (eleven images with four early and two missing image end markers; aborted images back to back at every abort position of the configuration; eight images with `In_Error`; eight resets during the error handling) | 16 |
 | `ocp_bit_packer_tb` `test_random` | 30 | 30 |
 | `ocp_bit_packer_tb` `test_byte_order` | 5 | 5 |
 | `ocp_core_tb` `test_golden` with the CCSDS test data set | 300 (75 of them with back pressure), each also with `UseInLast_g` | 600 |
@@ -33,18 +33,18 @@ second image. A single bit error injected into any memory leaves the compressed 
 `Ecc_Sec`, a double bit error is signalled on `Ecc_Ded` (TC-CO-37); after every reset at a random time the next image
 is correct (TC-CO-38).
 
-With the image framing (`UseInLast_g`) every configuration produces the same compressed images, without `Out_Error`
-and without `Ev_ImageError` (TC-CO-46); without it `In_Last` carries random values and changes nothing. In
-`test_framing` (TC-CO-47) every image with an early `In_Last` ends with its complete header, a prefix of the compressed
-image of the reference cut at a codeword, at least one zero fill bit and a size that is a multiple of B, and carries
-`Out_Error` on its last word; every image with a missing `In_Last` equals the reference and carries `Out_Error`; the
-samples after it up to the next `In_Last` are taken in the cycle they are offered; every correct image before and
-after an error, also back to back and after a reset during the error handling, equals the reference, and
+With the image framing (`UseInLast_g`) every configuration produces the same compressed images, without `Out_Error` and
+without `Ev_ImageError` (TC-CO-46); without it `In_Last` carries random values and changes nothing. In `test_framing`
+(TC-CO-47) every image with an early `In_Last` equals byte by byte the compressed image of the samples taken
+(`ocp_model.compress_aborted`, `tb/golden/<config>/aborted_<n>.bin`) at every abort position, also back to back, with
+input gaps and output stalls, in BSQ, BIL, BIP and BI order with sub-frames and in the stride order with the three
+coders, and carries `Out_Error` on its last word; every image with a missing `In_Last` equals the reference and carries
+`Out_Error`; the samples after it up to the next `In_Last` are taken in the cycle they are offered; every correct image
+before and after an error, also back to back and after a reset during the error handling, equals the reference, and
 `Ev_ImageError` pulses once per image with an error. An image ended with `In_Last` and `In_Error` on its last sample
 equals the reference and carries `Out_Error`; with an early `In_Last` it is aborted as without `In_Error`; `In_Error`
 without `In_Last` or on discarded samples changes nothing (CO-FR-08). In the periodic configurations the error limit
-source drops the
-remaining values of an aborted image, and the next image takes its own values. Every requirement of the
+source drops the remaining values of an aborted image, and the next image takes its own values. Every requirement of the
 specification is covered. All 62 configurations synthesize with GHDL without errors and without latches, with and
 without the image framing (`python lint/synth_check.py [--in-last]`).
 
@@ -89,6 +89,9 @@ Findings:
 | Synthesis (Libero, c01 with `UseInLast_g`): the 16 error flags of the framer were mapped to a uSRAM without ECC | Synthesis attributes keep them in registers (93 LUTs, 49 flip-flops for the framer) |
 | Coverage: the count of error flags was updated in an `if` / `elsif` on the write and the read of a flag; the condition rows for a write and a read in the same clock cycle were not reached by any test | The count is the difference of the write and the read pointer (one bit wider than the index), with no condition left |
 | Coverage: no reset arrived while the framer waited for the image before an aborted one (transition Drain to Run) | TC-CO-47 resets the core with the error event of an image that follows a correct image back to back |
+| Review of the image framing: the bytes of an aborted image depended on the timing (input gaps, `Out_Ready`, the image before it), and a hybrid or block-adaptive prefix is not decodable without the end of the image | The image ends with its last sample taken through the predictor and the entropy coder; the aborted image is the compressed image of the samples taken (CO-FR-03, CO-FR-09); Drain, Close, `Flush` and the end codeword of one zero bit are removed |
+| Hybrid coder, image that ends before every band has its first coded sample (t = 1): the tail took the final accumulators of the bands without statistics from the memory, which still held the values of the image before (found by `ocp_channel_tb` `test_errors`, r17_random) | The coder counts the bands initialised in the image (they come in increasing band order in every input order) and outputs the initial accumulator of the other bands (EC-HY-04); TC-CO-47 covers it in BSQ, BIL, BIP and stride order after an image with other accumulators. The hybrid configuration r01_random of TC-CO-47 could not show the defect: the final accumulators of its complete images equal its initial accumulators, so the stale values were the expected ones |
+| `Out_Data` and `Out_Keep` changed one delta cycle before `Out_Valid` and `Out_Last`; an Open Logic width converter behind the core checks the byte enables of every valid word in simulation and stopped on that glitch (`ocp_channel`) | The four ports are assigned together |
 | GHDL command of a simulation: VUnit 5.0.0.dev7 appends the generics of a test to the list of the option `ghdl.sim_flags` in place, and configurations added after the option is set share that list, so a simulation would also run with the generics of a configuration started before it. `run.py` sets the option after adding the configurations, so every configuration had its own list; QuestaSim is not affected | `run.py` copies the list per simulation and stops when a GHDL command does not carry exactly the generics of its configuration; all configurations pass with this check |
 | Review of the generic ranges: `BlockSize_g` other than 8, 16, 32 and 64 elaborated; the header carries the block size code of 64 while the block-adaptive coder codes blocks of the given size, so the compressed image cannot be decompressed (all earlier versions) | The elaboration stops (CO-CF-02); TC-CO-49 checks it |
 | Review of the generic ranges: M above NZ, restricted code options with D above 4, rescaling counter sizes below max(4, gamma0 + 1) and accumulator initialisation values above min(D - 2, 14) elaborated, although the standard does not allow them | The elaboration stops (CO-CF-01 to CO-CF-03); TC-CO-49 checks every case |
@@ -132,3 +135,19 @@ Generics of `ocp_core` (simulated: in a test of the regression or of the CCSDS t
 | `OutWidth_g` | 8, 16, 32, 64 | `ocp_core` | 8, 16, 32, 64 | 8, 16, 32, 64; 12 stops |
 | `Speculation_g` | Boolean | Type | Both values (false in TC-PR-39) | Both values |
 | `RamStyle_g` | Values of the synthesis tool | Open Logic (attribute value) | "auto" | "auto", "block" |
+
+## 4. Mutations of the early end of an image
+
+Each mutation was applied to the RTL once, outside the repository, and the named test was run; every one makes the
+test fail. A mutation that stops the image (no further transfer) ends through the watchdog of the testbench, which
+fails a job without a transfer for 20000 clock cycles.
+
+| Mutation | Test | Result |
+| --- | --- | --- |
+| Stride order: the slot of the end sample is skipped as well (`>=` for `>`) | `test_framing` c33_small_bip_stride_block | Fails: no transfer for 20000 cycles |
+| Stride order: the image ends one issued sample early | `test_framing` c33_small_bip_stride_block | Fails: no transfer for 20000 cycles |
+| Stride order: the output buffer marks the sample before the end sample as the last item | `test_framing` c33_small_bip_stride_block | Fails: byte mismatch of the aborted image |
+| Input order: the band position is not reset at the early end | `test_framing` c31_small_bi_periodic_abs | Fails: byte mismatch of the next image |
+| Input order: the error limit state is not reset at the early end | `test_framing` c31_small_bi_periodic_abs | Fails: byte mismatch of the next image |
+| Hybrid coder: the count of initialised bands is one too low | `test_framing` r21_random | Fails: byte mismatch already in a complete image |
+| Hybrid coder: the count of initialised bands is not used (the tail reads every band from the memory) | `test_framing` r21_random | Fails: byte mismatch of the aborted image |

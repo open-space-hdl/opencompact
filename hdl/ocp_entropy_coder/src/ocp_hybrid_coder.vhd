@@ -191,6 +191,10 @@ architecture rtl of ocp_hybrid_coder is
         TailIdx  : natural range 0 to maximum(ZSize_g, 16);
         TailRd   : natural range 0 to ZSize_g;
         TailV    : std_logic_vector(1 to 2);
+        -- Bands whose statistics were initialised in this image (t = 1 reached): the first coded samples
+        -- of the bands come in increasing band order in every input order, so they are the bands below
+        -- InitTop; a band above it ends with its initial accumulator (an image that ended early)
+        InitTop  : natural range 0 to ZSize_g;
     end record;
 
     signal r, r_next : TwoProcess_r;
@@ -258,23 +262,24 @@ architecture rtl of ocp_hybrid_coder is
 begin
 
     p_comb : process (all) is
-        variable v       : TwoProcess_r;
-        variable I_v     : Item_r;
-        variable O_v     : Item_r;
-        variable Acc_v   : unsigned(AccW_c - 1 downto 0);
-        variable Cnt_v   : unsigned(CntW_c - 1 downto 0);
-        variable Fwd_v   : boolean;
-        variable Dlt_v   : unsigned(D_c - 1 downto 0);
-        variable K_v     : natural range 0 to 31;
-        variable Code_v  : natural range 0 to 15;
-        variable Esc_v   : unsigned(D_c - 1 downto 0);
-        variable Data_v  : std_logic_vector(CwWidth_c - 1 downto 0);
-        variable Len_v   : unsigned(CwLenWidth_c - 1 downto 0);
-        variable Sym_v   : natural range 0 to 13;
-        variable Row_v   : unsigned(11 downto 0);
-        variable Fa_v    : std_logic_vector(13 downto 0);
-        variable Fb_v    : std_logic_vector(13 downto 0);
-        variable TailV_v : boolean;
+        variable v        : TwoProcess_r;
+        variable I_v      : Item_r;
+        variable O_v      : Item_r;
+        variable Acc_v    : unsigned(AccW_c - 1 downto 0);
+        variable Cnt_v    : unsigned(CntW_c - 1 downto 0);
+        variable Fwd_v    : boolean;
+        variable Dlt_v    : unsigned(D_c - 1 downto 0);
+        variable K_v      : natural range 0 to 31;
+        variable Code_v   : natural range 0 to 15;
+        variable Esc_v    : unsigned(D_c - 1 downto 0);
+        variable Data_v   : std_logic_vector(CwWidth_c - 1 downto 0);
+        variable Len_v    : unsigned(CwLenWidth_c - 1 downto 0);
+        variable Sym_v    : natural range 0 to 13;
+        variable Row_v    : unsigned(11 downto 0);
+        variable Fa_v     : std_logic_vector(13 downto 0);
+        variable Fb_v     : std_logic_vector(13 downto 0);
+        variable TailV_v  : boolean;
+        variable UseRom_v : boolean;
     begin
         v := r;
 
@@ -327,6 +332,9 @@ begin
         if I_v.Init = '1' then
             Acc_v := AccRom_c(to_integer(I_v.Band));
             Cnt_v := shift_left(to_unsigned(1, CntW_c), InitialCountExp_g);
+        end if;
+        if I_v.Valid = '1' and I_v.Kind = ItemSample_c and I_v.Init = '1' then
+            v.InitTop := to_integer(I_v.Band) + 1;
         end if;
         Dlt_v       := resize(unsigned(I_v.Data), D_c);
         O_v.RescBit := Acc_v(0);
@@ -521,29 +529,28 @@ begin
                     v.TailRd   := r.TailRd + 1;
                 end if;
                 if r.TailV(2) = '1' then
-                    TailV_v      := true;
-                    StatsUse     <= toSl(not OnePixel_c);
+                    TailV_v := true;
+                    -- Final accumulator from the memory, or the initial one for a band without statistics in
+                    -- this image (a single-pixel image, an image that ended before the band was initialised)
+                    UseRom_v     := OnePixel_c or r.TailIdx mod ZSize_g >= r.InitTop;
+                    StatsUse     <= toSl(not UseRom_v);
                     FifoInLength <= std_logic_vector(to_unsigned(AccW_c, CwLenWidth_c));
-                    if OnePixel_c then
-                        FifoInData <= std_logic_vector(resize(AccRom_c(r.TailIdx mod ZSize_g), CwWidth_c));
+                    if UseRom_v then
+                        Acc_v := AccRom_c(r.TailIdx mod ZSize_g);
                     else
-                        FifoInData <= std_logic_vector(resize(unsigned(RdData(AccW_c - 1 downto 0)), CwWidth_c));
+                        Acc_v := unsigned(RdData(AccW_c - 1 downto 0));
                     end if;
+                    FifoInData <= std_logic_vector(resize(Acc_v, CwWidth_c));
                     if r.TailIdx mod ZSize_g = ZSize_g - 1 then
                         -- Final '1' bit (5.4.3.3.5.4.4); the bit packer appends the fill bits
                         FifoInLength <= std_logic_vector(to_unsigned(AccW_c + 1, CwLenWidth_c));
-                        if OnePixel_c then
-                            FifoInData <= std_logic_vector(shift_left(resize(AccRom_c(r.TailIdx mod ZSize_g), CwWidth_c), 1)
-                                                           or to_unsigned(1, CwWidth_c));
-                        else
-                            FifoInData <= std_logic_vector(shift_left(resize(unsigned(RdData(AccW_c - 1 downto 0)), CwWidth_c), 1)
-                                                           or to_unsigned(1, CwWidth_c));
-                        end if;
-                        FifoInLast <= '1';
-                        v.Tail     := TIdle_s;
-                        v.Ending   := '0';
-                        v.Row      := initRows;
-                        v.Flush    := NullFlush_c;
+                        FifoInData   <= std_logic_vector(shift_left(resize(Acc_v, CwWidth_c), 1) or to_unsigned(1, CwWidth_c));
+                        FifoInLast   <= '1';
+                        v.Tail       := TIdle_s;
+                        v.Ending     := '0';
+                        v.Row        := initRows;
+                        v.Flush      := NullFlush_c;
+                        v.InitTop    := 0;
                     else
                         v.TailIdx := r.TailIdx + 1;
                     end if;
@@ -584,6 +591,7 @@ begin
                 r.Inflight <= 0;
                 r.Ending   <= '0';
                 r.Tail     <= TIdle_s;
+                r.InitTop  <= 0;
             end if;
         end if;
     end process;

@@ -32,7 +32,7 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | EC-HY-01 | The coder shall keep a high-resolution accumulator and a counter per band, initialised with gamma0 and the user-specified initial accumulator values, and output the least significant bit of the accumulator before the codewords of an index whenever the statistics are rescaled. | 5.4.3.3.4, 5.4.3.3.5.1.2 |
 | EC-HY-02 | The coder shall output the first mapped quantizer index of every band uncoded and encode every other high-entropy index with a reversed length-limited GPO2 codeword. | 5.4.3.3.3.2, 5.4.3.3.5.1.3, 5.4.3.3.5.1.4, 5.4.3.3.5.2 |
 | EC-HY-03 | The coder shall encode every low-entropy index with the low-entropy code selected by the statistics: escape symbol with a reversed GPO2 codeword of the residual, active prefix, output codeword of a complete input codeword. | 5.4.3.3.3.3, 5.4.3.3.5.3 |
-| EC-HY-04 | After the last index the coder shall output the compressed image tail: the flush word of every low-entropy code, the final accumulator of every band and a '1' bit. | 5.4.3.3.5.4 |
+| EC-HY-04 | After the last index the coder shall output the compressed image tail: the flush word of every low-entropy code, the final accumulator of every band and a '1' bit; the final accumulator of a band whose statistics were not initialised in the image (no index with t = 1, for example in an image that ended early) shall be its initial accumulator. | 5.4.3.3.5.4 |
 
 ### 2.4 Block-adaptive coder (EC-3)
 

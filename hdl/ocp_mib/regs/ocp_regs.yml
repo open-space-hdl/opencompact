@@ -1,0 +1,152 @@
+# ---------------------------------------------------------------------------------------------------
+# Copyright (c) 2026 by Julian Schneider
+# Authors: Julian Schneider
+# ---------------------------------------------------------------------------------------------------
+# Register map of the OpenCompact MIB: the single description from which tools/regmap.py generates the
+# VHDL package hdl/ocp_pkg/src/ocp_regs_pkg.vhd, the documentation hdl/ocp_mib/docs/register_map.md and
+# the C header sw/ocp_regs.h.
+#
+# Byte addresses of 32-bit registers on the AXI4-Lite port (8-bit address). Access per field:
+#   RO   read only
+#   RC   read only, any write to the register clears it (counters)
+# A reset value written as text depends on generics; status fields have none. Counters are 32 bits
+# wide and saturate. Codes of enumerations are the values of the header fields (CCSDS 5.3).
+
+id: 0x4F435001
+addr_bits: 8
+
+registers:
+  - name: ID
+    offset: 0x000
+    description: Identification of the core and version of the register map
+    fields:
+      - {name: ID, bits: "31:0", access: RO, reset: 0x4F435001, description: "Bits 31:8 the prefix of the core in ASCII (0x4F4350, OCP), as in the other Open Space HDL cores; bits 7:0 the version of the register map (1)"}
+
+  - name: GENERICS
+    offset: 0x004
+    description: Implementation generics of the channel
+    fields:
+      - {name: IN_STREAM_BYTES, bits: "4:0", access: RO, reset: InStreamWidth_g / 8, description: Bytes per beat of the SDU stream}
+      - {name: OUT_STREAM_BYTES, bits: "9:5", access: RO, reset: OutStreamWidth_g / 8, description: Bytes per beat of the compressed image stream}
+      - {name: OUT_BYTES, bits: "13:10", access: RO, reset: OutWidth_g / 8, description: Bytes per word at the output of ocp_core}
+      - {name: SAMPLE_BYTES, bits: "16:14", access: RO, reset: ceil(DynamicRange_g / 8), description: Bytes per sample container in the SDUs}
+      - {name: SPECULATION, bits: "17", access: RO, reset: Speculation_g, description: Speculative weight loop of the predictor}
+
+  - name: IMAGE_X
+    offset: 0x008
+    description: "Image width NX (CCSDS 5.3.2.2)"
+    fields:
+      - {name: SIZE, bits: "16:0", access: RO, reset: XSize_g, description: "Samples per row, 1 to 65536"}
+
+  - name: IMAGE_Y
+    offset: 0x00C
+    description: Image height NY
+    fields:
+      - {name: SIZE, bits: "16:0", access: RO, reset: YSize_g, description: "Rows, 1 to 65536"}
+
+  - name: IMAGE_Z
+    offset: 0x010
+    description: Number of bands NZ
+    fields:
+      - {name: SIZE, bits: "16:0", access: RO, reset: ZSize_g, description: "Bands, 1 to 65536"}
+
+  - name: SAMPLES
+    offset: 0x014
+    description: Samples and user-defined data
+    fields:
+      - {name: USER_DATA, bits: "15:8", access: RO, reset: UserData_g, description: User-Defined Data field of the header}
+      - {name: SIGNED, bits: "6", access: RO, reset: SignedSamples_g, description: "Sample type: '1' signed (two's complement), '0' unsigned"}
+      - {name: DYNAMIC_RANGE, bits: "5:0", access: RO, reset: DynamicRange_g, description: "Dynamic range D in bits, 2 to 32"}
+
+  - name: ORDER
+    offset: 0x018
+    description: "Sample encoding order (CCSDS 5.4.2)"
+    fields:
+      - {name: SUB_FRAME_DEPTH, bits: "24:8", access: RO, reset: SubFrameDepth_g, description: "Sub-frame interleaving depth M, 1 to 65536 in BI order; 0 in BSQ order"}
+      - {name: ENCODING, bits: "0", access: RO, reset: EncodingOrder_g, description: "Sample encoding order: '0' BI, '1' BSQ"}
+
+  - name: CODER
+    offset: 0x01C
+    description: Compressed image
+    fields:
+      - {name: SUP_TABLES, bits: "11:8", access: RO, reset: SupTableCount_g, description: Number of supplementary information tables}
+      - {name: FIDELITY, bits: "7:6", access: RO, reset: Fidelity_g, description: "Quantizer fidelity control: 0 lossless, 1 absolute, 2 relative, 3 absolute and relative error limits"}
+      - {name: ENTROPY_CODER, bits: "5:4", access: RO, reset: EntropyCoder_g, description: "Entropy coder: 0 sample-adaptive, 1 hybrid, 2 block-adaptive"}
+      - {name: OUTPUT_WORD_SIZE, bits: "3:0", access: RO, reset: OutputWordSize_g, description: "Output word size B in bytes, 1 to 8"}
+
+  - name: PREDICTOR
+    offset: 0x020
+    description: "Predictor (CCSDS 5.3.3.2, 5.3.3.4, 5.3.3.5)"
+    fields:
+      - {name: UPDATE_PERIOD_EXP, bits: "23:20", access: RO, reset: UpdatePeriodExp_g, description: "Error limit update period exponent u, 0 to 9; 0 without periodic updating"}
+      - {name: PERIODIC_UPDATE, bits: "19", access: RO, reset: PeriodicUpdate_g, description: "Periodic error limit updating (BI order, not lossless)"}
+      - {name: SAMPLE_REP_RESOLUTION, bits: "18:16", access: RO, reset: SampleRepResolution_g, description: "Sample representative resolution, 0 to 4"}
+      - {name: REGISTER_SIZE, bits: "14:8", access: RO, reset: RegisterSize_g, description: "Register size R in bits, 32 to 64"}
+      - {name: LOCAL_SUM, bits: "6:5", access: RO, reset: LocalSum_g, description: "Local sum type: 0 wide neighbor-oriented, 1 narrow neighbor-oriented, 2 wide column-oriented, 3 narrow column-oriented"}
+      - {name: REDUCED, bits: "4", access: RO, reset: PredictionMode_g, description: "'1' reduced, '0' full prediction mode"}
+      - {name: BANDS, bits: "3:0", access: RO, reset: PredictionBands_g, description: "Number of prediction bands P, 0 to 15"}
+
+  - name: WEIGHTS
+    offset: 0x024
+    description: "Weights of the predictor (CCSDS 5.3.3.2)"
+    fields:
+      - {name: INIT_RESOLUTION, bits: "30:26", access: RO, reset: WeightInitResolution_g, description: "Weight initialisation resolution, 0 to 22; 0 with default weights"}
+      - {name: CUSTOM_INIT, bits: "25", access: RO, reset: CustomWeights_g, description: Custom weight initialisation}
+      - {name: EXP_OFFSETS, bits: "24", access: RO, reset: WeightExpOffsetsUsed_g, description: Weight update scaling exponent offsets used}
+      - {name: VMAX, bits: "21:17", access: RO, reset: WeightUpdateVmax_g, description: "Final weight update scaling exponent vmax, -6 to 9 (two's complement)"}
+      - {name: VMIN, bits: "16:12", access: RO, reset: WeightUpdateVmin_g, description: "Initial weight update scaling exponent vmin, -6 to 9 (two's complement)"}
+      - {name: UPDATE_INTERVAL, bits: "11:8", access: RO, reset: WeightUpdateInterval_g, description: "Weight update scaling exponent change interval exponent, 4 to 11"}
+      - {name: RESOLUTION, bits: "4:0", access: RO, reset: WeightResolution_g, description: "Weight component resolution, 4 to 19"}
+
+  - name: ADAPTIVE
+    offset: 0x028
+    description: "Sample-adaptive or hybrid entropy coder (CCSDS 5.3.4.2, 5.3.4.3); zero with the block-adaptive coder"
+    fields:
+      - {name: ACCU_INIT, bits: "19:16", access: RO, reset: AccuInit_g, description: "Accumulator initialisation constant, 15 when band-dependent (sample-adaptive coder; 0 with the hybrid coder)"}
+      - {name: INITIAL_COUNT, bits: "15:12", access: RO, reset: InitialCountExp_g, description: "Initial count exponent, 1 to 8"}
+      - {name: RESCALE_SIZE, bits: "11:8", access: RO, reset: RescaleCounterSize_g, description: "Rescaling counter size, 4 to 11"}
+      - {name: UNARY_LIMIT, bits: "5:0", access: RO, reset: UnaryLimit_g, description: "Unary length limit, 8 to 32"}
+
+  - name: BLOCK
+    offset: 0x02C
+    description: "Block-adaptive entropy coder (CCSDS 5.3.4.4); zero with the other coders"
+    fields:
+      - {name: REF_INTERVAL, bits: "20:8", access: RO, reset: RefInterval_g, description: "Reference sample interval, 1 to 4096"}
+      - {name: RESTRICTED, bits: "7", access: RO, reset: RestrictedCodes_g, description: Restricted code options}
+      - {name: BLOCK_SIZE, bits: "6:0", access: RO, reset: BlockSize_g, description: "Block size J: 8, 16, 32 or 64"}
+
+  - name: IMAGES_DONE
+    offset: 0x040
+    description: Compressed images output without error
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Images}
+
+  - name: IMAGES_ABORTED
+    offset: 0x044
+    description: "Compressed images output with an error: aborted, ended by a faulty SDU, or with a missing end mark"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Images}
+
+  - name: SDU_ERRORS
+    offset: 0x048
+    description: Faulty SDUs forwarded (flagged by the user signal or not a whole number of samples)
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: SDUs}
+
+  - name: SDUS_DISCARDED
+    offset: 0x04C
+    description: SDUs discarded after a faulty SDU, up to the end of its image
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: SDUs}
+
+  - name: ECC_CORRECTED
+    offset: 0x050
+    description: "Corrected single bit errors in the memories of the compressor (clock cycles with at least one)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Errors}
+
+  - name: ECC_UNCORRECTABLE
+    offset: 0x054
+    description: "Detected double bit errors in the memories of the compressor (clock cycles with at least one)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Errors}

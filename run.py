@@ -71,7 +71,12 @@ GHDLInterface._get_command = own_sim_flags(GHDLInterface._get_command)
 OLO_AREAS = ("base", "axi", "intf", "ft")
 
 # UVVM components used by the testbenches, in dependency order
-UVVM_COMPONENTS = ("uvvm_util",)
+UVVM_COMPONENTS = (
+    "uvvm_util",
+    "uvvm_vvc_framework",
+    "bitvis_vip_scoreboard",
+    "bitvis_vip_axilite",
+)
 
 
 def add_open_logic(vu):

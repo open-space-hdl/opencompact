@@ -1,3 +1,4 @@
+hdl/ocp_pkg/src/ocp_regs_pkg.vhd
 hdl/ocp_pkg/src/ocp_pkg.vhd
 hdl/ocp_pkg/src/ocp_low_entropy_pkg.vhd
 hdl/ocp_predictor/src/ocp_predictor.vhd
@@ -9,3 +10,6 @@ hdl/ocp_core/src/ocp_image_framer.vhd
 hdl/ocp_core/src/ocp_header.vhd
 hdl/ocp_core/src/ocp_bit_packer.vhd
 hdl/ocp_core/src/ocp_core.vhd
+hdl/ocp_input_adapter/src/ocp_input_adapter.vhd
+hdl/ocp_mib/src/ocp_mib.vhd
+hdl/ocp_channel/src/ocp_channel.vhd

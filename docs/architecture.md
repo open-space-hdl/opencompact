@@ -154,6 +154,10 @@ coder selected by `EntropyCoder_g` turns it into codewords, one item per clock c
 header and the codewords to the compressed image, adds the fill bits after the last codeword and outputs words of
 8 to 64 bits.
 
+`ocp_channel` packages the core for a system (section 7.5): an input adapter turns SDUs of a byte stream into samples
+and image ends, an output width converter turns the words of the core into the beats of a byte stream with one packet
+per compressed image, and an AXI4-Lite slave reports the configuration and counts the images and errors.
+
 ### Architecture decisions
 
 | ID | Decision | Reason |
@@ -210,8 +214,8 @@ against it cycle by cycle. The user guide lists the throughput of the configurat
 
 ## 7 Building block specifications
 
-The core has 13 building blocks in four groups. Each block lists its responsibility, the Open Logic entities it is
-built from and the clauses it owns (P1: no clause is owned twice).
+The core has 13 building blocks in four groups, the channel three more (section 7.5). Each block lists its
+responsibility, the Open Logic entities it is built from and the clauses it owns (P1: no clause is owned twice).
 
 ### 7.1 Predictor (`ocp_predictor`)
 
@@ -247,6 +251,14 @@ built from and the clauses it owns (P1: no clause is owned twice).
 | --- | --- | --- | --- | --- |
 | PK-1 | Common package | Stream definitions, codes of the string generics, per-band table access | none | none |
 | PK-2 | Low-entropy code tables | Code and flush tables of the 16 low-entropy codes as ROM constants, input symbol limits and thresholds | none | 5.4.3.3.3.3, annex B |
+
+### 7.5 Channel (`ocp_input_adapter`, `ocp_mib`, `ocp_channel`)
+
+| ID | Block | Responsibility | Open Logic | CCSDS |
+| --- | --- | --- | --- | --- |
+| IA-1 | Input adapter | SDUs of big-endian sample containers to samples, end mark and faults from the user signal, image end with an error after a faulty SDU and discard of the rest of the image | `olo_base_wconv_n2m` | none |
+| MB-1 | Status interface | AXI4-Lite slave, identification, configuration registers from the generics, counters of images, SDUs and memory errors | `olo_axi_lite_slave` | none |
+| CH-1 | Channel | Input adapter, core with image framing, output width converter with the error flag of the image, status interface | `olo_base_wconv_n2m` | none |
 
 ## 8 Open Logic usage
 

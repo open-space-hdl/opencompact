@@ -10,7 +10,7 @@ conformance statement and the corrected defects.
 | Library | Files | Content |
 | --- | --- | --- |
 | `olo` | All of `open-logic/src/base` and `open-logic/src/ft` in the order of `open-logic/compile_order.txt` (used: `olo_ft_ram_sdp`, `olo_ft_fifo_sync`, `olo_base_pl_stage` and their dependencies) | Open Logic, fault-tolerant fork, tag `4.7.0-ft.6` |
-| `opencompact` | `hdl/<module>/src/*.vhd` of every module of `component_list.txt`, in the order of `compile_order.txt`: the modules in the order of `component_list.txt`, within a module packages first | OpenCompact; top level `ocp_core` |
+| `opencompact` | `hdl/<module>/src/*.vhd` of every module of `component_list.txt`, in the order of `compile_order.txt`: the modules in the order of `component_list.txt`, within a module packages first | OpenCompact; top level `ocp_core`, or `ocp_channel` (section 4.3) |
 
 All sources are VHDL-2008 and contain no vendor primitive. `tools/synth_libero.py` shows a complete synthesis and
 place and route flow (Microchip Libero SoC); `tools/ocp_wrapper.py` writes a synthesis top level with the generics of a
@@ -206,13 +206,56 @@ request (`Lim_Ready`) needs no action; a source that delivers them ahead (a buff
 damaged image on `Ev_ImageError`. The limit values are part of the compressed image, so values that do not match
 their frame change only the compression of that image, never its decodability.
 
-Integration with OpenSPP: the samples arrive as Octet String SDUs. The sender marks the last SDU of an image (for
-example by its APID or a field of the Packet Secondary Header), and the adapter between OpenSPP and the core sets
-`In_Last` on the last sample of that SDU. A lost SDU inside an image makes the marked SDU arrive early: the image is
-aborted (`In_Last` before the last sample). A lost marked SDU makes the core complete the image with the first
-samples of the next one and discard the rest of that image: the core is back in step with the stream at the next
-marked SDU. The Data Loss Indicator of OpenSPP (`TUser` bit 12 of the first SDU after the gap, with the continuity
-check of the APID enabled) and `Ev_ImageError` together tell the system which images are affected.
+Integration with OpenSPP: `ocp_channel` (section 4.3) takes the SDUs of the receive port, sets `In_Last` from the end
+mark of the SDUs and `In_Error` for faulty SDUs, and counts the affected images.
+
+### 4.3 Compression channel (`ocp_channel`)
+
+`ocp_channel` is the core packaged for a system: the samples arrive as service data units (SDUs) on a byte stream,
+for example from the receive port of an OpenSPP core, every compressed image leaves as one packet of a byte stream,
+and an AXI4-Lite slave reports the configuration and counts the images and errors. It consists of `ocp_input_adapter`,
+`ocp_core` with the image framing, an output width converter and `ocp_mib`; the adapter and the MIB are library
+entities that can also be used on their own around `ocp_core`. Specifications:
+[ocp_channel](../hdl/ocp_channel/docs/specification.md),
+[ocp_input_adapter](../hdl/ocp_input_adapter/docs/specification.md), [ocp_mib](../hdl/ocp_mib/docs/specification.md).
+
+Generics: all generics of `ocp_core` with the same names and meanings (`OutWidth_g` is the width of the words of the
+core), except `UseInLast_g`, which is always true, and:
+
+| Generic | Default | Range | Description |
+| --- | --- | --- | --- |
+| `InStreamWidth_g` | 128 | 8, 16, 32, 64, 128 | Width of the SDU stream in bits |
+| `OutStreamWidth_g` | 128 | 8, 16, 32, 64, 128 | Width of the compressed image stream in bits |
+| `UserWidth_g` | 1 | 1 to 64 | Width of the user signal of the SDU stream |
+| `UserLastMask_g`, `UserLastValue_g` | (others => '0') | `UserWidth_g` bits | End mark: an SDU with (`In_User` and `UserLastMask_g`) = `UserLastValue_g` is the last SDU of an image |
+| `UserErrorMask_g` | (others => '0') | `UserWidth_g` bits | Faults: an SDU with (`In_User` and `UserErrorMask_g`) /= 0 is faulty |
+
+Ports: `In_Valid`, `In_Ready`, `In_Data`, `In_Keep`, `In_Last`, `In_User` (SDU stream); `Out_Valid`, `Out_Ready`,
+`Out_Data`, `Out_Keep`, `Out_Last`, `Out_Error` (compressed images); `S_AxiLite_*` (8-bit address, 32-bit data);
+`Lim_*`, `Ecc_Sec`, `Ecc_Ded`, `Ev_ImageError` and `ErrInj_*` as on `ocp_core`.
+
+SDUs: every SDU carries a whole number of samples in the input order, each in a container of ceil(D/8) bytes, the
+first byte of a container its most significant byte and the value in its D least significant bits (two's complement
+for signed samples); byte n of a beat is in bits 8n + 7 to 8n, all bytes are valid except in the last beat of an SDU,
+whose valid bytes are contiguous from byte 0. The user signal counts with the last beat of an SDU. `sdu_payload` of
+`tools/ocp_model.py` turns the samples of an image into this byte stream.
+
+Errors: an SDU that is flagged by `UserErrorMask_g` or does not hold a whole number of containers ends its image with
+an error, and the SDUs after it up to and including the next end mark are discarded; a lost or late end mark is handled
+by the image framing of the core (section 4.2). Every image with an error leaves as a packet with `Out_Error` on its
+last beat: aborted (header, the codewords of the samples taken, fill bits) or, when the faulty SDU completed the image,
+the complete compressed image. The channel specification lists the counter steps of every case.
+
+Status registers: [register map](../hdl/ocp_mib/docs/register_map.md), C header `sw/ocp_regs.h`. ID 0x4F435001; the
+generics that define the compressed images (image size, dynamic range, order, output word size, coder, predictor,
+weights and coder parameters); 32-bit saturating counters IMAGES_DONE, IMAGES_ABORTED, SDU_ERRORS, SDUS_DISCARDED,
+ECC_CORRECTED and ECC_UNCORRECTABLE, each cleared by a write. `tools/ocp_mib_words.json` holds the expected
+configuration registers of the configurations of `tools/ocp_configs.py`.
+
+Integration with OpenSPP: connect the receive port of the Octet String Service (`M_Rx_*`, `DataWidth_g` =
+`InStreamWidth_g`) and set `UserWidth_g` = 22, `UserLastMask_g` = 22x"3FC000" and `UserLastValue_g` = 22x"004000" (the
+sender marks the last SDU of an image with the CPTP User Application value 1), `UserErrorMask_g` = 22x"003000" (Data
+Loss Indicator, bit 12, with the continuity check of the APID enabled; receive buffer error, bit 13).
 
 ## 5. Operating sequence
 
@@ -245,7 +288,9 @@ TMR for all other logic:
 | State machines | Recovery state through the `when others` branch and the reset | none |
 | All other logic: registers of the control and data paths, counters, pointers, pipeline registers | TMR of the synthesis tool (for example `syn_radhardlevel` = `tmr` with Synplify, or the equivalent setting of the tool chain). The core adds no protection of its own for this logic; without TMR, an upset in it is not covered | synthesis report |
 
-The block buffers of the block-adaptive coder and the error flags of the image framer are registers: attributes keep
+`ocp_channel` adds no memory: the input adapter, the output converter and the status registers of `ocp_mib` are
+registers and rely on TMR like all other logic. The block buffers of the block-adaptive coder and the error flags of the
+image framer are registers: attributes keep
 synthesis from mapping them into RAM primitives without ECC, and they rely on TMR like all other logic. `Out_Error` and
 `Ev_ImageError` report framing errors of the input (section 4.2), not memory errors. The tables of the configuration
 (section 4.1) are constants and belong to the configuration memory of the FPGA.
@@ -275,6 +320,8 @@ requirements of a mission is shown by a radiation test with the core in operatio
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
 | TMR of the synthesis tool enabled for the core | The core protects its memories itself and relies on TMR for all other logic (section 6) |
 | With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
+| `ocp_channel`: every SDU carries a whole number of samples and no other bytes (no secondary header) | Every byte is sample data; an SDU with a partial sample ends its image with an error (section 4.3) |
+| `ocp_channel`: a receiver that must identify the images with an error uses `Out_Error` or the counters | An image ended by a faulty last SDU is complete and has the bytes of a correct image (section 4.3) |
 
 ## 8. Resources and performance
 

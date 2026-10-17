@@ -141,16 +141,34 @@ class Params:
 # Bit writer
 # ------------------------------------------------------------------------------------------------
 class BitWriter:
+    """Bit stream, most significant bit first. The pending bits collect in an integer of at most FLUSH_BITS bits plus
+    one codeword; full bytes then move to a bytearray, so the cost is linear in the length of the stream."""
+
+    FLUSH_BITS = 4096
+
     def __init__(self):
-        self.acc = 0
-        self.n = 0
+        self.buf = bytearray()
+        self.acc = 0        # pending bits, the last one in bit 0
+        self.pending = 0    # number of pending bits
+        self.n = 0          # number of bits written
 
     def put(self, value, width):
         if width == 0:
             return
         assert 0 <= value < (1 << width), (value, width)
         self.acc = (self.acc << width) | value
+        self.pending += width
         self.n += width
+        if self.pending >= self.FLUSH_BITS:
+            self.flush()
+
+    def flush(self):
+        """Moves the full bytes of the pending bits to the buffer."""
+        nbytes, rem = divmod(self.pending, 8)
+        if nbytes:
+            self.buf += (self.acc >> rem).to_bytes(nbytes, "big")
+            self.acc &= (1 << rem) - 1
+            self.pending = rem
 
     def put_signed(self, value, width):
         self.put(value & ((1 << width) - 1), width)
@@ -166,7 +184,8 @@ class BitWriter:
 
     def to_bytes(self):
         assert self.n % 8 == 0
-        return self.acc.to_bytes(self.n // 8, "big") if self.n else b""
+        self.flush()
+        return bytes(self.buf)
 
 
 # ------------------------------------------------------------------------------------------------

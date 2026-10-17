@@ -49,7 +49,7 @@ from NX NY NZ - 1 and compares the count with `In_Last` when a sample is taken. 
 
 | State | Samples and error limit values | Leaves on |
 | --- | --- | --- |
-| Run | Passed to the predictor | The last sample of the image without `In_Last` (to Discard); `In_Last` before the last sample (to Drain) |
+| Run | Passed to the predictor | The last sample of the image without `In_Last` (to Discard); `In_Last` before the last sample, with or without `In_Error` (to Drain) |
 | Drain | Not taken | The predictor and the entropy coder hold only the aborted image: one-cycle `Flush` (to Close) |
 | Close | Not taken | The end of the aborted image is taken by the bit packer (to Run) |
 | Discard | Samples taken at once and dropped, error limit values not taken | The sample with `In_Last` (to Run) |
@@ -66,18 +66,24 @@ bit up to a multiple of B bytes: a prefix of the compressed image of the complet
 An empty last codeword would not do: the words of the aborted image may all have left the bit packer before the
 abort, and then no word could carry `Out_Last`.
 
+With `In_Last` and `In_Error` on the last sample (CO-FR-08) the image is complete: the framer stays in Run, the next
+sample starts a new image, and only the error flag and `Ev_ImageError` mark the image. `In_Error` without `In_Last` and
+in Discard has no effect.
+
 The error flag of every image is written into a queue of 16 flags when its last sample is taken (or its early
-`In_Last`) and read when the bit packer outputs the last word of the image: `Out_Error` is the flag at the head of the
-queue, gated by `Out_Valid` and `Out_Last`. The flag is known when the last sample enters the predictor, many cycles
-before the last word of the image can leave the bit packer, so the last word is never held for it. While the queue is
-full the framer takes no sample. `Ev_ImageError` is a one-cycle pulse when an early or a missing `In_Last` is detected.
+`In_Last`), as (not `In_Last`) or `In_Error` for the last sample and '1' for an early `In_Last`, and read when the bit
+packer outputs the last word of the image: `Out_Error` is the flag at the head of the queue, gated by `Out_Valid` and
+`Out_Last`. The flag is known when the last sample enters the predictor, many cycles before the last word of the image
+can leave the bit packer, so the last word is never held for it. While the queue is full the framer takes no sample.
+`Ev_ImageError` is a one-cycle pulse when an early or a missing `In_Last` or `In_Error` with the last sample is
+detected.
 
 ## 5. Interfaces
 
 | Port | Direction | Description |
 | --- | --- | --- |
 | `Clk`, `Rst` | in | Clock, synchronous high-active reset |
-| `In_Valid`, `In_Ready`, `In_Data`, `In_Last` | in | Samples (D bits) in the input order; `In_Last` on the last sample of an image (`UseInLast_g`) |
+| `In_Valid`, `In_Ready`, `In_Data`, `In_Last`, `In_Error` | in | Samples (D bits) in the input order; `In_Last` on the last sample of an image, `In_Error` with it for an image that ends with an error (`UseInLast_g`) |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in | Error limit values (periodic updating) |
 | `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last`, `Out_Error` | out | Compressed image, words of `OutWidth_g` bits, byte n in bits 8n + 7 to 8n (first byte in bits 7 to 0); valid bytes of the last word of an image, contiguous from byte 0; `Out_Error` on the last word of an image with a framing error |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events of the predictor and the entropy coder |

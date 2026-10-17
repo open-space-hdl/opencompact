@@ -179,8 +179,12 @@ architecture rtl of ocp_core is
     signal Pk_Length : std_logic_vector(CwLenWidth_c - 1 downto 0);
     signal Pk_Last   : std_logic;
 
+    -- Output stream of the bit packer; the ports are assigned together below, so that they change in the
+    -- same delta cycle (the Open Logic width converters check the byte enables of every valid word)
     signal OutValid : std_logic;
     signal OutLast  : std_logic;
+    signal OutData  : std_logic_vector(OutWidth_g - 1 downto 0);
+    signal OutKeep  : std_logic_vector(OutWidth_g / 8 - 1 downto 0);
 
     -- Image framing: samples and error limit values to the predictor, image end at the bit packer
     -- input, abort of an image (clears the predictor and the entropy coder, then ends the image)
@@ -606,8 +610,8 @@ begin
             In_Last   => Pk_Last,
             Out_Valid => OutValid,
             Out_Ready => Out_Ready,
-            Out_Data  => Out_Data,
-            Out_Keep  => Out_Keep,
+            Out_Data  => OutData,
+            Out_Keep  => OutKeep,
             Out_Last  => OutLast
         );
 
@@ -616,6 +620,8 @@ begin
     InjBuffer <= ErrInj_Valid when to_integer(unsigned(ErrInj_Channel)) = 13 else '0';
 
     Out_Valid <= OutValid;
+    Out_Data  <= OutData;
+    Out_Keep  <= OutKeep;
     Out_Last  <= OutLast;
     Ecc_Sec   <= PredSec or CoderSec;
     Ecc_Ded   <= PredDed or CoderDed;

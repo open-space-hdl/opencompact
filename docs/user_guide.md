@@ -120,6 +120,7 @@ only after it has been written in the same image.
 | --- | --- | --- | --- |
 | `In_Valid`, `In_Ready`, `In_Data` | in, out, in | D | Samples, unsigned or two's complement, in the input order of the compressed image |
 | `In_Last` | in | 1 | '1' with the last sample of every image (`UseInLast_g`, section 4.2); unused otherwise, may stay open |
+| `In_Error` | in | 1 | With `In_Last`: the image ends with an error (`UseInLast_g`, section 4.2); unused otherwise, may stay open |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in, out, in | 16 | Error limit values for periodic updating (unused otherwise) |
 | `Out_Valid`, `Out_Ready`, `Out_Data`, `Out_Keep`, `Out_Last` | out, in, out, out, out | `OutWidth_g`, `OutWidth_g` / 8 | Compressed image in words: byte n of a word in `Out_Data` bits 8n + 7 to 8n, so the first byte of the image is in bits 7 to 0 of the first word; `Out_Last` on the last word of an image, whose valid bytes `Out_Keep` marks (bit n for byte n, contiguous from bit 0); all other words are complete |
 | `Out_Error` | out | 1 | Valid with `Out_Last`: '1' when the image had a framing error (section 4.2); '0' on every other word and without `UseInLast_g` |
@@ -190,8 +191,10 @@ and resynchronises:
 | `In_Last` with the last sample | Correct image: `Out_Error` = '0' on its last word |
 | `In_Last` before the last sample (samples lost inside the image) | The image is aborted. The sample with `In_Last` is taken; once the earlier images have left the entropy coder, the predictor and the coder are cleared. The compressed image ends after its complete header and the codewords already produced, with at least one fill bit up to a multiple of B bytes, and its last word carries `Out_Error` = '1'. The next sample starts a new image with its own header; no sample of it is lost. |
 | No `In_Last` with the last sample (the end marker was lost) | The image is completed normally; its last word carries `Out_Error` = '1'. The core then takes the following samples and discards them, one per clock cycle, up to and including the next sample with `In_Last`; the sample after it starts a new image. |
+| `In_Last` and `In_Error` with the last sample (the source knows that samples of the image are faulty) | The image is completed normally and identical to the image without `In_Error`; its last word carries `Out_Error` = '1'. The next sample starts a new image. Before the last sample, `In_Last` and `In_Error` abort the image as `In_Last` alone; `In_Error` without `In_Last` has no effect. |
 
-`Ev_ImageError` pulses once for every image with an error, when the error is detected at the input. An aborted image is
+`Ev_ImageError` pulses once for every image with an error, when the error is detected at the input (with `In_Error`
+on the last sample: when that sample is taken). An aborted image is
 not decodable as a whole (its header announces the full image); its first part is the compressed image of the
 samples before the loss. An image without its end marker is complete, but its last samples may belong to the next
 image. The system marks or discards both kinds by `Out_Error`. The stream stays aligned to B bytes, so the next image

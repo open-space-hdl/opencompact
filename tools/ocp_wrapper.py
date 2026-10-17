@@ -58,6 +58,7 @@ entity {name} is
         In_Ready       : out   std_logic;
         In_Data        : in    std_logic_vector({dm1} downto 0);
         In_Last        : in    std_logic;
+        In_Error       : in    std_logic;
         Lim_Valid      : in    std_logic;
         Lim_Ready      : out   std_logic;
         Lim_Data       : in    std_logic_vector(15 downto 0);
@@ -90,6 +91,7 @@ begin
             In_Ready       => In_Ready,
             In_Data        => In_Data,
             In_Last        => In_Last,
+            In_Error       => In_Error,
             Lim_Valid      => Lim_Valid,
             Lim_Ready      => Lim_Ready,
             Lim_Data       => Lim_Data,

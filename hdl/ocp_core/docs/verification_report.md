@@ -2,10 +2,11 @@
 
 ## 1. Test results
 
-Run on 2026-10-15 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b),
+Run on 2026-10-17 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b),
 Open Logic 4.7.0-ft.6: `python run.py "*ocp_core*" "*ocp_bit_packer*"`.
-The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3, 2026-10-16), with code coverage and in
-the optimised run without it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the
+The same tests without the images with `In_Error` of `test_framing` pass in QuestaSim (Questa Pro Microchip Edition
+2024.3, 2026-10-16), with code coverage and in the optimised run without it; the code coverage is in
+[coverage.md](../../../docs/coverage.md). The QuestaSim runs with `In_Error` follow. The tests of the
 CCSDS test data set ran in GHDL 6.0.0 on 2026-10-15 and 2026-10-16 (`OCP_TESTVECTORS`, selection of
 `tools/ocp_testvectors.py`).
 
@@ -14,7 +15,7 @@ CCSDS test data set ran in GHDL 6.0.0 on 2026-10-15 and 2026-10-16 (`OCP_TESTVEC
 | `ocp_core_tb` `test_golden` | 69 (62 configurations, every third random configuration with back pressure; 4 configurations also with back pressure; 3 sequences of 10 to 100 small images), each also with `UseInLast_g` (`_last`) | 138 |
 | `ocp_core_tb` `test_ecc` | 4 (every memory of the core), each also with `UseInLast_g` | 8 |
 | `ocp_core_tb` `test_reset` | 5, each also with `UseInLast_g` | 10 |
-| `ocp_core_tb` `test_framing` | 12 (eleven images with four early and two missing image end markers, eight resets during the error handling) | 12 |
+| `ocp_core_tb` `test_framing` | 12 (eleven images with four early and two missing image end markers; eight images with `In_Error`; eight resets during the error handling) | 12 |
 | `ocp_bit_packer_tb` `test_random` | 30 | 30 |
 | `ocp_bit_packer_tb` `test_byte_order` | 5 | 5 |
 | `ocp_core_tb` `test_golden` with the CCSDS test data set | 300 (75 of them with back pressure), each also with `UseInLast_g` | 600 |
@@ -39,7 +40,10 @@ image of the reference cut at a codeword, at least one zero fill bit and a size 
 `Out_Error` on its last word; every image with a missing `In_Last` equals the reference and carries `Out_Error`; the
 samples after it up to the next `In_Last` are taken in the cycle they are offered; every correct image before and
 after an error, also back to back and after a reset during the error handling, equals the reference, and
-`Ev_ImageError` pulses once per image with an error. In the periodic configurations the error limit source drops the
+`Ev_ImageError` pulses once per image with an error. An image ended with `In_Last` and `In_Error` on its last sample
+equals the reference and carries `Out_Error`; with an early `In_Last` it is aborted as without `In_Error`; `In_Error`
+without `In_Last` or on discarded samples changes nothing (CO-FR-08). In the periodic configurations the error limit
+source drops the
 remaining values of an aborted image, and the next image takes its own values. Every requirement of the
 specification is covered. All 62 configurations synthesize with GHDL without errors and without latches, with and
 without the image framing (`python lint/synth_check.py [--in-last]`).

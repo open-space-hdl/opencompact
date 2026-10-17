@@ -44,13 +44,14 @@ compressed image as a stream of words of 8 to 64 bits.
 
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
-| CO-FR-01 | With `UseInLast_g` false the core shall ignore `In_Last`, compress every NX NY NZ samples as one image and keep `Out_Error` and `Ev_ImageError` at '0'. | none |
+| CO-FR-01 | With `UseInLast_g` false the core shall ignore `In_Last` and `In_Error`, compress every NX NY NZ samples as one image and keep `Out_Error` and `Ev_ImageError` at '0'. | none |
 | CO-FR-02 | With `UseInLast_g` true the core shall expect `In_Last` = '1' with the last sample of every image (sample NX NY NZ of the image in the input order) and `In_Last` = '0' with every other sample. | 5.4.2 |
 | CO-FR-03 | When a sample before the last sample of an image comes with `In_Last` = '1', the core shall take it and abort the image: the compressed image shall end after its complete header and the codewords that the entropy coder output for its samples, followed by fill bits (zeros, at least one) up to a multiple of B bytes; the predictor and the entropy coder shall return to their initial state without changing the compressed images before it, and the next sample shall be the first sample of a new image with its own header. | 5.2.2 |
 | CO-FR-04 | When the last sample of an image comes with `In_Last` = '0', the core shall complete the compressed image, then take and discard every following sample up to and including the next sample with `In_Last` = '1', one per clock cycle; the sample after it shall be the first sample of a new image. | none |
-| CO-FR-05 | `Out_Error` shall be '1' with the last word of a compressed image that was aborted (CO-FR-03) or whose last sample came without `In_Last` (CO-FR-04), and '0' with every other word. | none |
-| CO-FR-06 | The core shall pulse `Ev_ImageError` for one clock cycle for every image with an early or a missing `In_Last`. | none |
+| CO-FR-05 | `Out_Error` shall be '1' with the last word of a compressed image that was aborted (CO-FR-03), whose last sample came without `In_Last` (CO-FR-04) or that ended with `In_Error` (CO-FR-08), and '0' with every other word. | none |
+| CO-FR-06 | The core shall pulse `Ev_ImageError` for one clock cycle for every image with an early or a missing `In_Last` or ended with `In_Error`. | none |
 | CO-FR-07 | From the sample that causes a framing error until the next image may start (after the end of the aborted image, or after the sample with `In_Last` of CO-FR-04) the core shall take no error limit value; the next value it takes belongs to the first frame of the next image. | 4.8.2.4 |
+| CO-FR-08 | With `UseInLast_g` true, `In_Error` = '1' together with `In_Last` = '1' shall end the image with an error: with the last sample of the image the compressed image shall be complete and identical to the compressed image without `In_Error`, and the next sample shall be the first sample of a new image; before the last sample the image shall be aborted as in CO-FR-03. `In_Error` shall be ignored with `In_Last` = '0' and while samples are discarded (CO-FR-04). | none |
 
 ### 2.5 Reset
 
@@ -102,4 +103,5 @@ predictor or the entropy coders use are described in their specifications. Gener
 | The header of an image is output once its first sample (or error limit value) is accepted | Consecutive images on one stream; no header without image |
 | The last codeword of the body is never empty (the end of an aborted image is a codeword of one zero bit) | The bit packer marks the last word when it outputs the bits of the last codeword |
 | With `UseInLast_g` true, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged with `Out_Error` and the samples up to the next `In_Last` are discarded (CO-FR-04) |
+| A source that learns only at the end of a group of samples that the group is faulty (for example a packet with a memory error) sets `In_Last` and `In_Error` with its last sample | The image ends there and is flagged even when its sample count is complete (CO-FR-08) |
 | A source of error limit values that delivers them ahead of the request starts with the values of the next image after `Ev_ImageError` | The core takes no further value for an image with a framing error (CO-FR-07) |

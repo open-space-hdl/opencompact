@@ -239,7 +239,7 @@ built from and the clauses it owns (P1: no clause is owned twice).
 | CO-1 | Header generator | Image metadata with supplementary information tables, predictor metadata with weight, quantization and sample representative subparts, entropy coder metadata | none | 3.5, 5.3 |
 | CO-2 | Bit packer | Codewords to interface words, fill bits up to the output word boundary, end of the compressed image | none | 5.2 |
 | CO-3 | Image sequencer | Header before the body of every image, end of the image after the last codeword, ECC events of all memories | none | 5.2.1 |
-| CO-4 | Image framer (`UseInLast_g`) | Check of `In_Last` against the number of samples of an image, abort of an image that ends early (clear of the predictor and the entropy coder, end at the bit packer), discard of the samples after a missing `In_Last`, error flag of every image on its last word, framing error event | none | 5.2.2 |
+| CO-4 | Image framer (`UseInLast_g`) | Check of `In_Last` against the number of samples of an image, abort of an image that ends early (clear of the predictor and the entropy coder, end at the bit packer), discard of the samples after a missing `In_Last`, image end with an error by `In_Error`, error flag of every image on its last word, framing error event | none | 5.2.2 |
 
 ### 7.4 Common definitions (`ocp_pkg`)
 

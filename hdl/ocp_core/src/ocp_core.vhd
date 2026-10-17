@@ -90,7 +90,8 @@ entity ocp_core is
         BlockSize_g            : positive                  := 16;
         RestrictedCodes_g      : boolean                   := false;
         RefInterval_g          : positive range 1 to 4096  := 4096;
-        -- Image framing: In_Last marks the last sample of every image, errors are flagged on Out_Error
+        -- Image framing: In_Last marks the last sample of every image (In_Error with it: the image ends
+        -- with an error), errors are flagged on Out_Error
         UseInLast_g            : boolean                   := false;
         -- Implementation: width of the compressed image interface in bits (8, 16, 32 or 64), speculative
         -- weight loop of the predictor, memory style
@@ -102,11 +103,13 @@ entity ocp_core is
         Clk            : in    std_logic;
         Rst            : in    std_logic;
         -- Image samples in the input order (unsigned or two's complement); In_Last on the last sample
-        -- of every image (UseInLast_g, ignored otherwise)
+        -- of every image, In_Error with In_Last: the image ends with an error (UseInLast_g, both ignored
+        -- otherwise)
         In_Valid       : in    std_logic;
         In_Ready       : out   std_logic;
         In_Data        : in    std_logic_vector(DynamicRange_g - 1 downto 0);
         In_Last        : in    std_logic                     := '0';
+        In_Error       : in    std_logic                     := '0';
         -- Error limit values for periodic error limit updating
         Lim_Valid      : in    std_logic                     := '0';
         Lim_Ready      : out   std_logic;
@@ -123,7 +126,7 @@ entity ocp_core is
         -- Memory errors (pulses): corrected single error, detected double error
         Ecc_Sec        : out   std_logic;
         Ecc_Ded        : out   std_logic;
-        -- Framing error of an image (pulse): In_Last before or missing on the last sample
+        -- Framing error of an image (pulse): In_Last before or missing on the last sample, or In_Error
         Ev_ImageError  : out   std_logic;
         -- Error injection into the next write of memory ErrInj_Channel (user guide, memories): a single
         -- (corrected) or a double (detected) bit error
@@ -302,6 +305,7 @@ begin
                 In_Valid      => In_Valid,
                 In_Ready      => In_Ready,
                 In_Last       => In_Last,
+                In_Error      => In_Error,
                 Lim_Valid     => Lim_Valid,
                 Lim_Ready     => Lim_Ready,
                 Smp_Valid     => SmpValid,

@@ -19,11 +19,12 @@
 --   correct image
 -- * test_framing (UseInLast_g): images whose In_Last comes early (aborted: complete header, a
 --   prefix of the compressed image, fill bits, Out_Error) or is missing (complete image with
---   Out_Error, the samples up to the next In_Last are discarded), between correct images and
---   followed by resets at random times
+--   Out_Error, the samples up to the next In_Last are discarded), images ended with In_Error
+--   (CO-FR-08: on the last sample a complete image with Out_Error, early an abort, without In_Last
+--   or on discarded samples ignored), between correct images and followed by resets at random times
 --
 -- With UseInLast_g the source sets In_Last on the last sample of every image; without it In_Last
--- is random (ignored by the core).
+-- and In_Error are random (ignored by the core).
 --
 -- Documentation: hdl/ocp_core/docs/verification_plan.md
 
@@ -143,11 +144,17 @@ architecture sim of ocp_core_tb is
     constant Samples_c   : positive := XSize_g * YSize_g * ZSize_g;
 
     -- Framing of an image of a job: correct, In_Last early (on sample Pos), In_Last missing (Pos
-    -- further samples to discard, the last of them with In_Last)
-    constant Normal_c  : natural  := 0;
-    constant Early_c   : natural  := 1;
-    constant Missing_c : natural  := 2;
-    constant MaxPlan_c : positive := 16;
+    -- further samples to discard, the last of them with In_Last); with In_Error (CO-FR-08): on the
+    -- last sample with In_Last, on the early In_Last, without In_Last on sample Pos, on the samples
+    -- discarded after a missing In_Last
+    constant Normal_c     : natural  := 0;
+    constant Early_c      : natural  := 1;
+    constant Missing_c    : natural  := 2;
+    constant Flagged_c    : natural  := 3;
+    constant EarlyErr_c   : natural  := 4;
+    constant StrayErr_c   : natural  := 5;
+    constant MissingErr_c : natural  := 6;
+    constant MaxPlan_c    : positive := 16;
 
     type Plan_r is record
         Kind : natural;
@@ -157,6 +164,24 @@ architecture sim of ocp_core_tb is
     type Plan_t is array (1 to MaxPlan_c) of Plan_r;
 
     constant NormalPlan_c : Plan_t := (others => (Normal_c, 0));
+
+    -- The image ends early (abort)
+    function isEarly (kind : natural) return boolean is
+    begin
+        return kind = Early_c or kind = EarlyErr_c;
+    end function;
+
+    -- In_Last on the last sample of the image
+    function isComplete (kind : natural) return boolean is
+    begin
+        return kind = Normal_c or kind = Flagged_c or kind = StrayErr_c;
+    end function;
+
+    -- The image ends with an error
+    function isFaulty (kind : natural) return boolean is
+    begin
+        return kind /= Normal_c and kind /= StrayErr_c;
+    end function;
 
     -- Aborted image: byte o of the output is the first k bits (0 to 7) of the expected byte e, then
     -- zero bits
@@ -187,6 +212,7 @@ architecture sim of ocp_core_tb is
     signal In_Ready       : std_logic;
     signal In_Data        : std_logic_vector(DynamicRange_g - 1 downto 0) := (others => '0');
     signal In_Last        : std_logic                                     := '0';
+    signal In_Error       : std_logic                                     := '0';
     signal Lim_Valid      : std_logic                                     := '0';
     signal Lim_Ready      : std_logic;
     signal Lim_Data       : std_logic_vector(15 downto 0)                 := (others => '0');
@@ -301,6 +327,7 @@ begin
             In_Ready       => In_Ready,
             In_Data        => In_Data,
             In_Last        => In_Last,
+            In_Error       => In_Error,
             Lim_Valid      => Lim_Valid,
             Lim_Ready      => Lim_Ready,
             Lim_Data       => Lim_Data,
@@ -493,6 +520,29 @@ begin
                 check_value(ErrCount, 6, ERROR, "one framing error event per image with an error");
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
 
+                -- In_Error (CO-FR-08) between correct images: with In_Last on the last sample, with
+                -- an early In_Last, without In_Last, on the samples discarded after a missing In_Last
+                Plan_v    := NormalPlan_c;
+                Plan_v(2) := (Flagged_c,
+                              0);
+                Plan_v(4) := (EarlyErr_c,
+                              random(0,
+                                        maximum(Samples_c - 2,
+                                                   0)));
+                Plan_v(5) := (StrayErr_c,
+                              random(0,
+                                        maximum(Samples_c - 2,
+                                                   0)));
+                Plan_v(6) := (Flagged_c,
+                              0);
+                Plan_v(7) := (MissingErr_c,
+                              random(1,
+                                        Samples_c));
+                reset;
+                job(8, true, Plan_v);
+                check_value(ErrCount, 4, ERROR, "one framing error event per image ended with an error");
+                check_value(SecCount + DedCount, 0, ERROR, "no memory error");
+
                 -- An image with an error, a reset at a random time of the abort or of the discarded
                 -- samples, then a correct image
                 Plan_v := NormalPlan_c;
@@ -557,7 +607,7 @@ begin
         variable Wait_v  : natural;
 
         -- One sample (Wait_v: cycles until it is taken); a reset aborts the job
-        procedure send (data : std_logic_vector; last : std_logic) is
+        procedure send (data : std_logic_vector; last : std_logic; err : std_logic) is
         begin
 
             while random(0, 99) < InGapPct_g and Rst = '0' loop
@@ -567,6 +617,7 @@ begin
             In_Valid <= '1';
             In_Data  <= data;
             In_Last  <= last;
+            In_Error <= err;
             Wait_v   := 0;
 
             loop
@@ -577,6 +628,7 @@ begin
 
             In_Valid <= '0';
             In_Last  <= '0';
+            In_Error <= '0';
             Abort_v  := Rst = '1';
         end procedure;
 
@@ -586,6 +638,7 @@ begin
         variable Plan_v : Plan_r;
         variable Idx_v  : natural;
         variable Last_v : std_logic;
+        variable Err_v  : std_logic;
 
         file Img_f : ByteFile_t;
     begin
@@ -609,16 +662,19 @@ begin
                 exit when Eof_v;
 
                 if UseInLast_g then
-                    Last_v := toSl((Plan_v.Kind = Normal_c and Idx_v = Samples_c - 1) or
-                                   (Plan_v.Kind = Early_c and Idx_v = Plan_v.Pos));
+                    Last_v := toSl((isComplete(Plan_v.Kind) and Idx_v = Samples_c - 1) or
+                                   (isEarly(Plan_v.Kind) and Idx_v = Plan_v.Pos));
+                    Err_v  := toSl((Plan_v.Kind = Flagged_c and Idx_v = Samples_c - 1) or
+                                   ((Plan_v.Kind = EarlyErr_c or Plan_v.Kind = StrayErr_c) and Idx_v = Plan_v.Pos));
                 else
                     Last_v := toSl(random(0, 1) = 1);
+                    Err_v  := Last_v;
                 end if;
-                send(Smp_v(DynamicRange_g - 1 downto 0), Last_v);
+                send(Smp_v(DynamicRange_g - 1 downto 0), Last_v, Err_v);
                 exit when Abort_v;
 
                 -- In_Last early: the rest of the image is lost
-                if Plan_v.Kind = Early_c and Idx_v = Plan_v.Pos then
+                if isEarly(Plan_v.Kind) and Idx_v = Plan_v.Pos then
                     AbortImg <= img;
                     exit;
                 end if;
@@ -629,11 +685,11 @@ begin
             exit when Abort_v;
 
             -- In_Last missing: further samples up to the next In_Last, discarded at once
-            if Plan_v.Kind = Missing_c then
+            if Plan_v.Kind = Missing_c or Plan_v.Kind = MissingErr_c then
 
                 for i in 1 to Plan_v.Pos loop
                     send(std_logic_vector(to_unsigned(random(0, 2 ** minimum(DynamicRange_g, 8) - 1), DynamicRange_g)),
-                         toSl(i = Plan_v.Pos));
+                         toSl(i = Plan_v.Pos), toSl(Plan_v.Kind = MissingErr_c));
                     exit when Abort_v;
                     check_value(Wait_v, 0, ERROR, "image " & to_string(img) & ": discarded sample taken at once");
                 end loop;
@@ -796,7 +852,7 @@ begin
                                         ": valid bytes contiguous from byte 0");
                             check_value(not Eof_v, ERROR, "image " & to_string(img) & ": no byte beyond the end");
                             Byte_v := to_integer(unsigned(Out_Data(8 * b + 7 downto 8 * b)));
-                            if Plan_v.Kind /= Early_c then
+                            if not isEarly(Plan_v.Kind) then
                                 check_value(Byte_v, Exp_v, ERROR, "image " & to_string(img) & " byte " & to_string(Cnt_v));
                             elsif Same_v and Byte_v /= Exp_v then
                                 -- Aborted image: end of the prefix
@@ -819,7 +875,7 @@ begin
                         end if;
                     end loop;
 
-                    if Plan_v.Kind /= Early_c then
+                    if not isEarly(Plan_v.Kind) then
                         check_value(Out_Last, toSl(Eof_v), ERROR,
                                     "image " & to_string(img) & " byte " & to_string(Cnt_v) & ": last flag");
                     end if;
@@ -832,14 +888,14 @@ begin
             exit when Abort_v;
 
             -- Error flag on the last word; size and header of an aborted image
-            check_value(Out_Error, toSl(UseInLast_g and Plan_v.Kind /= Normal_c), ERROR,
+            check_value(Out_Error, toSl(UseInLast_g and isFaulty(Plan_v.Kind)), ERROR,
                         "image " & to_string(img) & ": error flag on the last word");
             if JobCompare and MaxBytes_g > 0 then
                 check_value(Cnt_v <= MaxBytes_g, ERROR,
                             "image " & to_string(img) & ": " & to_string(Cnt_v) & " bytes, at most " &
                             to_string(MaxBytes_g));
             end if;
-            if JobCompare and Plan_v.Kind = Early_c then
+            if JobCompare and isEarly(Plan_v.Kind) then
                 check_value(Cnt_v mod OutputWordSize_g, 0, ERROR,
                             "image " & to_string(img) & ": size a multiple of the output word size");
                 check_value(Same_v or Cut_v >= HeaderBytes_g, ERROR,

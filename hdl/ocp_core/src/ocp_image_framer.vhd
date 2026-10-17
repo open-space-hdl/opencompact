@@ -37,10 +37,12 @@ entity ocp_image_framer is
     port (
         Clk           : in    std_logic;
         Rst           : in    std_logic;
-        -- Samples of the user with the image end marker (the data goes to the predictor directly)
+        -- Samples of the user with the image end marker and its error flag (the data goes to the
+        -- predictor directly)
         In_Valid      : in    std_logic;
         In_Ready      : out   std_logic;
         In_Last       : in    std_logic;
+        In_Error      : in    std_logic;
         -- Error limit values of the user
         Lim_Valid     : in    std_logic;
         Lim_Ready     : out   std_logic;
@@ -142,13 +144,16 @@ begin
                     Smp_Valid <= In_Valid;
                     if In_Valid = '1' and Smp_Ready = '1' then
                         if r.Remain = 0 then
-                            -- Last sample of the image: without In_Last the image end was lost
+                            -- Last sample of the image: without In_Last the image end was lost; with
+                            -- In_Last and In_Error the complete image ends with an error (CO-FR-08)
                             Push_v   := true;
-                            PushE_v  := not In_Last;
+                            PushE_v  := not In_Last or In_Error;
                             v.Remain := Last_c;
                             if In_Last = '0' then
                                 v.Ev    := '1';
                                 v.State := Discard_s;
+                            elsif In_Error = '1' then
+                                v.Ev := '1';
                             end if;
                         elsif In_Last = '1' then
                             -- Image end before the last sample: the image is aborted

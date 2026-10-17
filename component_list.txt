@@ -3,3 +3,6 @@ hdl/ocp_pkg
 hdl/ocp_predictor
 hdl/ocp_entropy_coder
 hdl/ocp_core
+hdl/ocp_input_adapter
+hdl/ocp_mib
+hdl/ocp_channel

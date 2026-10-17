@@ -32,10 +32,21 @@ import ocp_configs  # noqa: E402
 import ocp_wrapper  # noqa: E402
 from ocp_configs import cfg  # noqa: E402
 
+
+
+def _vunit_config(module):
+    spec = importlib.util.spec_from_file_location(f"{module}_vunit_config", ROOT / f"hdl/{module}/tb/vunit_config.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 # Interface widths of the core testbench (in turn over the configurations, 32 bits for the throughput configurations)
-_spec = importlib.util.spec_from_file_location("ocp_core_vunit_config", ROOT / "hdl/ocp_core/tb/vunit_config.py")
-_core_tb = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_core_tb)
+_core_tb = _vunit_config("ocp_core")
+
+# The configurations of the testbenches of ocp_input_adapter and ocp_channel (TC-IA-05, TC-CH-05)
+ADAPTER = {"ia_w{}_d{}_u{}".format(w, d, u): (w, d, u) for w, d, u in _vunit_config("ocp_input_adapter").CONFIGS}
+CHANNEL = {"ch_" + n: (ocp_configs.ALL[n],) + v[:3] for n, v in _vunit_config("ocp_channel").CONFIGS.items()}
 
 # Bounds of the generic ranges that no configuration of the regression reaches: configuration, interface width and
 # further generics of ocp_core. Image dimensions of 65536 with the other dimensions at 1 keep the memories small.
@@ -77,6 +88,17 @@ NEGATIVE = {
                          "periodic error limit updating is not allowed with BSQ order"),
 }
 
+# ocp_input_adapter and ocp_channel outside their ranges: wrapper text and the message that stops the elaboration
+NEGATIVE_TOP = {
+    "n12_adapter_width_24": (lambda: ocp_wrapper.adapter_wrapper(24, 16, 22),
+                             "InWidth_g must be 8, 16, 32, 64 or 128"),
+    "n13_end_mark_outside_mask": (lambda: ocp_wrapper.adapter_wrapper(128, 16, 22, last_mask=0x3FC000,
+                                                                      last_value=0x004001),
+                                  "UserLastValue_g must lie within UserLastMask_g"),
+    "n14_stream_width_24": (lambda: ocp_wrapper.channel_wrapper(ocp_configs.ALL["r09_random"], 128, 8, 24),
+                            "OutStreamWidth_g must be 8, 16, 32, 64 or 128"),
+}
+
 
 def out_width(name):
     if name in _core_tb.THROUGHPUT:
@@ -84,13 +106,15 @@ def out_width(name):
     return _core_tb.WIDTHS[list(ocp_configs.ALL).index(name) % len(_core_tb.WIDTHS)]
 
 
-def synth(name, config, width, extra, out_dir, use_in_last=False, expect=None):
-    """Synthesises one configuration; with expect, the elaboration must stop with that message."""
+def synth(name, config, width, extra, out_dir, use_in_last=False, expect=None, text=None):
+    """Synthesises one configuration (or the top level text); with expect, the elaboration must stop with that
+    message."""
     work = out_dir / name
     work.mkdir()
     top = work / "ocp_synth_top.vhd"
-    top.write_text(ocp_wrapper.wrapper(config, out_width=width, use_in_last=use_in_last, extra=extra),
-                   encoding="utf-8")
+    if text is None:
+        text = ocp_wrapper.wrapper(config, out_width=width, use_in_last=use_in_last, extra=extra)
+    top.write_text(text, encoding="utf-8")
     common = ["--std=08", "-frelaxed", f"-P{LIBS / 'olo'}", f"-P{LIBS / 'opencompact'}", f"--workdir={work}"]
     res = subprocess.run(["ghdl", "-a"] + common + [str(top)], capture_output=True, text=True)
     log = res.stdout + res.stderr
@@ -119,7 +143,8 @@ def main():
         raise SystemExit("compiled libraries not found, run: python run.py --compile")
     args = sys.argv[1:]
     in_last = "--in-last" in args
-    names = [a for a in args if a != "--in-last"] or list(ocp_configs.ALL) + list(BOUNDS) + list(NEGATIVE)
+    names = [a for a in args if a != "--in-last"] or (list(ocp_configs.ALL) + list(BOUNDS) + list(NEGATIVE) +
+                                                      list(ADAPTER) + list(CHANNEL) + list(NEGATIVE_TOP))
     results = []
     with tempfile.TemporaryDirectory(dir=LIBS.parent.parent) as tmp:
         for n in names:
@@ -131,6 +156,17 @@ def main():
             elif n in NEGATIVE and not in_last:
                 config, width, extra, message = NEGATIVE[n]
                 results.append(synth(n, config, width, extra, Path(tmp), expect=message))
+            elif n in ADAPTER and not in_last:
+                w, d, u = ADAPTER[n]
+                masks = {"last_mask": 0x3FC000, "last_value": 0x004000, "error_mask": 0x003000} if u == 22 else {}
+                results.append(synth(n, None, w, None, Path(tmp), text=ocp_wrapper.adapter_wrapper(w, d, u, **masks)))
+            elif n in CHANNEL and not in_last:
+                config, in_w, out_w, stream_w = CHANNEL[n]
+                results.append(synth(n, None, stream_w, None, Path(tmp),
+                                     text=ocp_wrapper.channel_wrapper(config, in_w, out_w, stream_w)))
+            elif n in NEGATIVE_TOP and not in_last:
+                make, message = NEGATIVE_TOP[n]
+                results.append(synth(n, None, 0, None, Path(tmp), expect=message, text=make()))
     sys.exit(0 if all(results) else 1)
 
 

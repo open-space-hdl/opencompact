@@ -922,6 +922,18 @@ def compress(cfg, img, error_limit_updates=None):
 
 
 # ------------------------------------------------------------------------------------------------
+# SDU payload of ocp_channel
+# ------------------------------------------------------------------------------------------------
+def sdu_payload(cfg, samples):
+    """Samples in the input order as the byte stream of the SDUs of ocp_channel: a big-endian container of
+    ceil(D/8) bytes per sample, the value in its D least significant bits (two's complement for signed samples)."""
+    d = cfg["large_d"]
+    nb = (d + 7) // 8
+    mask = (1 << d) - 1
+    return b"".join((s & mask).to_bytes(nb, "big") for s in samples)
+
+
+# ------------------------------------------------------------------------------------------------
 # Header parser (for the validation of the model with externally produced compressed images)
 # ------------------------------------------------------------------------------------------------
 class BitReader:

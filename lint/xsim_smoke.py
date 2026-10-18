@@ -94,8 +94,8 @@ def smoke(name, text):
     (OUT / f"{name}.vhd").write_text(text, encoding="utf-8")
     ok = run([tool("xvhdl"), "--2008", "-L", "olo", "-L", "opencompact", f"{name}.vhd"], f"{name}_compile.log") == 0
     if ok:
-        ok = run([tool("xelab"), "--debug", "off", "-L", "olo", "-L", "opencompact", "--snapshot", name,
-                  "xil_defaultlib.ocp_synth_top"], f"{name}_elaborate.log") == 0
+        ok = run([tool("xelab"), "--debug", "typical", "-L", "olo", "-L", "opencompact", "--snapshot", name,
+                  "work.ocp_synth_top"], f"{name}_elaborate.log") == 0
     log = OUT / f"{name}_simulate.log"
     if ok:
         tcl = forces(text) + ["add_force {/ocp_synth_top/Rst} 1", f"run {RESET_NS} ns",

@@ -8,9 +8,9 @@ Compiles Open Logic into the library `olo`, the UVVM components used by the test
 libraries and every module of component_list.txt plus the shared verification components (tb/) into the
 library `opencompact`, then runs all testbenches.
 
-GHDL is the default simulator. `--questa` selects QuestaSim; `--questa --coverage` collects the code coverage
-(statements, branches, conditions, expressions, state machines) of the OpenCompact sources and merges it into
-coverage/coverage.ucdb with the text report coverage/coverage_report.txt.
+GHDL is the default simulator. `--questa` selects QuestaSim (time resolution 1 fs, as GHDL); `--questa --coverage`
+collects the code coverage (statements, branches, conditions, expressions, state machines) of the OpenCompact sources
+and merges it into coverage/coverage.ucdb with the text report coverage/coverage_report.txt.
 
 `--compile-order` writes compile_order.txt with the synthesis sources of the library `opencompact` in compile order
 and exits without simulating.
@@ -143,7 +143,7 @@ def set_simulator_options(vu):
     vu.set_sim_option("ghdl.sim_flags", ["--max-stack-alloc=0"] + extra)
     vu.set_sim_option("disable_ieee_warnings", True)
     vu.add_compile_option("modelsim.vcom_flags", ["-suppress", "1346,1236,1090"])
-    vu.set_sim_option("modelsim.vsim_flags", ["-suppress", "3009,3473,8684,8683"])
+    vu.set_sim_option("modelsim.vsim_flags", ["-suppress", "3009,3473,8684,8683", "-t", "fs"])
 
 
 def merge_coverage(results):

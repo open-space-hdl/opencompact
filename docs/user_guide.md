@@ -194,13 +194,13 @@ and resynchronises:
 | `In_Last` and `In_Error` with the last sample (the source knows that samples of the image are faulty) | The image is completed normally and identical to the image without `In_Error`; its last word carries `Out_Error` = '1'. The next sample starts a new image. Before the last sample, `In_Last` and `In_Error` abort the image as `In_Last` alone; `In_Error` without `In_Last` has no effect. |
 
 `Ev_ImageError` pulses once for every image with an error, when the error is detected at the input (with `In_Error` on
-the last sample: when that sample is taken). An aborted image is the compressed image of the samples taken, but its
-header announces the complete image: a decoder that is given the number of samples taken decodes it; a decoder that
-relies on the header alone does not (the hybrid coder is decoded from the end of the image with the number of samples,
-the block-adaptive coder needs the blocks of that number). The samples taken before the loss are those of the image;
-`tools/ocp_model.py` (`compress_aborted`) reproduces the compressed image. An image without its end marker is complete,
-but its last samples may belong to the next image. The system marks or discards both kinds by `Out_Error`. The stream
-stays aligned to B bytes, so the next image starts like after a correct one.
+the last sample: when that sample is taken). An aborted image is the compressed image of the samples taken; a decoder
+that is given the number of samples taken (L + 1, with L the index of the sample with the early `In_Last` in the input
+order of the image, counted from 0) decodes it; the header announces the complete image (NX NY NZ samples), so a decoder
+that relies on the header alone expects the codewords of all samples and does not decode it. The samples taken before
+the loss are those of the image; `tools/ocp_model.py` (`compress_aborted`) reproduces the compressed image. An image
+without its end marker is complete, but its last samples may belong to the next image. The system marks or discards both
+kinds by `Out_Error`. The stream stays aligned to B bytes, so the next image starts like after a correct one.
 
 Error limit values (periodic updating): after an early `In_Last` the core takes none for three clock cycles, after a
 missing `In_Last` none until the sample with `In_Last`; the next value it takes belongs to the first frame of the next

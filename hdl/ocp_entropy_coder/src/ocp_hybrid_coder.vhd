@@ -190,7 +190,7 @@ architecture rtl of ocp_hybrid_coder is
         Tail     : Tail_t;
         TailIdx  : natural range 0 to maximum(ZSize_g, 16);
         TailRd   : natural range 0 to ZSize_g;
-        TailV    : std_logic_vector(1 to 2);
+        TailV    : std_logic_vector(0 to 1);
         -- Bands whose statistics were initialised in this image (t = 1 reached): the first coded samples
         -- of the bands come in increasing band order in every input order, so they are the bands below
         -- InitTop; a band above it ends with its initial accumulator (an image that ended early)
@@ -493,7 +493,7 @@ begin
         -- cycle, room in the codeword buffer for the reads in flight), a '1' bit after the last
         -------------------------------------------------------------------------------------------
         TailV_v := false;
-        v.TailV := '0' & r.TailV(1);
+        v.TailV := '0' & r.TailV(0);
 
         case r.Tail is
             when TIdle_s =>
@@ -525,10 +525,10 @@ begin
                 -- Reads: the memory delivers the accumulator two cycles later
                 RdAddr <= std_logic_vector(to_unsigned(r.TailRd mod ZSize_g, ZW_c));
                 if r.TailRd < ZSize_g and to_integer(unsigned(FifoLevel)) + 4 <= FifoDepth_c then
-                    v.TailV(1) := '1';
+                    v.TailV(0) := '1';
                     v.TailRd   := r.TailRd + 1;
                 end if;
-                if r.TailV(2) = '1' then
+                if r.TailV(1) = '1' then
                     TailV_v := true;
                     -- Final accumulator from the memory, or the initial one for a band without statistics in
                     -- this image (a single-pixel image, an image that ended before the band was initialised)

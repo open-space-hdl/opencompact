@@ -23,6 +23,8 @@ document. This page lists the rules and the few OpenCompact-specific additions.
   from any state.
 - The arithmetic of the standard uses `numeric_std` types whose widths are derived from the generics; integers are
   used for counters and indexes only, never for values that may exceed 31 bits.
+- Arrays and vectors are indexed from 0 (ascending or descending); some simulators mishandle non-zero left bounds
+  in record fields.
 - Comments name the clause or the equation of CCSDS 123.0-B-2 where it helps the reader (for example
   `-- (37)` or `-- CCSDS 4.10.3`).
 - File header: copyright line and authors, then a 1 to 2 sentence description that links to the module

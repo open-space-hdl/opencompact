@@ -686,7 +686,7 @@ architecture rtl of ocp_predictor is
         X     : unsigned(XW_c - 1 downto 0);
     end record;
 
-    type SbArr_t is array (1 to SbLen_c) of SbEntry_r;
+    type SbArr_t is array (0 to SbLen_c - 1) of SbEntry_r;
 
     type TwoProcess_r is record
         P        : ItemArr_t;
@@ -714,7 +714,7 @@ architecture rtl of ocp_predictor is
         CW       : WeightSet_t;
         S1       : std_logic;
         S2       : std_logic;
-        -- Bands issued in the last cycles, items in flight
+        -- Bands issued in the last cycles (element k: issued k + 1 cycles ago), items in flight
         Sb       : SbArr_t;
         Inflight : natural range 0 to NSt_c + 1;
         EccSec   : std_logic;
@@ -737,7 +737,7 @@ architecture rtl of ocp_predictor is
         OSlot    : unsigned(SlW_c - 1 downto 0);
         DoneSlot : unsigned(SlW_c - 1 downto 0);
         DoneOk   : std_logic;
-        ORd      : std_logic_vector(1 to 2);
+        ORd      : std_logic_vector(0 to 1);
         OBand1   : unsigned(ZW_c - 1 downto 0);
         OBand2   : unsigned(ZW_c - 1 downto 0);
         OFlags1  : std_logic_vector(2 downto 0);
@@ -1008,7 +1008,7 @@ begin
         Use_v     := (others => toSl(InpRam_i.Valid = '1' and InpRam_i.Kind = ItemSample_c));
         Use_v(5)  := toSl(InpProd_i.Valid = '1' and InpProd_i.Kind = ItemSample_c and InpProd_i.Init = '0');
         Use_v(8)  := FifoOutVld and FifoOutRdy;
-        Use_v(10) := r.ORd(2);
+        Use_v(10) := r.ORd(1);
         v.EccSec  := or(EccSecVec and Use_v);
         v.EccDed  := or(EccDedVec and Use_v);
 
@@ -1096,12 +1096,12 @@ begin
 
             -- Samples the next one depends on must have left the feedback loops
             for i in 1 to SbLen_c loop
-                if r.Sb(i).Valid = '1' then
-                    if i < Lsame_v and r.Sb(i).Band = r.Z then
+                if r.Sb(i - 1).Valid = '1' then
+                    if i < Lsame_v and r.Sb(i - 1).Band = r.Z then
                         Block_v := true;
                     end if;
-                    if i < Lcross_c and r.Z > 0 and r.Sb(i).Band = r.Z - 1 then
-                        if r.Sb(i).X = r.X or (Narrow_c and r.Y = 0 and r.X > 0 and r.Sb(i).X = r.X - 1) then
+                    if i < Lcross_c and r.Z > 0 and r.Sb(i - 1).Band = r.Z - 1 then
+                        if r.Sb(i - 1).X = r.X or (Narrow_c and r.Y = 0 and r.X > 0 and r.Sb(i - 1).X = r.X - 1) then
                             Block_v := true;
                         end if;
                     end if;
@@ -1243,12 +1243,12 @@ begin
                     end if;
 
                     for i in 1 to SbLen_c loop
-                        if r.Sb(i).Valid = '1' then
-                            if i < Lsame_v and r.Sb(i).Band = r.SZ then
+                        if r.Sb(i - 1).Valid = '1' then
+                            if i < Lsame_v and r.Sb(i - 1).Band = r.SZ then
                                 Block_v := true;
                             end if;
-                            if i < Lcross_c and r.SZ > 0 and r.Sb(i).Band = r.SZ - 1 then
-                                if r.Sb(i).X = r.SX or (Narrow_c and r.SY = 0 and r.SX > 0 and r.Sb(i).X = r.SX - 1) then
+                            if i < Lcross_c and r.SZ > 0 and r.Sb(i - 1).Band = r.SZ - 1 then
+                                if r.Sb(i - 1).X = r.SX or (Narrow_c and r.SY = 0 and r.SX > 0 and r.Sb(i - 1).X = r.SX - 1) then
                                     Block_v := true;
                                 end if;
                             end if;
@@ -1343,13 +1343,13 @@ begin
         end if;
 
         -- Scoreboard of the issued samples
-        for i in SbLen_c downto 2 loop
+        for i in SbLen_c - 1 downto 1 loop
             v.Sb(i) := r.Sb(i - 1);
         end loop;
 
-        v.Sb(1).Valid := toSl(Issue_v);
-        v.Sb(1).Band  := O_v.Z;
-        v.Sb(1).X     := O_v.X;
+        v.Sb(0).Valid := toSl(Issue_v);
+        v.Sb(0).Band  := O_v.Z;
+        v.Sb(0).X     := O_v.X;
 
         -------------------------------------------------------------------------------------------
         -- Stage 1: band parameters, weight update scaling exponent (CCSDS 4.10.2)
@@ -1918,13 +1918,13 @@ begin
 
             -- Read in the input order once the sample is finished (its slot is not later than the slot of
             -- the last finished sample) and the output FIFO has room for the reads in flight
-            v.ORd     := '0' & r.ORd(1);
+            v.ORd     := '0' & r.ORd(0);
             v.OBand2  := r.OBand1;
             v.OFlags2 := r.OFlags1;
             if r.OA < NArr_c and not (r.EndV = '1' and r.OA > r.EndA) and r.DoneOk = '1' and
                r.OSlot <= r.DoneSlot and
                to_integer(unsigned(FifoLevel)) + 4 <= FifoDepth_c then
-                v.ORd(1) := '1';
+                v.ORd(0) := '1';
                 v.OBand1 := r.OZ;
                 -- First sample (t = 0), first coded sample (t = 1), last sample of the image
                 v.OFlags1(0) := toSl(r.OA < M_c);
@@ -1940,7 +1940,7 @@ begin
                 end if;
             end if;
 
-            FifoInValid                                     <= r.ORd(2);
+            FifoInValid                                     <= r.ORd(1);
             FifoInData(OutW_c - 1 downto 0)                 <= std_logic_vector(resize(unsigned(OutRdData), OutW_c));
             FifoInData(OutW_c + 1 downto OutW_c)            <= ItemSample_c;
             FifoInData(OutW_c + 1 + ZW_c downto OutW_c + 2) <= std_logic_vector(r.OBand2);
@@ -2029,7 +2029,7 @@ begin
                     r.P(k).Valid <= '0';
                 end loop;
 
-                for i in 1 to SbLen_c loop
+                for i in 0 to SbLen_c - 1 loop
                     r.Sb(i).Valid <= '0';
                 end loop;
 

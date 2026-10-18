@@ -2,9 +2,10 @@
 
 ## 1. Test results
 
-Run on 2026-10-17 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with the AXI-Lite VVC, Open
-Logic 4.7.0-ft.6: `python run.py "*ocp_channel*"`. The QuestaSim runs (with code coverage and optimised) follow at the
-end of the batch.
+Run on 2026-10-17 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with the AXI-Lite VVC, Open Logic
+4.7.0-ft.6: `python run.py "*ocp_channel*"`. The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3,
+2026-10-18), with code coverage and in the optimised run without it; the code coverage is in
+[coverage.md](../../../docs/coverage.md).
 
 | Test | Configurations | Passed |
 | --- | --- | --- |
@@ -21,11 +22,11 @@ software, for D from 8 to 32 and the three coders, through the input converter a
 without it, through the output converter (also to a narrower stream) and without it, with input gaps and output stalls,
 and with the error limit values of periodic updating through `Lim_*`. All bytes of a packet are valid except in its last
 beat, whose valid bytes are contiguous from byte 0. In the error scenarios every packet, its error flag and every
-counter step of the specification hold: an aborted image is its header, a prefix of the reference and fill bits; an
-image ended by a faulty last SDU or without its end mark equals the reference and carries `Out_Error`; the images
-discarded by the adapter or swallowed by the core produce no packet; every correct image after an error equals the
-reference. Single and double bit errors injected through `ErrInj_*` are counted in ECC_CORRECTED and ECC_UNCORRECTABLE.
-A reset clears the counters.
+counter step of the specification hold: an aborted image equals the compressed image of the samples taken
+(`aborted_<n>.bin`, the SDU with the fault or the end mark ends at that sample); an image ended by a faulty last SDU or
+without its end mark equals the reference and carries `Out_Error`; the images discarded by the adapter or swallowed by
+the core produce no packet; every correct image after an error equals the reference. Single and double bit errors
+injected through `ErrInj_*` are counted in ECC_CORRECTED and ECC_UNCORRECTABLE. A reset clears the counters.
 
 ## 3. Generic ranges
 

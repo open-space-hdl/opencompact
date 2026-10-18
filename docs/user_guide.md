@@ -189,22 +189,25 @@ and resynchronises:
 | Case | Behaviour of the core |
 | --- | --- |
 | `In_Last` with the last sample | Correct image: `Out_Error` = '0' on its last word |
-| `In_Last` before the last sample (samples lost inside the image) | The image is aborted. The sample with `In_Last` is taken; once the earlier images have left the entropy coder, the predictor and the coder are cleared. The compressed image ends after its complete header and the codewords already produced, with at least one fill bit up to a multiple of B bytes, and its last word carries `Out_Error` = '1'. The next sample starts a new image with its own header; no sample of it is lost. |
+| `In_Last` before the last sample (samples lost inside the image) | The image is aborted: it ends with the sample with `In_Last`. The compressed image is the compressed image of the samples taken (the header of the complete image, the codewords of the samples taken, the end of the image of the entropy coder and the fill bits up to a multiple of B bytes), independent of the timing, and its last word carries `Out_Error` = '1'. The next sample starts a new image with its own header; no sample of it is lost. |
 | No `In_Last` with the last sample (the end marker was lost) | The image is completed normally; its last word carries `Out_Error` = '1'. The core then takes the following samples and discards them, one per clock cycle, up to and including the next sample with `In_Last`; the sample after it starts a new image. |
 | `In_Last` and `In_Error` with the last sample (the source knows that samples of the image are faulty) | The image is completed normally and identical to the image without `In_Error`; its last word carries `Out_Error` = '1'. The next sample starts a new image. Before the last sample, `In_Last` and `In_Error` abort the image as `In_Last` alone; `In_Error` without `In_Last` has no effect. |
 
-`Ev_ImageError` pulses once for every image with an error, when the error is detected at the input (with `In_Error`
-on the last sample: when that sample is taken). An aborted image is
-not decodable as a whole (its header announces the full image); its first part is the compressed image of the
-samples before the loss. An image without its end marker is complete, but its last samples may belong to the next
-image. The system marks or discards both kinds by `Out_Error`. The stream stays aligned to B bytes, so the next image
-starts like after a correct one.
+`Ev_ImageError` pulses once for every image with an error, when the error is detected at the input (with `In_Error` on
+the last sample: when that sample is taken). An aborted image is the compressed image of the samples taken; a decoder
+that is given the number of samples taken (L + 1, with L the index of the sample with the early `In_Last` in the input
+order of the image, counted from 0) decodes it; the header announces the complete image (NX NY NZ samples), so a decoder
+that relies on the header alone expects the codewords of all samples and does not decode it. The samples taken before
+the loss are those of the image; `tools/ocp_model.py` (`compress_aborted`) reproduces the compressed image. An image
+without its end marker is complete, but its last samples may belong to the next image. The system marks or discards both
+kinds by `Out_Error`. The stream stays aligned to B bytes, so the next image starts like after a correct one.
 
-Error limit values (periodic updating): the core takes none from the sample with the error until the next image may
-start, and the next value it takes belongs to the first frame of the next image. A source that computes the values on
-request (`Lim_Ready`) needs no action; a source that delivers them ahead (a buffer) drops the remaining values of the
-damaged image on `Ev_ImageError`. The limit values are part of the compressed image, so values that do not match
-their frame change only the compression of that image, never its decodability.
+Error limit values (periodic updating): after an early `In_Last` the core takes none for three clock cycles, after a
+missing `In_Last` none until the sample with `In_Last`; the next value it takes belongs to the first frame of the next
+image. A source that computes the values on request (`Lim_Ready`) needs no action; a source that delivers them ahead (a
+buffer) drops the remaining values of the damaged image within two clock cycles of `Ev_ImageError`. The limit values are
+part of the compressed image, so values that do not match their frame change only the compression of that image, never
+its decodability.
 
 Integration with OpenSPP: `ocp_channel` (section 4.3) takes the SDUs of the receive port, sets `In_Last` from the end
 mark of the SDUs and `In_Error` for faulty SDUs, and counts the affected images.
@@ -240,11 +243,11 @@ for signed samples); byte n of a beat is in bits 8n + 7 to 8n, all bytes are val
 whose valid bytes are contiguous from byte 0. The user signal counts with the last beat of an SDU. `sdu_payload` of
 `tools/ocp_model.py` turns the samples of an image into this byte stream.
 
-Errors: an SDU that is flagged by `UserErrorMask_g` or does not hold a whole number of containers ends its image with
-an error, and the SDUs after it up to and including the next end mark are discarded; a lost or late end mark is handled
-by the image framing of the core (section 4.2). Every image with an error leaves as a packet with `Out_Error` on its
-last beat: aborted (header, the codewords of the samples taken, fill bits) or, when the faulty SDU completed the image,
-the complete compressed image. The channel specification lists the counter steps of every case.
+Errors: an SDU that is flagged by `UserErrorMask_g` or does not hold a whole number of containers ends its image with an
+error, and the SDUs after it up to and including the next end mark are discarded; a lost or late end mark is handled by
+the image framing of the core (section 4.2). Every image with an error leaves as a packet with `Out_Error` on its last
+beat: aborted (the compressed image of the samples taken, section 4.2) or, when the faulty SDU completed the image, the
+complete compressed image. The channel specification lists the counter steps of every case.
 
 Status registers: [register map](../hdl/ocp_mib/docs/register_map.md), C header `sw/ocp_regs.h`. ID 0x4F435001; the
 generics that define the compressed images (image size, dynamic range, order, output word size, coder, predictor,
@@ -454,7 +457,11 @@ CCSDS 123.0-B-2 (Linux executables, on Windows through WSL):
 ```shell
 python tools/golden.py --cnes-bin /path/to/cnes/bin            # all configurations of tools/ocp_configs.py
 python tools/golden.py --cnes-bin /path/to/cnes/bin c01_lossless_bip
+python tools/golden.py --aborted                                # aborted images (reference model only)
 ```
+
+The aborted images (`aborted_<n>.bin`, the image ended early on sample n) come from the reference model, which
+reproduces the CNES encoder for every complete image; the CNES software cannot produce them.
 
 A new configuration is a new entry in `tools/ocp_configs.py`; the testbenches pick it up automatically. The random
 configurations `r01_random` to `r24_random` come from `random_config(seed)` in the same file: every parameter is drawn

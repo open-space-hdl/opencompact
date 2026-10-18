@@ -7,10 +7,10 @@
 -- Description
 ---------------------------------------------------------------------------------------------------
 -- Image framer (CO-4): checks the image end marker In_Last of the input against the number of
--- samples of an image. An image that ends early is aborted: once the earlier images have left the
--- entropy coder, the predictor and the entropy coder are cleared and the image ends at the bit
--- packer. After a last sample without In_Last the samples up to the next In_Last are discarded.
--- The error flag of every image accompanies the last word of its compressed image.
+-- samples of an image. A sample with an early In_Last ends its image there: it goes to the
+-- predictor with Smp_End, which makes it the last item of the image. After a last sample without
+-- In_Last the samples up to the next In_Last are discarded. The error flag of every image
+-- accompanies the last word of its compressed image.
 --
 -- Documentation: hdl/ocp_core/docs/specification.md
 
@@ -46,20 +46,13 @@ entity ocp_image_framer is
         -- Error limit values of the user
         Lim_Valid     : in    std_logic;
         Lim_Ready     : out   std_logic;
-        -- Samples and error limit values to the predictor
+        -- Samples and error limit values to the predictor; Smp_End with a sample that ends its image
+        -- before its last sample
         Smp_Valid     : out   std_logic;
         Smp_Ready     : in    std_logic;
+        Smp_End       : out   std_logic;
         Val_Valid     : out   std_logic;
         Val_Ready     : in    std_logic;
-        -- Image start at the predictor, image end at the input of the bit packer, body of an image at
-        -- the input of the bit packer (after its header)
-        Img_Start     : in    std_logic;
-        Img_End       : in    std_logic;
-        Img_Body      : in    std_logic;
-        -- Abort: clears the predictor and the entropy coder, then ends the image at the bit packer
-        Flush         : out   std_logic;
-        End_Valid     : out   std_logic;
-        End_Ready     : in    std_logic;
         -- Compressed image (handshake of the bit packer output) and its error flag
         Out_Valid     : in    std_logic;
         Out_Ready     : in    std_logic;
@@ -91,21 +84,21 @@ architecture rtl of ocp_image_framer is
     -- pointers have one bit more than the index, so their difference is the number of flags
     constant Depth_c : positive := 16;
     constant PtrW_c  : positive := log2ceil(Depth_c);
-    constant CtrW_c  : positive := log2ceil(Depth_c + 2);
 
-    -- Run: samples go to the predictor; Drain: abort, waiting until the predictor and the entropy
-    -- coder hold only the aborted image; Close: end of the aborted image at the bit packer;
-    -- Discard: samples up to the next In_Last are discarded
-    type State_t is (Run_s, Drain_s, Close_s, Discard_s);
+    -- Run: samples go to the predictor; Discard: samples up to the next In_Last are discarded
+    type State_t is (Run_s, Discard_s);
+
+    -- Clock cycles without error limit value after an early image end: a source that delivers the values
+    -- ahead drops those of the aborted image on Ev_ImageError before the core takes the next one
+    constant LimHold_c : positive := 3;
 
     type TwoProcess_r is record
         State  : State_t;
         Remain : unsigned(CntW_c - 1 downto 0);
-        Images : unsigned(CtrW_c - 1 downto 0);
+        Hold   : natural range 0 to LimHold_c;
         Err    : std_logic_vector(Depth_c - 1 downto 0);
         WrPtr  : unsigned(PtrW_c downto 0);
         RdPtr  : unsigned(PtrW_c downto 0);
-        Flush  : std_logic;
         Ev     : std_logic;
     end record;
 
@@ -123,9 +116,11 @@ begin
         variable Push_v  : boolean;
         variable PushE_v : std_logic;
     begin
-        v       := r;
-        v.Flush := '0';
-        v.Ev    := '0';
+        v    := r;
+        v.Ev := '0';
+        if r.Hold > 0 then
+            v.Hold := r.Hold - 1;
+        end if;
         Push_v  := false;
         PushE_v := '0';
 
@@ -133,7 +128,6 @@ begin
         Lim_Ready <= '0';
         Smp_Valid <= '0';
         Val_Valid <= '0';
-        End_Valid <= '0';
 
         case r.State is
 
@@ -156,34 +150,21 @@ begin
                                 v.Ev := '1';
                             end if;
                         elsif In_Last = '1' then
-                            -- Image end before the last sample: the image is aborted
+                            -- Image end before the last sample: the predictor ends the image with this
+                            -- sample (CO-FR-03), the next sample starts a new image
                             Push_v   := true;
                             PushE_v  := '1';
                             v.Remain := Last_c;
                             v.Ev     := '1';
-                            v.State  := Drain_s;
+                            v.Hold   := LimHold_c;
                         else
                             v.Remain := r.Remain - 1;
                         end if;
                     end if;
                 end if;
-                Lim_Ready <= Val_Ready;
-                Val_Valid <= Lim_Valid;
-
-            when Drain_s =>
-                -- The earlier images have left the entropy coder: clear the predictor and the coder
-                if r.Images = 1 then
-                    v.Flush := '1';
-                    v.State := Close_s;
-                end if;
-
-            when Close_s =>
-                -- After the header of the aborted image: its end at the bit packer (fill bits follow)
-                if r.Flush = '0' and Img_Body = '1' then
-                    End_Valid <= '1';
-                    if End_Ready = '1' then
-                        v.State := Run_s;
-                    end if;
+                if r.Hold = 0 then
+                    Lim_Ready <= Val_Ready;
+                    Val_Valid <= Lim_Valid;
                 end if;
 
             when Discard_s =>
@@ -196,13 +177,6 @@ begin
                 v.State := Run_s;
 
         end case;
-
-        -- Images in the predictor, the entropy coder and the codeword path to the bit packer
-        if Img_Start = '1' and Img_End = '0' then
-            v.Images := r.Images + 1;
-        elsif Img_Start = '0' and Img_End = '1' then
-            v.Images := r.Images - 1;
-        end if;
 
         -- Error flags in the order of the images: written with the last sample, read with the last word
         if Push_v then
@@ -218,7 +192,8 @@ begin
         r_next <= v;
     end process;
 
-    Flush         <= r.Flush;
+    -- Early end of an image: a sample with In_Last before the last sample of the image
+    Smp_End       <= In_Last when r.Remain /= 0 else '0';
     Ev_ImageError <= r.Ev;
 
     p_seq : process (Clk) is
@@ -228,10 +203,9 @@ begin
             if Rst = '1' then
                 r.State  <= Run_s;
                 r.Remain <= Last_c;
-                r.Images <= (others => '0');
+                r.Hold   <= 0;
                 r.WrPtr  <= (others => '0');
                 r.RdPtr  <= (others => '0');
-                r.Flush  <= '0';
                 r.Ev     <= '0';
             end if;
         end if;

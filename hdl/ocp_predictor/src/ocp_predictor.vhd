@@ -384,19 +384,21 @@ architecture rtl of ocp_predictor is
     constant KCtx_c     : positive := sel(Stride_c, 2 ** log2ceil(S_c / M_c + 1), 1);
     constant CtxDepth_c : positive := BandSlots_c * KCtx_c;
 
-    type DiffArr_t is array (natural range <>) of signed(DW_c - 1 downto 0);
-    type WeightArr_t is array (natural range <>) of signed(WW_c - 1 downto 0);
-    type WeightSet_t is array (0 to NC_c - 1) of WeightArr_t(0 to C1_c - 1);
-    type IncArr_t is array (natural range <>) of signed(WW_c + 1 downto 0);
-    type ZetaArr_t is array (natural range <>) of signed(3 downto 0);
-    type PartArr_t is array (natural range <>) of signed(AccW_c - 1 downto 0);
-    type PartSet_t is array (0 to NC_c - 1) of PartArr_t(0 to Nops_c - 1);
+    -- Fully constrained array types: a record field is never an index constraint on an unconstrained array type,
+    -- whose element some simulators give a wrong constraint when the record is accessed through an alias
+    type DiffArr_t is array (0 to C1_c - 1) of signed(DW_c - 1 downto 0);
+    type WeightArr_t is array (0 to C1_c - 1) of signed(WW_c - 1 downto 0);
+    type WeightSet_t is array (0 to NC_c - 1) of WeightArr_t;
+    type IncArr_t is array (0 to C1_c - 1) of signed(WW_c + 1 downto 0);
+    type ZetaArr_t is array (0 to C1_c - 1) of signed(3 downto 0);
+    type PartArr_t is array (0 to Nops_c - 1) of signed(AccW_c - 1 downto 0);
+    type PartSet_t is array (0 to NC_c - 1) of PartArr_t;
     type QuoArr_t is array (0 to 2) of unsigned(QW_c - 1 downto 0);
     type RemArr_t is array (0 to 2) of unsigned(18 downto 0);
 
     -- Initial weight vector W_z(1) of band z (CCSDS 4.6.3)
     function initWeights (z : natural) return WeightArr_t is
-        variable W_v     : WeightArr_t(0 to C1_c - 1) := (others => (others => '0'));
+        variable W_v     : WeightArr_t := (others => (others => '0'));
         variable Pz_v    : natural;
         variable Cur_v   : integer;
         variable Base_v  : natural;
@@ -478,7 +480,7 @@ architecture rtl of ocp_predictor is
 
     function weightRom return WeightRom_t is
         variable R_v : WeightRom_t;
-        variable W_v : WeightArr_t(0 to C1_c - 1);
+        variable W_v : WeightArr_t;
     begin
 
         for z in 0 to ZSize_g - 1 loop
@@ -536,7 +538,7 @@ architecture rtl of ocp_predictor is
 
     -- One stage of the adder tree: sums of four operands
     function reduce4 (p : PartArr_t) return PartArr_t is
-        variable R_v : PartArr_t(0 to p'length - 1) := (others => (others => '0'));
+        variable R_v : PartArr_t := (others => (others => '0'));
         variable A_v : signed(AccW_c - 1 downto 0);
         variable B_v : signed(AccW_c - 1 downto 0);
     begin
@@ -626,7 +628,7 @@ architecture rtl of ocp_predictor is
         NW       : signed(SW_c - 1 downto 0);
         W        : signed(SW_c - 1 downto 0);
         -- Band parameters
-        Zeta     : ZetaArr_t(0 to C1_c - 1);
+        Zeta     : ZetaArr_t;
         AbsLim   : unsigned(15 downto 0);
         RelLim   : unsigned(15 downto 0);
         Phi      : natural range 0 to 15;
@@ -634,13 +636,13 @@ architecture rtl of ocp_predictor is
         Rho      : integer range -64 to 63;
         -- Local sum, local differences
         Sigma    : signed(SW_c + 2 downto 0);
-        U        : DiffArr_t(0 to C1_c - 1);
+        U        : DiffArr_t;
         Ctx      : std_logic_vector(DiffBits_c - 1 downto 0);
         Dz       : signed(DW_c - 1 downto 0);
         -- Weight loop: increments for both error signs, sign thresholds, candidate weight vectors and
         -- their high-resolution sums, error sign, selected weights
-        IncP     : IncArr_t(0 to C1_c - 1);
-        IncN     : IncArr_t(0 to C1_c - 1);
+        IncP     : IncArr_t;
+        IncN     : IncArr_t;
         T1       : signed(VW_c - 1 downto 0);
         T2       : signed(VW_c - 1 downto 0);
         ANever   : std_logic;
@@ -650,7 +652,7 @@ architecture rtl of ocp_predictor is
         WCand    : WeightSet_t;
         Part     : PartSet_t;
         SgnPlus  : std_logic;
-        Wgt      : WeightArr_t(0 to C1_c - 1);
+        Wgt      : WeightArr_t;
         -- Prediction
         ModV     : signed(HW_c - 1 downto 0);
         STilde   : signed(STildeW_c - 1 downto 0);
@@ -934,7 +936,7 @@ begin
         variable Tm_v      : signed(TW_c downto 0);
         variable Rho_v     : integer range -64 to 63;
         variable Act_v     : boolean;
-        variable Wload_v   : WeightArr_t(0 to C1_c - 1);
+        variable Wload_v   : WeightArr_t;
         variable Wb_v      : WeightSet_t;
         variable SelI_v    : natural range 0 to NC_c - 1;
         variable SgnC_v    : std_logic;

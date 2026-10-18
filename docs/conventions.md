@@ -23,6 +23,9 @@ document. This page lists the rules and the few OpenCompact-specific additions.
   from any state.
 - The arithmetic of the standard uses `numeric_std` types whose widths are derived from the generics; integers are
   used for counters and indexes only, never for values that may exceed 31 bits.
+- A record field that is an array uses a fully constrained array type (`type T is array (0 to N - 1) of E`), not
+  an index constraint on an unconstrained array type: the AMD Vivado simulator (xsim) gives the element of such
+  a field the constraint of another field when the record is accessed through an alias of an array element.
 - Comments name the clause or the equation of CCSDS 123.0-B-2 where it helps the reader (for example
   `-- (37)` or `-- CCSDS 4.10.3`).
 - File header: copyright line and authors, then a 1 to 2 sentence description that links to the module

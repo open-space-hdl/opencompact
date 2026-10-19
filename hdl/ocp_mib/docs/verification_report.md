@@ -2,9 +2,9 @@
 
 ## 1. Test results
 
-Run on 2026-10-17 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with the AXI-Lite VVC, Open Logic
-4.7.0-ft.6: `python run.py "*ocp_mib*"`. The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3,
-2026-10-18), with code coverage and in the optimised run without it; the code coverage is in
+Run on 2026-10-18 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with the AXI-Lite VVC, Open Logic
+4.7.0-ft.6: `python run.py "*ocp_mib*"`. The same tests pass in QuestaSim (Questa Pro Microchip Edition 2024.3, time
+resolution 1 fs, 2026-10-19), with code coverage and in the optimised run without it; the code coverage is in
 [coverage.md](../../../docs/coverage.md).
 
 | Test | Configurations | Passed |

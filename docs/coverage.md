@@ -2,8 +2,8 @@
 
 ## 1. Method
 
-The code coverage of the OpenCompact sources is measured with QuestaSim (Questa Pro Microchip Edition 2024.3) over the
-complete regression of `run.py`, the same test set that GHDL runs in CI:
+The code coverage of the OpenCompact sources is measured with QuestaSim (Questa Pro Microchip Edition 2024.3, time
+resolution 1 fs) over the complete regression of `run.py`, the same test set that GHDL runs in CI:
 
 ```shell
 python run.py --questa --coverage -p 1
@@ -25,7 +25,7 @@ Closure rules:
 
 ## 2. Results
 
-Run on 2026-10-18 with Open Logic 4.7.0-ft.6: 499 tests (the testbenches of the predictor, the entropy coders, the
+Run on 2026-10-19 with Open Logic 4.7.0-ft.6: 499 tests (the testbenches of the predictor, the entropy coders, the
 bit packer and the core with all configurations of `tools/ocp_configs.py`, the core configurations also with the image
 framing and the aborted images at every abort position, and the testbenches of the input adapter, the MIB and the
 channel), all passed in QuestaSim as in GHDL, with code coverage and in the optimised run without it. The regression

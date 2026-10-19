@@ -4,6 +4,12 @@ The notable changes of OpenCompact. The versions follow semantic versioning: 0.y
 major version for an incompatible change of ports, stream formats, generics or register map, a minor version for a
 feature and a patch version for a fix.
 
+## [Unreleased]
+
+### Changed
+
+- Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCompact changes.
+
 ## [0.1.1] - 2026-10-19
 
 ### Fixed

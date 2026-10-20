@@ -66,7 +66,7 @@ set_property used_in_synthesis false [get_files $ram_xdc]
 set_property PROCESSING_ORDER LATE [get_files $ram_xdc]
 
 if {$mode eq "elaborate"} {
-    # RTL elaboration: sources, generics, the top level and the clock constraint (no synthesis licence needed)
+    # RTL elaboration only: sources, generics, the top level and the clock constraint; no synthesis or implementation
     synth_design -rtl -rtl_skip_mlo -name rtl_1 -mode out_of_context
     if {[llength [get_clocks -quiet clk]] != 1} { error "vivado_ooc: the clock constraint of $name did not apply" }
     report_clocks -file [file join $results ${name}_rtl_clocks.rpt]

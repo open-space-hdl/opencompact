@@ -130,7 +130,7 @@ need short paths on Windows, so the default output directory is `C:/osh/ocp_ooc`
 ```shell
 python lint/vivado_ooc.py --out C:/osh/ocp_ooc --mhz 200   # all three configurations
 python lint/vivado_ooc.py c11                               # one configuration
-python lint/vivado_ooc.py --elaborate                       # RTL elaboration only, without a synthesis licence
+python lint/vivado_ooc.py --elaborate                       # RTL elaboration only, no synthesis or implementation
 ```
 
 ## Licence

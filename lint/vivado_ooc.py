@@ -21,7 +21,8 @@ Usage: python lint/vivado_ooc.py [--out DIR] [--mhz MHZ] [--part PART] [--elabor
   --out        project and result directory (default C:/osh/ocp_ooc: Vivado projects need short paths on Windows)
   --mhz        target clock frequency (default 200)
   --part       device (default xcvc1902-vsva2197-2MP-e-S, the Versal AI Core device of the VCK190)
-  --elaborate  RTL elaboration only (no synthesis licence needed): checks sources, top level and constraints
+  --elaborate  RTL elaboration only: sources, generics, top level and clock constraint; no synthesis or
+               implementation
 Without names all configurations run. The Vivado tools come from VIVADO_PATH (the Vivado installation) or from the
 PATH. Results: <out>/results/<name>_timing.rpt, _util.rpt, _paths.rpt, _levels.rpt and <out>/results/summary.md.
 Exit code 0 when every run completed; the timing result itself is in the summary.

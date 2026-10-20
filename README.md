@@ -106,6 +106,33 @@ python tools/ocp_throughput.py              # cycles per sample of every configu
 python run.py --compile-order               # compile_order.txt; the CI fails when the file changes
 ```
 
+Checks with the AMD Vivado tools (Vivado on the `PATH` or `VIVADO_PATH` set to the installation):
+
+```shell
+python lint/xsim_smoke.py                   # every synthesis top level in the AMD simulator for 1 us
+python lint/vivado_ooc.py                   # out-of-context implementation at 200 MHz (see below)
+```
+
+`lint/vivado_ooc.py` implements three configurations out of context on the Versal AI Core device
+`xcvc1902-vsva2197-2MP-e-S`:
+
+- `rs_sce`: the `ocp_channel` of the reference system `spfi_compress_encrypt` (64 x 64 x 48 samples, D = 16, BI with
+  M = 48, full prediction with P = 3, sample-adaptive coder, 32-bit words, 128-bit streams);
+- `c01` and `c11`: `ocp_core` in `c01_lossless_bip` and `c11_wide_d32` of `tools/ocp_configs.py`.
+
+Each run synthesizes out of context, places and routes with a clock of the target frequency on the core clock, which
+enters through a global clock buffer, and writes the timing summary, the utilization, the 20 worst setup paths and
+the logic level distribution to `<out>/results/` with `summary.md` as the overview. Only register-to-register paths
+are timed: the ports have no input or output delays. The scoped constraints of the Open Logic modules that
+OpenCompact uses are loaded, and the run stops before `opt_design` when a constraint did not apply. Vivado projects
+need short paths on Windows, so the default output directory is `C:/osh/ocp_ooc`:
+
+```shell
+python lint/vivado_ooc.py --out C:/osh/ocp_ooc --mhz 200   # all three configurations
+python lint/vivado_ooc.py c11                               # one configuration
+python lint/vivado_ooc.py --elaborate                       # RTL elaboration only, no synthesis or implementation
+```
+
 ## Licence
 
 OpenCompact is licensed under the PSI HDL Library License, Version 1.0 ([License.txt](License.txt)), the licence of

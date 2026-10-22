@@ -14,7 +14,7 @@ reaches 1 us without an error.
 Usage: python lint/xsim_smoke.py [name ...]
 Without names all top levels are run; names select some of them (a core configuration with the image framing is named
 <configuration>_in_last). The Vivado tools come from VIVADO_PATH (the Vivado installation) or from the PATH. Output
-in vivado_out/xsim_smoke.
+in vivado_out/xsim_smoke, the temporary files of the tools (TEMP, TMP and TMPDIR) in vivado_out/xsim_smoke/tmp.
 Exit code 0 when every top level passes.
 """
 
@@ -27,6 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "vivado_out" / "xsim_smoke"
+TEMP = OUT / "tmp"
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "lint"))
 import ocp_configs  # noqa: E402
@@ -55,7 +56,9 @@ def tool(name):
 
 def run(cmd, log):
     with open(OUT / log, "w") as out:
-        return subprocess.run(cmd, cwd=OUT, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT).returncode
+        env = dict(os.environ, TEMP=str(TEMP), TMP=str(TEMP), TMPDIR=str(TEMP))
+        return subprocess.run(cmd, cwd=OUT, env=env, stdin=subprocess.DEVNULL, stdout=out,
+                              stderr=subprocess.STDOUT).returncode
 
 
 def compile_libraries():
@@ -138,7 +141,7 @@ def main():
     unknown = [n for n in names if n not in tops]
     if unknown:
         raise SystemExit("unknown top levels: " + ", ".join(unknown))
-    OUT.mkdir(parents=True, exist_ok=True)
+    TEMP.mkdir(parents=True, exist_ok=True)
     compile_libraries()
     results = [smoke(n, tops[n]()) for n in names]
     print(f"{sum(results)} of {len(results)} top levels passed", flush=True)

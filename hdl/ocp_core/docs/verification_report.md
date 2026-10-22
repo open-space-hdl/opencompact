@@ -10,7 +10,7 @@ coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS 
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
-| `ocp_core_tb` `test_golden` | 69 (62 configurations, every third random configuration with back pressure; 4 configurations also with back pressure; 3 sequences of 10 to 100 small images), each also with `UseInLast_g` (`_last`) | 138 |
+| `ocp_core_tb` `test_golden` | 72 (62 configurations, every third random configuration with back pressure; 4 configurations also with back pressure; 3 sequences of 10 to 100 small images; 3 sequences of 6 to 20 hybrid images without back pressure, `_rate`, run with GHDL 6.0.0 on 2026-10-22), each also with `UseInLast_g` (`_last`) | 144 |
 | `ocp_core_tb` `test_ecc` | 4 (every memory of the core), each also with `UseInLast_g` | 8 |
 | `ocp_core_tb` `test_reset` | 5, each also with `UseInLast_g` | 10 |
 | `ocp_core_tb` `test_framing` | 16 (eleven images with four early and two missing image end markers; aborted images back to back at every abort position of the configuration; eight images with `In_Error`; eight resets during the error handling) | 16 |
@@ -94,6 +94,7 @@ Findings:
 | Review of the generic ranges: `BlockSize_g` other than 8, 16, 32 and 64 elaborated; the header carries the block size code of 64 while the block-adaptive coder codes blocks of the given size, so the compressed image cannot be decompressed (all earlier versions) | The elaboration stops (CO-CF-02); TC-CO-49 checks it |
 | Review of the generic ranges: M above NZ, restricted code options with D above 4, rescaling counter sizes below max(4, gamma0 + 1) and accumulator initialisation values above min(D - 2, 14) elaborated, although the standard does not allow them | The elaboration stops (CO-CF-01 to CO-CF-03); TC-CO-49 checks every case |
 | Review of the generic ranges: `Speculation_g` = false, `RamStyle_g` other than "auto", the bounds of `UserData_g`, `SupTableCount_g`, `UpdatePeriodExp_g`, `AbsBitDepth_g` and `RelBitDepth_g`, the interface widths other than 32 bits and image dimensions of 65536 were neither simulated nor synthesised | c38_header_bounds (TC-CO-48, TC-PR-38), the configurations without the speculative weight loop (TC-PR-39), and the bounds of TC-CO-49 |
+| Throughput model (all versions up to 0.1.1): with the hybrid coder the tail of every image (19 + NZ clock cycles without an item) holds back the next image once the output FIFO of the predictor is full; the model took the samples of consecutive images in the cycles of the predictor alone. TC-CO-50 checked only the first two images, for which the FIFO absorbs the tail. Found with the runtime configuration (sequences of small hybrid images) | `coder_cycles` of `tools/ocp_throughput.py` models the output of the predictor cycle by cycle (CO-TP-01); the sequences `_rate` of TC-CO-50 check the first sample of every image: measured and model are equal in every image (c22 from image 7 on 31 cycles per image instead of 6, c20 from image 2 five cycles more per image, c26 from image 3); the previous model would fail at image 7, 2 and 3. The core is unchanged |
 
 ## 3. Generic ranges
 

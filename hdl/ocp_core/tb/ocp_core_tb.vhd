@@ -64,6 +64,9 @@ entity ocp_core_tb is
         -- Cycles between the acceptance of the first samples of the first two images (throughput model,
         -- image_period); 0: not checked
         ExpPeriod_g            : natural  := 0;
+        -- Acceptance cycle of the first sample of every image relative to the first (throughput model,
+        -- issue_cycles); empty: not checked
+        ExpStarts_g            : string   := "";
         -- Upper bound on the size of a compressed image in bytes (ocp_model.max_image_bytes); 0: not
         -- checked
         MaxBytes_g             : natural  := 0;
@@ -252,11 +255,16 @@ architecture sim of ocp_core_tb is
     signal AbortImg : natural := 0;
     signal ErrCount : natural := 0;
 
-    -- Throughput: cycles of the first and the last accepted sample of a job, number of samples
+    -- Throughput: cycles of the first and the last accepted sample of a job, number of samples; cycle of the
+    -- first sample of every image
     signal RateFirst  : natural := 0;
     signal RateSecond : natural := 0;
     signal RateLast   : natural := 0;
     signal RateCount  : natural := 0;
+
+    type NatArr_t is array (natural range <>) of natural;
+
+    signal StartCyc : NatArr_t(0 to 127) := (others => 0);
 
     -- Memory error pulses since the start of the job
     signal SecCount : natural := 0;
@@ -429,6 +437,7 @@ begin
         variable NCh_v      : natural;
         variable Wait_v     : natural;
         variable Plan_v     : Plan_t;
+        constant Starts_c   : integer_vector := parseIntVec(ExpStarts_g & ",0");
     begin
         test_runner_setup(runner, runner_cfg);
         disable_log_msg(ID_POS_ACK);
@@ -448,6 +457,14 @@ begin
                 if ExpPeriod_g > 0 then
                     check_value(RateSecond - RateFirst, ExpPeriod_g, ERROR,
                                 "cycles between the first samples of the first two images");
+                end if;
+                if ExpStarts_g /= "" then
+
+                    for k in 0 to Images_g - 1 loop
+                        check_value(StartCyc(k) - StartCyc(0), Starts_c(Starts_c'low + k), ERROR,
+                                    "image " & to_string(k) & ": cycle of the first sample (throughput model)");
+                    end loop;
+
                 end if;
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
                 check_value(ErrCount, 0, ERROR, "no framing error");
@@ -735,6 +752,11 @@ begin
         if In_Valid = '1' and In_Ready = '1' then
             if Count_v = 0 then
                 RateFirst <= Cycle_v;
+            end if;
+            if Count_v mod Samples_c = 0 and Count_v / Samples_c <= StartCyc'high then
+                StartCyc(Count_v / Samples_c) <= Cycle_v;
+                log(ID_SEQUENCER, "image " & to_string(Count_v / Samples_c) & ": first sample in cycle " &
+                    to_string(Cycle_v));
             end if;
             if Count_v = Samples_c then
                 RateSecond <= Cycle_v;

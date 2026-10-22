@@ -80,6 +80,12 @@ FRAMING = [("c22_single_pixel_hybrid", 8, 30), ("c31_small_bi_periodic_abs", 8, 
 
 IMAGES = 2
 
+# Sequences of images of the hybrid coder without back pressure (number of images): the tail of every image can hold
+# back the next image through the output FIFO of the predictor; the first sample of every image is accepted in the
+# cycle of the throughput model (TC-CO-50, CO-TP-01). Single-pixel images, small images at 1.33 cycles per sample and
+# images at one sample per cycle
+RATE = {"c22_single_pixel_hybrid": 20, "c20_hybrid_d28": 6, "c26_tp_bil_near_abs": 8}
+
 
 def add(test, name, generics):
     """A configuration without and with the image framing (suffix _last)."""
@@ -108,6 +114,12 @@ def configure(lib):
             add(golden, name, dict(gen, ExpCycles_g=exp, ExpPeriod_g=period))
         if name in BACK_PRESSURE:
             add(golden, name + "_bp", dict(gen, InGapPct_g=30, OutStallPct_g=60))
+        if name in RATE:
+            n_img = RATE[name]
+            n = gen["XSize_g"] * gen["YSize_g"] * gen["ZSize_g"]
+            cycles = ocp_throughput.issue_cycles(gen, images=n_img)
+            starts = ",".join(str(cycles[k * n] - cycles[0]) for k in range(n_img))
+            add(golden, name + "_rate", dict(gen, Images_g=n_img, OutWidth_g=64, ExpStarts_g=starts))
         if name in SEQUENCE:
             add(golden, name + "_seq", dict(gen, Images_g=SEQUENCE[name], InGapPct_g=20, OutStallPct_g=70))
         if name in ECC:

@@ -17,8 +17,10 @@ Configurations (short names, also the names of the result files):
   c01     ocp_core, c01_lossless_bip of tools/ocp_configs.py
   c11     ocp_core, c11_wide_d32 of tools/ocp_configs.py (D = 32, the longest arithmetic)
 
-Usage: python lint/vivado_ooc.py [--out DIR] [--mhz MHZ] [--part PART] [--elaborate] [name ...]
+Usage: python lint/vivado_ooc.py [--out DIR] [--temp DIR] [--mhz MHZ] [--part PART] [--elaborate] [name ...]
   --out        project and result directory (default C:/osh/ocp_ooc: Vivado projects need short paths on Windows)
+  --temp       directory of the temporary files of Vivado: TEMP, TMP and TMPDIR of the Vivado process (default
+               <out>/tmp)
   --mhz        target clock frequency (default 200)
   --part       device (default xcvc1902-vsva2197-2MP-e-S, the Versal AI Core device of the VCK190)
   --elaborate  RTL elaboration only: sources, generics, top level and clock constraint; no synthesis or
@@ -91,7 +93,7 @@ def vivado():
     return found
 
 
-def run(name, out, mhz, part, elaborate):
+def run(name, out, temp, mhz, part, elaborate):
     work = out / name
     work.mkdir(parents=True, exist_ok=True)
     top = work / "ocp_ooc_top.vhd"
@@ -103,7 +105,8 @@ def run(name, out, mhz, part, elaborate):
             name, top.as_posix(), work.as_posix(), (out / "results").as_posix(), period, part,
             "elaborate" if elaborate else "implement", ROOT.as_posix()]
     print(f"{name}: {'elaboration' if elaborate else 'implementation'} at {mhz} MHz in {work}", flush=True)
-    rc = subprocess.run(args, cwd=work, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL).returncode
+    env = dict(os.environ, TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp))
+    rc = subprocess.run(args, cwd=work, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL).returncode
     print(f"{name}: {'completed' if rc == 0 else 'FAILED (see ' + str(work / 'vivado.log') + ')'}", flush=True)
     return rc == 0
 
@@ -124,6 +127,7 @@ def summary(out, names, mhz):
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--out", default="C:/osh/ocp_ooc")
+    p.add_argument("--temp")
     p.add_argument("--mhz", type=float, default=200.0)
     p.add_argument("--part", default=PART)
     p.add_argument("--elaborate", action="store_true")
@@ -135,7 +139,9 @@ def main():
         raise SystemExit("unknown configurations: " + ", ".join(unknown) + " (known: " + ", ".join(CONFIGS) + ")")
     out = Path(a.out)
     (out / "results").mkdir(parents=True, exist_ok=True)
-    results = [run(n, out, a.mhz, a.part, a.elaborate) for n in names]
+    temp = Path(a.temp) if a.temp else out / "tmp"
+    temp.mkdir(parents=True, exist_ok=True)
+    results = [run(n, out, temp, a.mhz, a.part, a.elaborate) for n in names]
     if not a.elaborate:
         summary(out, names, a.mhz)
     sys.exit(0 if all(results) else 1)

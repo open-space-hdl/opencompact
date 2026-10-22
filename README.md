@@ -127,7 +127,8 @@ enters through a global clock buffer, and writes the timing summary, the utiliza
 the logic level distribution to `<out>/results/` with `summary.md` as the overview. Only register-to-register paths
 are timed: the ports have no input or output delays. The scoped constraints of the Open Logic modules that
 OpenCompact uses are loaded, and the run stops before `opt_design` when a constraint did not apply. Vivado projects
-need short paths on Windows, so the default output directory is `C:/osh/ocp_ooc`:
+need short paths on Windows, so the default output directory is `C:/osh/ocp_ooc`; Vivado writes its temporary
+files to `<out>/tmp` (`--temp` selects another directory):
 
 ```shell
 python lint/vivado_ooc.py --out C:/osh/ocp_ooc --mhz 200   # all four configurations

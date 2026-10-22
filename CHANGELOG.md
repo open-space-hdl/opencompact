@@ -6,9 +6,21 @@ feature and a patch version for a fix.
 
 ## [Unreleased]
 
+### Added
+
+- Runtime configuration (`RuntimeConfig_g`, default false): the image dimensions NX, NY, NZ (up to the maxima of the
+  generics) and the band-independent error limit values of every image from new configuration ports of `ocp_core`
+  (`Cfg_*`, `Cfg_Taken`, `Act_*`) or, in `ocp_channel`, from new AXI4-Lite registers of `ocp_mib` (CONTROL, STATUS,
+  NEXT_X, NEXT_Y, NEXT_Z, NEXT_LIMITS). Values outside their ranges are taken as the nearest valid values. With the
+  generic false the core is unchanged.
+- LIMITS register: the band-independent error limit values (of the generics, or of the last image with the runtime
+  configuration); GENERICS.RUNTIME_CONFIG.
+
 ### Changed
 
 - Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCompact changes.
+- Register map version 2 (ID 0x4F435002): the registers above are added, the existing ones keep their offsets and
+  fields.
 
 ## [0.1.1] - 2026-10-19
 

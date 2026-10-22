@@ -1,6 +1,7 @@
 hdl/ocp_pkg/src/ocp_regs_pkg.vhd
 hdl/ocp_pkg/src/ocp_pkg.vhd
 hdl/ocp_pkg/src/ocp_low_entropy_pkg.vhd
+hdl/ocp_predictor/src/ocp_image_start.vhd
 hdl/ocp_predictor/src/ocp_predictor.vhd
 hdl/ocp_entropy_coder/src/ocp_cw_buffer.vhd
 hdl/ocp_entropy_coder/src/ocp_sample_adaptive_coder.vhd

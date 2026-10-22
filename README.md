@@ -113,12 +113,14 @@ python lint/xsim_smoke.py                   # every synthesis top level in the A
 python lint/vivado_ooc.py                   # out-of-context implementation at 200 MHz (see below)
 ```
 
-`lint/vivado_ooc.py` implements three configurations out of context on the Versal AI Core device
+`lint/vivado_ooc.py` implements four configurations out of context on the Versal AI Core device
 `xcvc1902-vsva2197-2MP-e-S`:
 
 - `rs_sce`: the `ocp_channel` of the reference system `spfi_compress_encrypt` (64 x 64 x 48 samples, D = 16, BI with
   M = 48, full prediction with P = 3, sample-adaptive coder, 32-bit words, 128-bit streams);
-- `c01` and `c11`: `ocp_core` in `c01_lossless_bip` and `c11_wide_d32` of `tools/ocp_configs.py`.
+- `c01` and `c11`: `ocp_core` in `c01_lossless_bip` and `c11_wide_d32` of `tools/ocp_configs.py`;
+- `rc04`: `ocp_core` in `rc04_bi_m4_sample_both` of `tools/ocp_configs.py` with the runtime configuration
+  (`RuntimeConfig_g`).
 
 Each run synthesizes out of context, places and routes with a clock of the target frequency on the core clock, which
 enters through a global clock buffer, and writes the timing summary, the utilization, the 20 worst setup paths and
@@ -128,7 +130,7 @@ OpenCompact uses are loaded, and the run stops before `opt_design` when a constr
 need short paths on Windows, so the default output directory is `C:/osh/ocp_ooc`:
 
 ```shell
-python lint/vivado_ooc.py --out C:/osh/ocp_ooc --mhz 200   # all three configurations
+python lint/vivado_ooc.py --out C:/osh/ocp_ooc --mhz 200   # all four configurations
 python lint/vivado_ooc.py c11                               # one configuration
 python lint/vivado_ooc.py --elaborate                       # RTL elaboration only, no synthesis or implementation
 ```

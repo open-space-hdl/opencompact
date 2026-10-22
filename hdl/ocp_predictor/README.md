@@ -10,4 +10,4 @@ the compressed image, into the entropy coder input sequence of mapped quantizer 
 | [Verification plan](docs/verification_plan.md) | Test cases |
 | [Verification report](docs/verification_report.md) | Results and findings |
 
-Tests: `python run.py "*predictor*"`
+Tests: `python run.py "*predictor*" "*image_start*"`

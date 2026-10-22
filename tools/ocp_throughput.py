@@ -152,8 +152,50 @@ def rep_equals_sample(g):
     return g["Fidelity_g"] == "LOSSLESS" and (g["SampleRepResolution_g"] == 0 or not any(damping))
 
 
-def latencies(g, speculation=True):
-    """Pipeline stages and required issue distances (cycles) for the generics g of a configuration."""
+def issue_dist(bsq, sfd, nx, ny, nz, p, rep_is_sample, w_used, cross_rep, l_win, l_rep, l_dw):
+    """Issue conditions that depend on the image dimensions (function issueDist of ocp_pkg)."""
+    m = min(sfd, nz)
+    gap1 = bsq or m == 1
+    run_rows = bsq or nz == 1
+    if bsq:
+        row_gap, diff_gap = nx - 1, nx * ny
+    else:
+        row_gap = (nx - 1) * m
+        diff_gap = row_gap + 1
+    same_rep = not rep_is_sample and (w_used or row_gap < l_rep)
+    cross_dw = p > 0 and (bsq or m < nz) and diff_gap < l_dw
+    l_fix = max(0 if gap1 else l_win, l_rep if same_rep else 0)
+    l_cross = max(l_rep if cross_rep else 0, l_dw if cross_dw else 0)
+    return {"m": m, "gap1": gap1, "run_rows": run_rows, "l_fix": l_fix, "l_cross": l_cross}
+
+
+def start_params(g):
+    """Flags and latencies of the predictor of a configuration that the image-start sequencer (ocp_image_start)
+    uses."""
+    lat = latencies(g)
+    p = g["PredictionBands_g"]
+    narrow = g["LocalSum_g"] in ("NARROW_NEIGHBOR", "NARROW_COLUMN")
+    rep_is_sample = rep_equals_sample(g)
+    return {"bsq": g["EncodingOrder_g"] == "BSQ", "sfd": g["SubFrameDepth_g"], "p": p,
+            "rep_is_sample": rep_is_sample, "w_used": g["PredictionMode_g"] == "FULL" or not narrow,
+            "cross_rep": not rep_is_sample and (p > 0 or narrow),
+            "l_win": lat["stages"]["ram"] + 2, "l_rep": lat["stages"]["rep_sum"] + 2,
+            "l_dw": lat["stages"]["dz"] + 2}
+
+
+def image_start_cycles(g):
+    """Clock cycles of the image-start sequencer from Start to Done (imageStartCycles of ocp_pkg)."""
+    s = start_params(g)
+    w = 1
+    while 2 ** w <= max(s["l_rep"], s["l_dw"]):
+        w += 1
+    return w + 3
+
+
+def latencies(g, speculation=True, dims=None):
+    """Pipeline stages and required issue distances (cycles) for the generics g of a configuration. With dims =
+    (nx, ny, nz) the generics are the maxima of a runtime configuration: the structure (speculation, memories) follows
+    the maxima, the issue distances the dimensions of the image."""
     d = g["DynamicRange_g"]
     nx, ny, nz = g["XSize_g"], g["YSize_g"], g["ZSize_g"]
     bsq = g["EncodingOrder_g"] == "BSQ"
@@ -199,6 +241,10 @@ def latencies(g, speculation=True):
     cross_rep = not rep_is_sample and (p > 0 or narrow)
     cross_dw = diff_ram and diff_gap < l_dw
     l_cross = max(l_rep if cross_rep else 0, l_dw if cross_dw else 0)
+    if dims is not None:
+        rt = issue_dist(bsq, g["SubFrameDepth_g"], *dims, p, rep_is_sample, w_used, cross_rep, st["ram"] + 2, l_rep,
+                        l_dw)
+        run_rows, l_fix, l_cross = rt["run_rows"], rt["l_fix"], rt["l_cross"]
     return {"stages": st, "depth": st["out"] + 1, "spec": spec, "run_rows": run_rows, "c": c, "narrow": narrow,
             "l_w": l_w, "l_fix": l_fix, "l_cross": l_cross}
 
@@ -297,6 +343,44 @@ def issue_cycles(g, speculation=True, images=1):
         last_pixel[(z, x)] = cyc
         cycles.append(cyc)
     return cycles
+
+
+def runtime_accept_cycles(g, dims, speculation=True):
+    """Acceptance cycle of every sample at the input of the predictor for consecutive images of a runtime
+    configuration (g: the generics with the maxima; dims: (nx, ny, nz) of every image), without back pressure. The
+    first sample of an image is accepted with the configuration (CO-RC-03) in the cycle after the last sample of the
+    previous image was issued, and issued image_start_cycles(g) + 1 cycles later, once the image-start sequencer is
+    done (CO-RC-05); the next sample follows as without the runtime configuration."""
+    start = image_start_cycles(g)
+    last_band = {}
+    last_pixel = {}
+    accepted = []
+    cyc = -1
+    for nx, ny, nz in dims:
+        gi = dict(g, XSize_g=nx, YSize_g=ny, ZSize_g=nz)
+        lat = latencies(g, speculation, dims=(nx, ny, nz))
+        first = True
+        for kind, z, y, x in items(gi):
+            cyc += 1
+            take = cyc
+            if first:
+                cyc += start + 1
+            t = y * nx + x
+            need_w = (lat["c"] > 0 and t > 1 and
+                      (not lat["spec"] or (not lat["run_rows"] and x == 0)))
+            l_same = max(lat["l_fix"], lat["l_w"] if need_w else 0)
+            if z in last_band:
+                cyc = max(cyc, last_band[z] + l_same)
+            if lat["l_cross"]:
+                if (z - 1, x) in last_pixel:
+                    cyc = max(cyc, last_pixel[(z - 1, x)] + lat["l_cross"])
+                if lat["narrow"] and y == 0 and x > 0 and (z - 1, x - 1) in last_pixel:
+                    cyc = max(cyc, last_pixel[(z - 1, x - 1)] + lat["l_cross"])
+            last_band[z] = cyc
+            last_pixel[(z, x)] = cyc
+            accepted.append(take if first else cyc)
+            first = False
+    return accepted
 
 
 def issue_span(g, speculation=True, images=1):

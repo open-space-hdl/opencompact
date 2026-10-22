@@ -90,9 +90,11 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | `OutWidth_g` | 8 | 8, 16, 32, 64 | Width of the compressed image interface in bits (section 4) |
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 8) |
 | `UseInLast_g` | false | | Image framing with `In_Last`: early and missing image ends are detected, flagged and resynchronised (section 4.2) |
+| `RuntimeConfig_g` | false | | Image dimensions and band-independent error limit values of every image from the configuration ports (section 4.4); `XSize_g`, `YSize_g` and `ZSize_g` are then the maxima |
 | `RamStyle_g` | "auto" | | Implementation of the memories: passed unchanged to `RamStyle_g` of the Open Logic RAMs and FIFOs, which set the synthesis attributes `ram_style` and `ramstyle` with it (values of the synthesis tool, for example "block" or "distributed"); the simulation does not depend on it |
 
 The stride order of the predictor is used wherever it applies (section 8.1); it has no generic at the core level.
+With `RuntimeConfig_g` it is not used.
 
 The elaboration stops for parameter values that the standard does not allow (section 7). Every value of a generic that
 changes the structure of the core is simulated, and the bounds of every numeric range are synthesised; the
@@ -249,16 +251,68 @@ the image framing of the core (section 4.2). Every image with an error leaves as
 beat: aborted (the compressed image of the samples taken, section 4.2) or, when the faulty SDU completed the image, the
 complete compressed image. The channel specification lists the counter steps of every case.
 
-Status registers: [register map](../hdl/ocp_mib/docs/register_map.md), C header `sw/ocp_regs.h`. ID 0x4F435001; the
+Status registers: [register map](../hdl/ocp_mib/docs/register_map.md), C header `sw/ocp_regs.h`. ID 0x4F435002; the
 generics that define the compressed images (image size, dynamic range, order, output word size, coder, predictor,
 weights and coder parameters); 32-bit saturating counters IMAGES_DONE, IMAGES_ABORTED, SDU_ERRORS, SDUS_DISCARDED,
 ECC_CORRECTED and ECC_UNCORRECTABLE, each cleared by a write. `tools/ocp_mib_words.json` holds the expected
 configuration registers of the configurations of `tools/ocp_configs.py`.
 
+Runtime configuration (`RuntimeConfig_g`, section 4.4): software writes the configuration of the next images into
+NEXT_X, NEXT_Y, NEXT_Z and NEXT_LIMITS (they read back what is written) and writes '1' to CONTROL.COMMIT. The COMMIT
+checks every value (NX, NY, NZ from 1 to the maxima, NX from 2 with full prediction or neighbour-oriented local sums,
+the error limit values of the methods in use below 2^DA and 2^DR): valid values reach the core in one clock cycle
+and STATUS.CFG_PENDING stays '1' until the core takes them at its next image start; a value out of range sets
+STATUS.CFG_ERROR (cleared by writing '1') and changes nothing. IMAGE_X, IMAGE_Y, IMAGE_Z, ORDER.SUB_FRAME_DEPTH and
+LIMITS show the values of the last image that started, as the core took them. A configuration committed while an
+image is compressed applies to the next image; a COMMIT in the clock cycle of the image start applies to the image
+after it. Without the runtime configuration the five registers read zero and ignore writes, and LIMITS reads the
+error limit values of the generics.
+
 Integration with OpenSPP: connect the receive port of the Octet String Service (`M_Rx_*`, `DataWidth_g` =
 `InStreamWidth_g`) and set `UserWidth_g` = 22, `UserLastMask_g` = 22x"3FC000" and `UserLastValue_g` = 22x"004000" (the
 sender marks the last SDU of an image with the CPTP User Application value 1), `UserErrorMask_g` = 22x"003000" (Data
 Loss Indicator, bit 12, with the continuity check of the APID enabled; receive buffer error, bit 13).
+
+### 4.4 Runtime configuration
+
+With `RuntimeConfig_g` = true the image dimensions NX, NY, NZ and the band-independent absolute and relative error
+limit values can change from image to image. `XSize_g`, `YSize_g` and `ZSize_g` are then the maxima, for which the
+memories and counters are sized; all other parameters stay generics. `ocp_channel` sets the values through its
+AXI4-Lite registers (section 4.3); `ocp_core` alone takes them from its configuration ports:
+
+| Port | Direction | Width | Description |
+| --- | --- | --- | --- |
+| `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize` | in | 17 | NX, NY, NZ of the next image, 1 to the maxima |
+| `Cfg_AbsLimit`, `Cfg_RelLimit` | in | 16 | Absolute and relative error limit value of the next image, 0 to 2^DA - 1 and 2^DR - 1 (unused for a method not in use) |
+| `Cfg_Taken` | out | 1 | Pulse in the clock cycle in which the core takes the configuration inputs |
+| `Act_XSize`, `Act_YSize`, `Act_ZSize`, `Act_AbsLimit`, `Act_RelLimit` | out | 17, 16 | The values the core took for the last image, from the clock cycle after `Cfg_Taken` (after a reset the maxima and the first error limit values of the generics; zero for a method not in use) |
+
+The core takes the five inputs in the clock cycle in which it accepts the first sample of an image (`Cfg_Taken`) and
+uses them for the whole image: its samples, its header and, with the image framing, its early end or the samples
+discarded after it. A change of the inputs at any other time does not affect the image in progress, so the
+configuration of the next image can be set while an image is compressed. The inputs change together in one clock
+cycle (`ocp_mib` does): inputs that change in different cycles around an image start can give the image a mix of the
+previous and the new values. In BI order the image uses M = min(`SubFrameDepth_g`, NZ).
+
+The core checks every value when it takes it. A value outside its range is taken as the nearest valid value (NX, NY,
+NZ below 1 as 1 and above the maximum as the maximum; NX = 1 as 2 where images must be at least two samples wide; an
+error limit value above 2^DA - 1 or 2^DR - 1 as that value), and a simulation assertion of severity warning reports
+it. The image is compressed with the values taken, its header carries them and the `Act_` outputs show them. An
+upset of the configuration registers therefore cannot make the core address outside its memories or lose the end of
+an image.
+
+The header carries the values of every image: X Size, Y Size, Z Size, the sub-frame interleaving depth (BI order)
+and the absolute and relative error limit values replace the bits of the header of the maxima at fixed positions,
+so the length of the header does not change. The elaboration stops for the configurations whose header or quantizer
+cannot follow values that change from image to image: periodic error limit updating, band-dependent error limits,
+header tables whose length depends on NZ (weight initialisation table, weight exponent offset table, band-varying
+damping or offset table, accumulator initialisation table) and supplementary information tables. Per-band values that
+are not in the header (table flags false) are given for the maximum NZ; an image of NZ bands uses the first NZ of
+them, and the decompressor must know them (section 7).
+
+The predictor computes the issue conditions of every image before its first sample (image-start sequencer, see the
+[architecture of the predictor](../hdl/ocp_predictor/docs/architecture.md)) and does not use the stride order; the
+throughput is that of section 8.1 for the dimensions of the image, plus 8 to 10 clock cycles per image.
 
 ## 5. Operating sequence
 
@@ -271,6 +325,10 @@ Loss Indicator, bit 12, with the continuity check of the APID enabled; receive b
    follow the last sample of an image without a gap.
 5. With `UseInLast_g`, set `In_Last` on the last sample of every image and check `Out_Error` on the last word of every
    compressed image (section 4.2).
+6. With `RuntimeConfig_g`, set the configuration of an image before its first sample: in `ocp_channel` NEXT_X to
+   NEXT_LIMITS and CONTROL.COMMIT, checking STATUS.CFG_ERROR; at `ocp_core` the configuration ports (section 4.4). The
+   configuration of the next image can be set while an image is compressed; STATUS.CFG_PENDING shows when the core
+   has taken it.
 
 The output can be stalled at any time; the core then stops taking samples after its internal buffers are full.
 
@@ -291,9 +349,10 @@ TMR for all other logic:
 | State machines | Recovery state through the `when others` branch and the reset | none |
 | All other logic: registers of the control and data paths, counters, pointers, pipeline registers | TMR of the synthesis tool (for example `syn_radhardlevel` = `tmr` with Synplify, or the equivalent setting of the tool chain). The core adds no protection of its own for this logic; without TMR, an upset in it is not covered | synthesis report |
 
-`ocp_channel` adds no memory: the input adapter, the output converter and the status registers of `ocp_mib` are
-registers and rely on TMR like all other logic. The block buffers of the block-adaptive coder and the error flags of the
-image framer are registers: attributes keep
+`ocp_channel` adds no memory: the input adapter, the output converter and the status and configuration registers of
+`ocp_mib` are registers and rely on TMR like all other logic. The block buffers of the block-adaptive coder, the error
+flags of the image framer and the configurations of the runtime configuration (section 4.4) are registers: attributes
+keep
 synthesis from mapping them into RAM primitives without ECC, and they rely on TMR like all other logic. `Out_Error` and
 `Ev_ImageError` report framing errors of the input (section 4.2), not memory errors. The tables of the configuration
 (section 4.1) are constants and belong to the configuration memory of the FPGA.
@@ -325,6 +384,9 @@ requirements of a mission is shown by a radiation test with the core in operatio
 | With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
 | `ocp_channel`: every SDU carries a whole number of samples and no other bytes (no secondary header) | Every byte is sample data; an SDU with a partial sample ends its image with an error (section 4.3) |
 | `ocp_channel`: a receiver that must identify the images with an error uses `Out_Error` or the counters | An image ended by a faulty last SDU is complete and has the bytes of a correct image (section 4.3) |
+| With `RuntimeConfig_g`: no periodic error limit updating, no band-dependent error limits, no header tables whose length depends on NZ, no supplementary information tables | The header and the quantizer follow the values of every image only for the other parameters; the elaboration stops otherwise (section 4.4) |
+| With `RuntimeConfig_g`, the configuration ports of `ocp_core` hold values in their ranges and change together in one clock cycle (`ocp_mib` checks the values and changes them together) | A value out of range is taken as the nearest valid value and reported by a simulation warning; inputs that change in different clock cycles around an image start can give the image a mix of values (section 4.4) |
+| With `RuntimeConfig_g`, the decompressor knows the per-band values that are not in the header for the NZ of every image | An image of NZ bands uses the first NZ values (section 4.4) |
 
 ## 8. Resources and performance
 
@@ -367,6 +429,16 @@ testbenches cycle by cycle):
 | c33 | BIP with 6 bands, near-lossless, stride order, image of 20 pixels | 14.2 (the per-image cycles of the stride order dominate) |
 | c02, c03, c07, c08, c17, c34, c37 | BIL or BSQ with more than three local differences, lossless | 7.5 to 8.0 |
 | c05, c10, c19, c21, c31, c32, c38 | BI with M < NZ or with periodic error limit updating, near-lossless | 17.5 to 31.5 |
+
+Runtime configuration (section 4.4): the predictor runs as for constant dimensions equal to those of the image,
+without the stride order (a near-lossless BIP configuration that would use the stride order runs at the pipeline rate
+of the last row of the table). The speculative weight loop is used where the maxima give it (BSQ order, or BI order
+with `SubFrameDepth_g` = 1); a single-band image of a configuration with M > 1 runs without it. The first sample of
+every image is accepted with the configuration and issued once the image-start sequencer is done, imageStartCycles + 1
+cycles later (7 to 9 cycles of the sequencer, 7 or 8 in lossless and 9 in near-lossless compression); the next sample
+follows as without the runtime configuration. `runtime_accept_cycles(g, dims)` of `tools/ocp_throughput.py` gives the
+cycle of every sample of a sequence of images; the testbenches check the first sample of every image exactly
+(TC-PR-41, TC-CO-54).
 
 Consecutive images: `image_period(g)` of `tools/ocp_throughput.py` gives the cycles between the first samples of two
 images that follow each other without gaps and without back pressure. Outside stride order an image follows the

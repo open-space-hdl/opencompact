@@ -82,6 +82,39 @@ package ocp_pkg is
     -- (corrected single error) or bits 0 and 1 (detected double error)
     function injPattern (width : positive; double : std_logic) return std_logic_vector;
 
+    -- Issue conditions of the predictor that depend on the image dimensions (ocp_predictor architecture): the
+    -- sub-frame interleaving depth M; consecutive samples of a band follow each other directly (BSQ, M = 1), also
+    -- from one row to the next (BSQ, NZ = 1); the issue distance between samples of the same band without the
+    -- weights and between a sample and the sample of the previous band at the same pixel
+    type IssueDist_r is record
+        M       : positive;
+        Gap1    : boolean;
+        RunRows : boolean;
+        LFix    : natural;
+        LCross  : natural;
+    end record;
+
+    -- The distances lWin (window of the previous line), lRep (sample representatives) and lDw (central local
+    -- differences) are the latencies of the predictor pipeline; the image dimensions decide which of them apply
+    function issueDist (
+        bsq : boolean;
+        sfd : positive;
+        nx : positive;
+        ny : positive;
+        nz : positive;
+        predBands : natural;
+        repIsSample : boolean;
+        wUsed : boolean;
+        crossRep : boolean;
+        lWin : natural;
+        lRep : natural;
+        lDw : natural) return IssueDist_r;
+
+    -- Image-start sequencer of the predictor (ocp_image_start): width SatW of the saturated factors (2^SatW exceeds
+    -- the latencies lRep and lDw) and number of clock cycles from Start to Done (SatW + 3)
+    function imageStartSatWidth (lRep : natural; lDw : natural) return positive;
+    function imageStartCycles (lRep : natural; lDw : natural) return positive;
+
     -- Low-entropy codes of the hybrid entropy coder: input symbol limits and thresholds (CCSDS table 5-16)
     type LeNatArray_t is array (0 to 15) of natural;
 
@@ -224,6 +257,77 @@ package body ocp_pkg is
             P_v(1) := '1';
         end if;
         return P_v;
+    end function;
+
+    function issueDist (
+        bsq : boolean;
+        sfd : positive;
+        nx : positive;
+        ny : positive;
+        nz : positive;
+        predBands : natural;
+        repIsSample : boolean;
+        wUsed : boolean;
+        crossRep : boolean;
+        lWin : natural;
+        lRep : natural;
+        lDw : natural) return IssueDist_r is
+        -- The gaps are only compared with the latencies: factors above Cap_c give the same results and keep the
+        -- products within the integer range
+        constant Cap_c     : positive := 4096;
+        variable R_v       : IssueDist_r;
+        variable RowGap_v  : natural;
+        variable DiffGap_v : natural;
+        variable SameRep_v : boolean;
+        variable CrossDw_v : boolean;
+    begin
+        R_v.M       := minimum(sfd, nz);
+        R_v.Gap1    := bsq or R_v.M = 1;
+        R_v.RunRows := bsq or nz = 1;
+        -- Issues between a sample and the sample of the previous row of its band (window, sample
+        -- representatives), and between the central local differences of a pixel written in one band and read in
+        -- the next (BSQ: the next band, BI: the first band of the next sub-frame)
+        if bsq then
+            RowGap_v  := minimum(nx - 1, Cap_c);
+            DiffGap_v := minimum(nx, Cap_c) * minimum(ny, Cap_c);
+        else
+            RowGap_v  := minimum(nx - 1, Cap_c) * minimum(R_v.M, Cap_c);
+            DiffGap_v := RowGap_v + 1;
+        end if;
+        SameRep_v  := not repIsSample and (wUsed or RowGap_v < lRep);
+        CrossDw_v  := predBands > 0 and (bsq or R_v.M < nz) and DiffGap_v < lDw;
+        R_v.LFix   := 0;
+        R_v.LCross := 0;
+        if not R_v.Gap1 then
+            R_v.LFix := lWin;
+        end if;
+        if SameRep_v then
+            R_v.LFix := maximum(R_v.LFix, lRep);
+        end if;
+        if crossRep then
+            R_v.LCross := lRep;
+        end if;
+        if CrossDw_v then
+            R_v.LCross := maximum(R_v.LCross, lDw);
+        end if;
+        return R_v;
+    end function;
+
+    function imageStartSatWidth (lRep : natural; lDw : natural) return positive is
+        variable W_v : positive := 1;
+    begin
+
+        while 2 ** W_v <= maximum(lRep, lDw) loop
+            W_v := W_v + 1;
+        end loop;
+
+        return W_v;
+    end function;
+
+    function imageStartCycles (lRep : natural; lDw : natural) return positive is
+    begin
+        -- Start (factors), one step per bit of the factor B (SatW + 1), comparisons
+        return imageStartSatWidth(lRep, lDw) + 3;
     end function;
 
 end package body;

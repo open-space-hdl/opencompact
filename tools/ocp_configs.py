@@ -491,6 +491,127 @@ RANDOM = {"r{:02d}_random".format(s): random_config(s) for s in range(1, 25)}
 # All configurations with golden data
 ALL = dict(CONFIGS, **RANDOM)
 
+# ------------------------------------------------------------------------------------------------
+# Runtime configurations (RuntimeConfig_g): the image dimensions of a configuration are the maxima; every image of a
+# sequence takes its own NX, NY, NZ and band-independent error limit values (CO-RC-01, CO-RC-02). In BI order the
+# sub-frame interleaving depth of an image is min(M, NZ).
+# ------------------------------------------------------------------------------------------------
+RUNTIME = {
+    # BI with M = 1 (the speculative weight loop; images of one band run across rows), sample-adaptive, lossless
+    "rc01_bi_m1_sample": cfg(
+        large_n_x=16, large_n_y=12, large_n_z=8, large_d=12, large_m=1, large_b=2,
+        large_p=3, large_omega=13, large_r=32, log_two_t_inc=5, v_min=-1, v_max=3,
+        large_u_max=16, gamma_star=6, gamma_0=1, k_prime_prime_vector=[3],
+        image="scene", seed=101),
+    # BI with M = NZ, hybrid coder, absolute error limits, sample representatives: with constant dimensions this
+    # configuration uses the stride order
+    "rc02_bi_mnz_hybrid_abs": cfg(
+        large_n_x=12, large_n_y=8, large_n_z=10, large_d=14, large_m=10, large_b=4,
+        large_p=3, large_omega=14, large_r=48, log_two_t_inc=6, v_min=-1, v_max=3,
+        quantizer_fidelity_control_method=1, large_d_large_a=6, a_vector=[3],
+        sample_representative_flag=1, large_theta=2, phi_vector=[2], psi_vector=[1],
+        entropy_coder_type=1, large_u_max=18, gamma_star=6, gamma_0=2,
+        hybrid_initial_accumulator=[30, 45, 60, 75, 90, 105, 120, 135, 150, 165],
+        image="scene", seed=102),
+    # BSQ, narrow neighbor-oriented local sums, block-adaptive coder, relative error limits
+    "rc03_bsq_block_rel": cfg(
+        large_n_x=10, large_n_y=10, large_n_z=6, large_d=16, sample_encoding_order=1, large_m=0, large_b=1,
+        large_p=2, local_sum_type=1, large_omega=12, large_r=40, log_two_t_inc=5, v_min=-2, v_max=4,
+        quantizer_fidelity_control_method=2, large_d_large_r=8, r_vector=[20],
+        entropy_coder_type=2, large_j=16, r=8,
+        image="scene", seed=103),
+    # BI with M = 4 (sub-frames), sample-adaptive, absolute and relative error limits
+    "rc04_bi_m4_sample_both": cfg(
+        large_n_x=16, large_n_y=8, large_n_z=12, large_d=16, large_m=4, large_b=3,
+        large_p=4, large_omega=13, large_r=48, log_two_t_inc=6, v_min=-1, v_max=3,
+        quantizer_fidelity_control_method=3, large_d_large_a=5, a_vector=[4], large_d_large_r=9, r_vector=[64],
+        large_u_max=16, gamma_star=6, gamma_0=1, k_prime_prime_vector=[4],
+        image="scene", seed=104),
+    # BSQ, reduced prediction, wide column-oriented local sums (images of width 1), hybrid coder, lossless
+    "rc05_bsq_column_hybrid": cfg(
+        large_n_x=8, large_n_y=8, large_n_z=5, large_d=10, sample_encoding_order=1, large_m=0, large_b=2,
+        large_p=2, prediction_mode=1, local_sum_type=2, large_omega=11, large_r=32, log_two_t_inc=4,
+        v_min=-1, v_max=3,
+        entropy_coder_type=1, large_u_max=14, gamma_star=5, gamma_0=1,
+        hybrid_initial_accumulator=[20, 40, 60, 80, 100],
+        image="scene", seed=105),
+}
+
+# Images per runtime sequence (TC-CO-52) and runtime configurations of the range test (TC-CO-57)
+RUNTIME_IMAGES = 20
+RUNTIME_RANGE = ["rc04_bi_m4_sample_both", "rc05_bsq_column_hybrid"]
+# Images of a runtime sequence that the timing test (TC-CO-53) aborts with an early In_Last (the first is the largest
+# image of the sequence)
+RUNTIME_ABORT = [0, 6]
+
+
+def width_one_allowed(c):
+    """Images of width 1 need reduced prediction and column-oriented local sums (CCSDS 4.3.1, 4.4.1)."""
+    return c["prediction_mode"] == 1 and c["local_sum_type"] in (2, 3)
+
+
+def runtime_limit(c, nx, ny, nz, a, r):
+    """Values that the core takes for configuration inputs outside their ranges (CO-RC-07): NX, NY, NZ to 1 or to the
+    maximum, NX = 1 to 2 where images must be at least two samples wide, error limit values to 2^DA - 1 and
+    2^DR - 1; the error limit value of a method not in use is 0."""
+    fid = c["quantizer_fidelity_control_method"]
+    nx = min(max(nx, 1), c["large_n_x"])
+    if nx == 1 and not width_one_allowed(c):
+        nx = 2
+    ny = min(max(ny, 1), c["large_n_y"])
+    nz = min(max(nz, 1), c["large_n_z"])
+    a = min(a, (1 << c["large_d_large_a"]) - 1) if fid in (1, 3) else 0
+    r = min(r, (1 << c["large_d_large_r"]) - 1) if fid in (2, 3) else 0
+    return nx, ny, nz, a, r
+
+
+def runtime_image_cfg(c, nx, ny, nz, a, r, index):
+    """Configuration of image `index` of a runtime sequence with its dimensions and error limit values (seed of the
+    test image from the configuration and the index)."""
+    d = dict(c)
+    d.update(large_n_x=nx, large_n_y=ny, large_n_z=nz, seed=1000 * c["seed"] + index)
+    if c["sample_encoding_order"] == 0:
+        d["large_m"] = min(c["large_m"], nz)
+    if c["quantizer_fidelity_control_method"] in (1, 3):
+        d["a_vector"] = [a]
+    if c["quantizer_fidelity_control_method"] in (2, 3):
+        d["r_vector"] = [r]
+    return d
+
+
+def runtime_sequence(c, n=RUNTIME_IMAGES):
+    """Seeded sequence of n images (nx, ny, nz, a, r) within the maxima and the bit depths of a runtime configuration:
+    the first images take the bounds (1, or 2 where width 1 is not allowed, and the maximum of every dimension, the
+    error limit values 0 and the maxima), single-pixel images included; the others are random."""
+    rng = random.Random(7000 + c["seed"])
+    fid = c["quantizer_fidelity_control_method"]
+    xmin = 1 if width_one_allowed(c) else 2
+    amax = (1 << c["large_d_large_a"]) - 1 if fid in (1, 3) else 0
+    rmax = (1 << c["large_d_large_r"]) - 1 if fid in (2, 3) else 0
+    mx, my, mz = c["large_n_x"], c["large_n_y"], c["large_n_z"]
+    seq = [(mx, my, mz, amax, rmax), (xmin, 1, 1, 0, 0), (mx, 1, mz, amax, 0), (xmin, my, 1, 0, rmax),
+           (xmin, 1, mz, amax, rmax), (mx, my, 1, 0, 0), (xmin, my, mz, amax, rmax), (mx, 1, 1, 0, rmax)]
+    while len(seq) < n:
+        seq.append((rng.randint(xmin, mx), rng.randint(1, my), rng.randint(1, mz), rng.randint(0, amax),
+                    rng.randint(0, rmax)))
+    return [runtime_limit(c, *img) for img in seq[:n]]
+
+
+def runtime_range_sequence(c):
+    """Images of the range test (TC-CO-57): the values driven on the configuration inputs, outside their ranges alone
+    and together, between images with valid values; each entry is (driven values, values taken by the core)."""
+    fid = c["quantizer_fidelity_control_method"]
+    mx, my, mz = c["large_n_x"], c["large_n_y"], c["large_n_z"]
+    da, dr = c["large_d_large_a"], c["large_d_large_r"]
+    a_ok = 1 if fid in (1, 3) else 0
+    r_ok = 1 if fid in (2, 3) else 0
+    ok = (min(3, mx), min(2, my), min(3, mz), a_ok, r_ok)
+    top = (1 << 17) - 1
+    driven = [ok, (0, 0, 0, 0, 0), ok, (mx + 1, my + 1, mz + 1, 1 << da, 1 << dr), ok, (top, top, top, 65535, 65535),
+              (0, my, mz + 1, 0, 0), (top, 0, 1, 1 << da, 0), (mx + 1, 1, 0, 0, 1 << dr), (1, my, mz, a_ok, r_ok),
+              (1, 1, 1, 65535, 0), ok]
+    return [(d, runtime_limit(c, *d)) for d in driven]
+
 
 # ------------------------------------------------------------------------------------------------
 # Test images

@@ -35,6 +35,8 @@ CONFIGS = {
 }
 ECC = "c37_block_d32_custom"
 RESET = "r09_random"
+# Runtime configuration (TC-CH-07): BI with sub-frames, absolute and relative error limits
+RUNTIME = ["rc04_bi_m4_sample_both"]
 
 
 def configure(lib):
@@ -56,3 +58,12 @@ def configure(lib):
             tb.test("test_ecc").add_config(name=name, generics=dict(gen, EccChannels_g=",".join(map(str, channels))))
         if name == RESET:
             tb.test("test_reset").add_config(name=name, generics=gen)
+
+    # Runtime configuration through the AXI4-Lite port (TC-CH-07)
+    for name in RUNTIME:
+        cfg = ocp_configs.RUNTIME[name]
+        gen = ocp_generics.generics(cfg)
+        gen.update({"GoldenDir_g": (ROOT / "tb" / "golden" / name).as_posix(), "RuntimeConfig_g": True,
+                    "HeaderBytes_g": len(ocp_model.header(cfg)), "InStreamWidth_g": 64, "OutWidth_g": 32,
+                    "OutStreamWidth_g": 64})
+        tb.test("test_runtime").add_config(name=name, generics=gen)

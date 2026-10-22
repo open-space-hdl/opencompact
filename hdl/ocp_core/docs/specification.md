@@ -32,7 +32,7 @@ set by the generics (section 2.6).
 | CO-HD-05 | The predictor metadata shall contain the quantization subpart (error limit update period, absolute and relative error limit blocks with their values unless updated periodically) except in lossless compression. | 5.3.3.4 |
 | CO-HD-06 | The predictor metadata shall contain the sample representative subpart with the damping and offset tables when selected. | 5.3.3.5 |
 | CO-HD-07 | The entropy coder metadata shall have the structure of the selected coder, with the accumulator initialisation table of the sample-adaptive coder when selected. | 5.3.4 |
-| CO-HD-08 | With `RuntimeConfig_g` the header of an image shall carry the image dimensions and the absolute and relative error limit values that the image took at its start (CO-RC-03, CO-RC-07); its length shall not depend on them. | 5.3.2.2, 5.3.3.4.3, 5.3.3.4.4 |
+| CO-HD-08 | With `RuntimeConfig_g` the header of an image shall carry the image dimensions, in BI order the sub-frame interleaving depth M = min(`SubFrameDepth_g`, NZ), and the absolute and relative error limit values that the image took at its start (CO-RC-03, CO-RC-07); its length shall not depend on them. | 5.3.2.2, 5.3.3.4.3, 5.3.3.4.4 |
 
 ### 2.3 Bit packer (CO-2) and image sequencer (CO-3)
 
@@ -82,7 +82,7 @@ set by the generics (section 2.6).
 | CO-CF-01 | In BI order the elaboration shall stop when `SubFrameDepth_g` exceeds `ZSize_g`. | 5.4.2.2.1 |
 | CO-CF-02 | With the block-adaptive coder the elaboration shall stop when `BlockSize_g` is not 8, 16, 32 or 64, or when `RestrictedCodes_g` is true with D above 4. | 5.3.4.4, 5.4.3.4.2.4, 5.4.3.4.2.6 |
 | CO-CF-03 | With the sample-adaptive or the hybrid coder the elaboration shall stop when `RescaleCounterSize_g` is below max(4, `InitialCountExp_g` + 1); with the sample-adaptive coder also when an accumulator initialisation value in use (`AccuInit_g`) is outside 0 to min(D - 2, 14). | 5.4.3.2.3.3, 5.4.3.2.3.4, 5.4.3.3.4.5 |
-| CO-CF-04 | With `RuntimeConfig_g` true the elaboration shall stop with periodic error limit updating, with band-dependent absolute or relative error limits, and with a header table whose length depends on NZ: the weight initialisation table, the weight exponent offset table, a band-varying damping or offset table and a band-varying accumulator initialisation table. | 4.8.2.4, 5.3.3.3, 5.3.3.4, 5.3.3.5.2, 5.3.3.5.3, 5.3.4.2.2 |
+| CO-CF-04 | With `RuntimeConfig_g` true the elaboration shall stop with periodic error limit updating, with band-dependent absolute or relative error limits, and with a header table whose length depends on NZ: the weight initialisation table, the weight exponent offset table, a band-varying damping or offset table and a band-varying accumulator initialisation table; and with supplementary information tables (their size can depend on the dimensions). | 4.8.2.4, 5.3.2.3, 5.3.3.3, 5.3.3.4, 5.3.3.5.2, 5.3.3.5.3, 5.3.4.2.2 |
 
 ## 3. Configuration parameters
 

@@ -16,6 +16,7 @@ Configurations (short names, also the names of the result files):
           128-bit streams
   c01     ocp_core, c01_lossless_bip of tools/ocp_configs.py
   c11     ocp_core, c11_wide_d32 of tools/ocp_configs.py (D = 32, the longest arithmetic)
+  rc04    ocp_core, rc04_bi_m4_sample_both of tools/ocp_configs.py with the runtime configuration
 
 Usage: python lint/vivado_ooc.py [--out DIR] [--mhz MHZ] [--part PART] [--elaborate] [name ...]
   --out        project and result directory (default C:/osh/ocp_ooc: Vivado projects need short paths on Windows)
@@ -54,6 +55,9 @@ CONFIGS = {
     "rs_sce": lambda: ocp_wrapper.channel_wrapper(RS_SCE, 128, 32, 128),
     "c01": lambda: ocp_wrapper.wrapper(ocp_configs.ALL["c01_lossless_bip"], out_width=32, use_in_last=True),
     "c11": lambda: ocp_wrapper.wrapper(ocp_configs.ALL["c11_wide_d32"], out_width=32, use_in_last=True),
+    # Runtime configuration: range limitation, image-start sequencer, configuration queue, header fields
+    "rc04": lambda: ocp_wrapper.wrapper(ocp_configs.RUNTIME["rc04_bi_m4_sample_both"], out_width=32,
+                                        use_in_last=True, extra={"RuntimeConfig_g": True}),
 }
 
 

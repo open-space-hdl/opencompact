@@ -80,6 +80,33 @@ FRAMING = [("c22_single_pixel_hybrid", 8, 30), ("c31_small_bi_periodic_abs", 8, 
 
 IMAGES = 2
 
+# Runtime configurations of the timing test (TC-CO-53)
+RUNTIME_TIMING = ["rc01_bi_m1_sample", "rc04_bi_m4_sample_both"]
+
+
+def runtime_generics(name, cfg):
+    """Generics of a runtime configuration: the maxima, the image list runtime.txt, 64-bit words (the output does
+    not limit the input)."""
+    gen = ocp_generics.generics(cfg)
+    golden = ROOT / "tb" / "golden" / name
+    gen.update(GoldenDir_g=golden.as_posix(), RuntimeConfig_g=True, OutWidth_g=64,
+               RtImages_g=len((golden / "runtime.txt").read_text().splitlines()),
+               MaxBytes_g=ocp_model.max_image_bytes(cfg), HeaderBytes_g=len(ocp_model.header(cfg)))
+    return gen
+
+
+def runtime_starts(name, gen):
+    """Acceptance cycles of the first sample of every image of runtime.txt relative to the first (throughput
+    model)."""
+    seq = [line.split() for line in (ROOT / "tb" / "golden" / name / "runtime.txt").read_text().splitlines()]
+    dims = [tuple(int(v) for v in values[5:8]) for values in seq]
+    cycles = ocp_throughput.runtime_accept_cycles(gen, dims)
+    starts, k = [], 0
+    for nx, ny, nz in dims:
+        starts.append(cycles[k] - cycles[0])
+        k += nx * ny * nz
+    return ",".join(str(v) for v in starts)
+
 
 def add(test, name, generics):
     """A configuration without and with the image framing (suffix _last)."""
@@ -118,6 +145,27 @@ def configure(lib):
             add(reset, name, dict(gen, InGapPct_g=10, OutStallPct_g=20))
     missing = set(ocp_throughput.ECC_CHANNELS) - channels
     assert not missing, "error injection: no configuration with the memories {}".format(sorted(missing))
+
+    # Runtime configurations: the image sequences (TC-CO-52, TC-CO-54), every second configuration also with input
+    # gaps and output stalls; the timing test (TC-CO-53); the range test (TC-CO-57)
+    runtime = tb.test("test_runtime")
+    for n, (name, cfg) in enumerate(ocp_configs.RUNTIME.items()):
+        gen = runtime_generics(name, cfg)
+        # The first sample of every image in the cycle of the predictor model, unless the tail of the hybrid coder
+        # (8 + NZ cycles per image) holds back the predictor in a sequence of small images; TC-PR-41 checks the
+        # predictor of every runtime configuration
+        starts = runtime_starts(name, gen) if gen["EntropyCoder_g"] != "HYBRID" else ""
+        add(runtime, name, dict(gen, ExpStarts_g=starts))
+        if n % 2 == 1:
+            add(runtime, name + "_bp", dict(gen, InGapPct_g=30, OutStallPct_g=60))
+    timing = tb.test("test_runtime_timing")
+    for name in RUNTIME_TIMING:
+        add(timing, name, runtime_generics(name, ocp_configs.RUNTIME[name]))
+    rng = tb.test("test_runtime_range")
+    for name in ocp_configs.RUNTIME_RANGE:
+        gen = runtime_generics(name, ocp_configs.RUNTIME[name])
+        lines = (ROOT / "tb" / "golden" / name / "range.txt").read_text().splitlines()
+        add(rng, name, dict(gen, RtList_g="range", RtImages_g=len(lines)))
 
     framing = tb.test("test_framing")
     for name, width, bp in FRAMING:

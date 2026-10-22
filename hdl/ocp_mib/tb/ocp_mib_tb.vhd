@@ -163,7 +163,10 @@ architecture sim of ocp_mib_tb is
     signal Cfg_ZSize    : std_logic_vector(16 downto 0);
     signal Cfg_AbsLimit : std_logic_vector(15 downto 0);
     signal Cfg_RelLimit : std_logic_vector(15 downto 0);
-    signal Cfg_Taken    : std_logic                     := '0';
+    signal Cfg_Taken    : std_logic;
+    -- Cfg_Taken pulses of the test sequencer and of the timed pulse of test_runtime_commit
+    signal TakeSeq      : std_logic                     := '0';
+    signal TakeTimed    : std_logic                     := '0';
     signal Act_XSize    : std_logic_vector(16 downto 0) := (others => '0');
     signal Act_YSize    : std_logic_vector(16 downto 0) := (others => '0');
     signal Act_ZSize    : std_logic_vector(16 downto 0) := (others => '0');
@@ -176,7 +179,7 @@ architecture sim of ocp_mib_tb is
     signal TakeArm  : boolean := false;
     signal TakeOfs  : integer := 0;
     signal WrDelay  : natural := 0;
-    signal TakeDone : boolean := false;
+    signal TakeCnt  : natural := 0;
     signal TakeSeen : std_logic_vector(82 downto 0);
 
     -- Atomicity (while AtomicOn, every COMMIT changes every field): number of clock cycles in which only some of
@@ -198,6 +201,8 @@ architecture sim of ocp_mib_tb is
 begin
 
     i_ti_uvvm_engine : entity uvvm_vvc_framework.ti_uvvm_engine;
+
+    Cfg_Taken <= TakeSeq or TakeTimed;
 
     Clk <= not Clk after ClkPeriod_c / 2;
 
@@ -427,9 +432,9 @@ begin
         procedure take is
         begin
             await_completion(AXILITE_VVCT, Axi_c, 10 us, "take");
-            Cfg_Taken <= '1';
+            TakeSeq <= '1';
             syncClk;
-            Cfg_Taken <= '0';
+            TakeSeq <= '0';
         end procedure;
 
         -- One invalid COMMIT: CFG_ERROR, outputs unchanged, then cleared
@@ -445,21 +450,28 @@ begin
 
         -- A COMMIT whose write cycle is ofs clock cycles before (negative) or after a Cfg_Taken pulse
         procedure commitAt (ofs : integer; x : natural; msg : string) is
+            variable Cnt_v : natural;
         begin
             setNext(x, x, x, x mod 2, x mod 2);
             await_completion(AXILITE_VVCT, Axi_c, 10 us, "pending values");
+            Cnt_v   := TakeCnt;
             TakeOfs <= -ofs;
             TakeArm <= true;
             syncClk;
             TakeArm <= false;
             commit;
             await_completion(AXILITE_VVCT, Axi_c, 10 us, msg);
-            wait until TakeDone;
+
+            while TakeCnt = Cnt_v loop
+                syncClk;
+            end loop;
+
             syncClk;
         end procedure;
 
         variable Prev_v : std_logic_vector(82 downto 0);
         variable Sfd_v  : natural;
+        variable Cnt_v  : natural;
         variable Lim_v  : std_logic_vector(31 downto 0);
         variable LimA_v : natural;
         variable LimR_v : natural;
@@ -690,12 +702,17 @@ begin
                 -- Write cycle of a COMMIT relative to the rise of AwValid (calibration)
                 setNext(XSize_g, YSize_g, ZSize_g, 0, 0);
                 await_completion(AXILITE_VVCT, Axi_c, 10 us, "pending values");
-                TakeArm  <= true;
+                Cnt_v   := TakeCnt;
+                TakeArm <= true;
                 syncClk;
-                TakeArm  <= false;
+                TakeArm <= false;
                 commit;
                 await_completion(AXILITE_VVCT, Axi_c, 10 us, "calibration");
-                wait until TakeDone;
+
+                while TakeCnt = Cnt_v loop
+                    syncClk;
+                end loop;
+
                 take;
                 check_value(WrDelay > 1, ERROR, "write cycle measured");
                 AtomicOn <= true;
@@ -751,9 +768,8 @@ begin
         variable Cyc_v : natural;
     begin
         wait until rising_edge(Clk) and TakeArm;
-        TakeDone <= false;
         wait until rising_edge(Clk) and AwValid = '1';
-        Cyc_v    := 0;
+        Cyc_v := 0;
         if WrDelay = 0 then
 
             -- Calibration on the first armed write: cycles from the rise of AwValid to the write cycle
@@ -772,12 +788,12 @@ begin
                 wait until rising_edge(Clk);
             end loop;
 
-            Cfg_Taken <= '1';
+            TakeTimed <= '1';
             wait until rising_edge(Clk);
             TakeSeen  <= cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit);
-            Cfg_Taken <= '0';
+            TakeTimed <= '0';
         end if;
-        TakeDone <= true;
+        TakeCnt <= TakeCnt + 1;
     end process;
 
     -- Atomicity of the configuration outputs: a clock cycle in which some but not all of them change

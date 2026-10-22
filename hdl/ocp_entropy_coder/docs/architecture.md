@@ -92,6 +92,14 @@ two and three positions ahead), so that the decision between one and two codewor
 and not from the buffer. The block buffers are registers: synthesis attributes keep the tools from inferring memories
 without ECC from them.
 
+## 4a. Runtime configuration
+
+With `RuntimeConfig_g` (`ocp_core` architecture, section 6) the sample-adaptive and the hybrid coder take NZ, and the
+hybrid coder also the single-pixel case NX = NY = 1, from the configuration entry of every image at its first item.
+The statistics memories keep `ZSize_g` entries. The tail of the hybrid coder steps through the bands 0 to NZ - 1 of the
+image with a counter that wraps at NZ, instead of the index modulo `ZSize_g`. The block-adaptive coder does not depend
+on the image dimensions.
+
 ## 5. Interfaces
 
 | Port | Direction | Description |

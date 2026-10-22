@@ -73,6 +73,15 @@ with periodic error limit updating, the error limit values at the start of every
 | PR-TP-02 | When consecutive samples belong to the same band (BSQ order, BI order with M = 1) and C <= 3, the predictor shall continue the weight update of the band from one sample to the next without waiting (speculative weight loop, `Speculation_g`) in lossless compression and in near-lossless compression with absolute error limits, narrow local sums and reduced prediction. | none |
 | PR-TP-03 | In BI order with M = NZ and near-lossless compression with dependencies between the bands of a pixel (P > 0 or narrow local sums), without periodic error limit updating, the predictor shall process the samples of an image in stride order (`Stride_g`) and output the entropy coder input sequence in the input order. | 5.4.2.2 |
 
+### 2.7a Runtime configuration
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| PR-RC-01 | With `RuntimeConfig_g` true the predictor shall compress every image with the dimensions NX, NY, NZ given for it (1 to `XSize_g`, `YSize_g`, `ZSize_g`) and M = min(`SubFrameDepth_g`, NZ): positions, flags t = 0, t = 1 and last sample, local sums at the image edges and the sequence of bands as for an image of these dimensions with constant generics. | 3.2, 4.4, 5.4.2 |
+| PR-RC-02 | With `RuntimeConfig_g` true and absolute or relative error limits the predictor shall use the band-independent error limit values given for the image. | 4.8.2.2, 4.8.2.3, 4.8.2.4.1 |
+| PR-RC-03 | Before the first sample of an image the predictor shall compute the conditions of its dependency checks (PR-TP-01) from the dimensions of the image, in a fixed number of clock cycles, with the same result as the elaboration computes for constant dimensions NX, NY, NZ and M; these cycles are part of the throughput model. | none |
+| PR-RC-04 | With `RuntimeConfig_g` true the predictor shall not use the stride order (PR-TP-03). | none |
+
 ### 2.8 Fault tolerance
 
 | ID | Requirement | CCSDS |
@@ -105,6 +114,7 @@ with periodic error limit updating, the error limit values at the start of every
 | `SampleRepResolution_g`, `Damping_g`, `Offset_g` | 0, (0), (0) | Theta: 0 to 4 | Sample representatives |
 | `Speculation_g` | true | | Speculative weight loop where it applies (PR-TP-02) |
 | `Stride_g` | true | | Stride order where it applies (PR-TP-03) |
+| `RuntimeConfig_g` | false | | Image dimensions and band-independent error limit values from the configuration inputs at every image start (section 2.7a); `XSize_g`, `YSize_g`, `ZSize_g` are the maxima |
 | `RamStyle_g` | "auto" | | Memory implementation (Open Logic) |
 
 Per-band tables are `integer_vector` generics; the last element repeats for the remaining bands.

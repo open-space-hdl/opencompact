@@ -146,3 +146,13 @@ q (2 m + 1) = sgn(residual) (|residual| + m - remainder).
 | `Out_Band`, `Out_First`, `Out_Init`, `Out_Last` | out | Band, t = 0, t = 1, last sample of the image |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events |
 | `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | Error injection into the next write of a memory: channel n is the memory whose error flags are bit n of the internal error vector (0 line, 1 window, 2 previous representative, 3 first representative of the line, 4 local differences, 5 weights, 6 and 7 error limits, 8 output FIFO, 9 to 11 stride buffers) |
+
+## 8. Runtime configuration
+
+With `RuntimeConfig_g` (`ocp_core` architecture, section 6) the predictor takes the dimensions and the band-independent
+error limit values of an image from the configuration entry of that image. The position counters of the input order
+compare with NX, NY, NZ and M of the image; the memories keep the sizes of `XSize_g`, `YSize_g` and `ZSize_g`, and the
+line memories are addressed with the pitch of `XSize_g`. The conditions of the issue stage that the elaboration
+derives from the dimensions (section 2) come from the image-start sequencer, which computes them in a fixed number of
+clock cycles before the first sample of the image is started; the history of issued bands has the length of the worst
+case over the allowed dimensions. The stride order (section 4) is not instantiated.

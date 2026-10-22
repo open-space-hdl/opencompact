@@ -42,6 +42,12 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | EC-BA-02 | The coder shall append zeros to the input sequence up to a multiple of J. | 5.4.3.4.2.7 |
 | EC-BA-03 | The coder shall encode every block with the shortest of the no-compression, second-extension, fundamental sequence and split-sample options (ties: no compression, then second extension, then the smallest k, CCSDS 121.0-B-3 section 3.7), and every run of all-zeros blocks inside a 64-block segment of a reference sample interval with the zero-block option, using the remainder-of-segment codeword for five or more blocks at the end of a segment (CCSDS 121.0-B-3 section 3.5). The body is the concatenation of the coded data sets. | 5.4.3.4.3.1 |
 
+### 2.4a Runtime configuration
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| EC-RC-01 | With `RuntimeConfig_g` true the sample-adaptive and the hybrid coder shall use the NZ of every image (up to `ZSize_g`) for their statistics, and the hybrid coder shall output the compressed image tail for the NZ bands of the image and treat an image with NX = NY = 1 as an image of one pixel per band. | 5.4.3.2.3, 5.4.3.3.4, 5.4.3.3.5.4 |
+
 ### 2.5 Fault tolerance
 
 | ID | Requirement | CCSDS |
@@ -61,6 +67,7 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | `AbsBitDepth_g`, `RelBitDepth_g` | EC-1, EC-2 | 1 to 16 | DA, DR |
 | `BlockSize_g`, `RestrictedCodes_g`, `RefInterval_g` | EC-3 | 8, 16, 32, 64; D <= 4; 1 to 4096 | J, restricted code options, r |
 | `XSize_g`, `YSize_g` | EC-2 | | Image of one pixel per band: the final accumulators are the initial ones |
+| `RuntimeConfig_g` | EC-1, EC-2 | | NX, NY, NZ of every image from the configuration of the image (EC-RC-01); `ZSize_g` sizes the statistics |
 
 ## 4. Interpretation of the standard
 

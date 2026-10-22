@@ -44,6 +44,11 @@ The core pulses `Ev_ImageError` once for every image with an error and flags the
 counters at the output of the core keeps IMAGES_DONE + IMAGES_ABORTED equal to the number of images that have left
 the core at any time.
 
+With `RuntimeConfig_g` the configuration outputs of `ocp_mib` (`Cfg_XSize` to `Cfg_RelLimit`) drive the configuration
+inputs of the core, and `Cfg_Taken` of the core returns to the MIB, which then shows the values in its active
+registers and clears CFG_PENDING. The input adapter does not depend on the image dimensions: it forwards samples and
+end marks only.
+
 ## 4. Ports
 
 | Port | Direction | Width | Description |

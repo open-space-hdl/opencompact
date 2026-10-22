@@ -43,3 +43,4 @@ well:
 | EC-BA-01 to EC-BA-03 | TC-CO-06 to TC-CO-08, TC-CO-17 to TC-CO-19, TC-CO-24, TC-CO-27, TC-CO-33 |
 | EC-TP-01 | TC-CO-25 to TC-CO-28 (one item per cycle over two images), TC-EC-04, TC-EC-05 |
 | EC-FT-01, EC-FT-02 | TC-CO-37 (error injection into the statistics memory and the codeword buffer) |
+| EC-RC-01 | TC-CO-52 (runtime NZ with the sample-adaptive and the hybrid coder, NX = NY = 1 among the drawn dimensions) |

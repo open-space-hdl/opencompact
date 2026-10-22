@@ -85,3 +85,50 @@ detected.
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events of the predictor and the entropy coder |
 | `Ev_ImageError` | out | Framing error event (one cycle) |
 | `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | Error injection: channels 0 to 11 go to the predictor, channel 12 to the statistics memory and channel 13 to the codeword buffer of the entropy coder |
+| `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize` | in | With `RuntimeConfig_g`: NX, NY, NZ of the next image (17 bits, 1 to the maxima) |
+| `Cfg_AbsLimit`, `Cfg_RelLimit` | in | With `RuntimeConfig_g`: band-independent absolute and relative error limit values of the next image (16 bits, the DA and DR least significant bits used) |
+| `Cfg_Taken` | out | With `RuntimeConfig_g`: pulse when the core takes the configuration inputs for an image |
+
+## 6. Runtime configuration
+
+With `RuntimeConfig_g` the configuration of an image is taken once, when the first sample of the image arrives at the
+input of the core (CO-RC-03), into an entry of a configuration queue, and `Cfg_Taken` pulses. The entry travels with
+the image to the units that need it at their own image start, because these units work on different images at the
+same time: while the header generator still outputs the header of image k, the predictor may already compress image
+k + 1.
+
+| Unit | Uses from the entry | Change against the constant configuration |
+| --- | --- | --- |
+| Image framer (`UseInLast_g`) | NX NY NZ | The sample count starts from NX NY NZ - 1 of the image; the product is computed in the image start |
+| Predictor | NX, NY, NZ, M, error limit values | Position counters compare with the dimensions of the image; memories keep the sizes of the maxima, line memories the pitch of the maximum NX; the image-start sequencer computes the conditions of the dependency checks (section 6.1); the band-independent error limit values replace the constants; no stride order (CO-RC-04) |
+| Entropy coder | NZ, NX = NY = 1 | Statistics memories for the maximum NZ; the hybrid tail covers the NZ bands of the image; the single-pixel case of the hybrid coder from the dimensions of the image |
+| Header generator | NX, NY, NZ, error limit values | The header parts that hold these fields are the ROM parts with the runtime bits replaced (section 6.2) |
+
+The queue holds the configurations of the images that have started at the input and whose compressed image is not
+yet complete; it has 16 entries, like the error flag queue of the image framer, and while it is full the core takes
+no first sample of a new image. With `RuntimeConfig_g` false the queue, the image-start sequencer and the field
+substitution are not instantiated, and the units use the constants as before (CO-RC-06).
+
+### 6.1 Image-start sequencer
+
+The predictor checks before it starts a sample that the samples it depends on have left its feedback loops (PR-TP-01).
+How far apart these samples are in the issue order depends on NX, NY and M. In BI order the sample of the previous row
+of a band lies NX M - M issues back, in BSQ order NX - 1 issues; the local differences of the previous bands are read
+NX M - M + 1 issues after they are written in BI order and NX NY issues in BSQ order. With constant dimensions the
+elaboration computes from these distances which dependencies can be closer than the latency of the loops, and how long
+the history of issued bands must be. With runtime dimensions the image-start sequencer computes the same conditions
+from the dimensions of the image, in a few clock cycles before the first sample of the image is started (CO-RC-05),
+with one adder and comparator stepped by a small state machine instead of a combinational path. The history of issued
+bands is sized for the worst case over the allowed dimensions. The sequencer is an entity with its own ports so that
+its results can be compared with the elaboration function for every NX and M of a range (verification plan of the
+predictor).
+
+### 6.2 Header with runtime fields
+
+The header stays a constant built by the procedure `build` (section 2), with the maxima in place of the runtime fields;
+the procedure also records the bit position and width of every runtime field: X Size, Y Size and Z Size of the
+essential subpart (each NX, NY, NZ mod 2^16) and the band-independent absolute and relative error limit values of the
+quantization subpart (DA and DR bits). When the header generator outputs a part that contains a runtime field, it
+replaces those bits with the value of the image. The fields have fixed widths and positions, so the header length does
+not depend on the runtime values (CO-HD-08); the configurations whose header length would depend on NZ are excluded by
+CO-CF-04.

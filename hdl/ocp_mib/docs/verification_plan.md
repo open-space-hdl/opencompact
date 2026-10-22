@@ -18,8 +18,9 @@ Simulators: GHDL (regression, CI) and QuestaSim (code coverage); VUnit with UVVM
 | `test_counters` (TC-MB-02) | Pulses on every event input, with gaps and back to back, increment their own counter only; a write clears one counter and no other; back-to-back pulses during one clearing write: the counter equals the pulses from the cycle in which the slave writes (the cycle in which `BValid` rises) on, so the pulse of that cycle counts | MB-IF-02, MB-CN-01, MB-CN-02 |
 | `test_reset` (TC-MB-03) | A reset clears every counter | MB-RS-01 |
 | TC-MB-04 (`python tools/regmap.py --check`, `python tools/ocp_mib_words.py --check`, CI) | The VHDL package, the register map and the C header, and the expected words, match their sources | MB-RG-01 |
-| TC-MB-05 (`test_runtime_config` of `ocp_mib_tb`) | `RuntimeConfig_g` true: NEXT_X to NEXT_LIMITS read their reset values and back what is written; a valid COMMIT changes all configuration outputs in one clock cycle and sets CFG_PENDING, which `Cfg_Taken` clears; a COMMIT in the cycle of `Cfg_Taken` leaves CFG_PENDING set; the active registers take the committed values at `Cfg_Taken` (M = min(`SubFrameDepth_g`, NZ)); for every field the values 0, 1, maximum and maximum + 1 (limits 2^DA - 1 and 2^DA) and NX = 1 with full prediction: an invalid value sets CFG_ERROR and leaves the outputs unchanged, a write of '1' clears CFG_ERROR; GENERICS.RUNTIME_CONFIG reads '1' | MB-RC-01, MB-RC-02, MB-RC-03, MB-RC-04 |
+| TC-MB-05 (`test_runtime_config` of `ocp_mib_tb`) | `RuntimeConfig_g` true: NEXT_X to NEXT_LIMITS read their reset values and back what is written; a valid COMMIT sets CFG_PENDING, which `Cfg_Taken` clears; the active registers read the `Act_` inputs (SUB_FRAME_DEPTH = min(`SubFrameDepth_g`, IMAGE_Z)); for every field the values 0, 1, maximum and maximum + 1 (limits 2^DA - 1 and 2^DA) and NX = 1 with full prediction: an invalid value sets CFG_ERROR and leaves the outputs unchanged, a write of '1' clears CFG_ERROR; GENERICS.RUNTIME_CONFIG reads '1' | MB-RC-01, MB-RC-02, MB-RC-03, MB-RC-04 |
 | `test_config` with `RuntimeConfig_g` false (TC-MB-06) | NEXT_X to NEXT_LIMITS, CONTROL and STATUS read zero and writes to them change nothing (configuration outputs, active registers); LIMITS reads the error limit values of the generics | MB-RC-05 |
+| TC-MB-07 (`test_runtime_commit` of `ocp_mib_tb`) | `RuntimeConfig_g` true, the bench in place of the core: the five configuration outputs are compared with the previous and the committed values in every clock cycle around valid COMMITs that change every field (all previous values, then all new values from one clock cycle on, never a mix); valid COMMITs whose write lands one clock cycle before, in and one clock cycle after a `Cfg_Taken` pulse: in the cycle of `Cfg_Taken` the outputs still carry the previous values, after the COMMIT in that cycle CFG_PENDING stays '1' and the next `Cfg_Taken` clears it | MB-RC-02, MB-RC-03 |
 
 ## 3. Requirement coverage
 
@@ -31,7 +32,9 @@ Simulators: GHDL (regression, CI) and QuestaSim (code coverage); VUnit with UVVM
 | MB-CN-01, MB-CN-02 | TC-MB-02; saturation at 2^32 - 1 by inspection (section 4) |
 | MB-RS-01 | TC-MB-03 |
 | MB-RG-01 | TC-MB-04 |
-| MB-RC-01 to MB-RC-04 | TC-MB-05 |
+| MB-RC-01 | TC-MB-05 |
+| MB-RC-02, MB-RC-03 | TC-MB-05, TC-MB-07 |
+| MB-RC-04 | TC-MB-05 |
 | MB-RC-05 | TC-MB-06 |
 
 ## 4. Not simulated

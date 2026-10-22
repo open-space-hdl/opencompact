@@ -38,7 +38,9 @@ the synthesis tool, like all logic outside the memories (user guide, section "Pr
 | `Ecc_Sec`, `Ecc_Ded` | in | 1 | Pulses: corrected and detected memory errors of the core |
 | `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize` | out | 17 | With `RuntimeConfig_g`: committed NX, NY, NZ for the core |
 | `Cfg_AbsLimit`, `Cfg_RelLimit` | out | 16 | With `RuntimeConfig_g`: committed band-independent error limit values for the core |
-| `Cfg_Taken` | in | 1 | Pulse from the core: it has taken the configuration outputs for an image |
+| `Cfg_Taken` | in | 1 | Pulse from the core: it takes the configuration outputs for an image in this clock cycle |
+| `Act_XSize`, `Act_YSize`, `Act_ZSize` | in | 17 | With `RuntimeConfig_g`: NX, NY, NZ that the core took for the last image |
+| `Act_AbsLimit`, `Act_RelLimit` | in | 16 | With `RuntimeConfig_g`: error limit values that the core took for the last image |
 
 ## 4. Generics
 
@@ -48,20 +50,24 @@ when `AccuInitBandVarying_g` is true, as in the header).
 
 ## 5. Runtime configuration
 
-With `RuntimeConfig_g` three sets of registers hold the configuration:
+With `RuntimeConfig_g` three sets of values describe the configuration; the MIB holds the first two, the core the third:
 
 | Set | Registers | Written by | Read by |
 | --- | --- | --- | --- |
 | Pending | NEXT_X, NEXT_Y, NEXT_Z, NEXT_LIMITS (RW) | Software | Software (readback before COMMIT), the range check |
 | Committed | Outputs `Cfg_*` | A valid COMMIT, all fields in one clock cycle | The core at every image start |
-| Active | IMAGE_X, IMAGE_Y, IMAGE_Z, ORDER.SUB_FRAME_DEPTH, LIMITS (RO) | `Cfg_Taken`: the committed values the core took | Software |
+| Active | IMAGE_X, IMAGE_Y, IMAGE_Z, ORDER.SUB_FRAME_DEPTH, LIMITS (RO) | The core at every image start, after its range limitation (`Act_` inputs) | Software |
 
 The range check is combinational on the pending registers and is evaluated in the cycle of the COMMIT write (the
 comparisons with the maxima are comparisons with constants). A COMMIT copies the pending set into the committed set
 only when every field is in range; otherwise it sets CFG_ERROR. Because the core takes the committed outputs in one
-clock cycle and a COMMIT changes all of them in one clock cycle, an image never sees a mix of two configurations.
+clock cycle and a COMMIT changes all five in the same clock cycle, an image never sees a mix of two
+configurations. A COMMIT written in the clock cycle of `Cfg_Taken` changes the outputs at the end of that cycle,
+after the core has taken the previous values.
 CFG_PENDING is set by a valid COMMIT and cleared by `Cfg_Taken` (a COMMIT and `Cfg_Taken` in the same cycle leave it
-set: the new values are not yet taken). Active M is min(`SubFrameDepth_g`, NZ).
+set: the new values are not yet taken). SUB_FRAME_DEPTH reads min(`SubFrameDepth_g`, `Act_ZSize`). Because the
+active registers show what the core took, they also show the values of an image whose configuration reached the
+core out of range (CO-RC-07).
 
 New registers (offsets for `ocp_regs.yml`; the existing registers keep their offsets):
 

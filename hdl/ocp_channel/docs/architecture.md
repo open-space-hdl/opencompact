@@ -45,9 +45,9 @@ counters at the output of the core keeps IMAGES_DONE + IMAGES_ABORTED equal to t
 the core at any time.
 
 With `RuntimeConfig_g` the configuration outputs of `ocp_mib` (`Cfg_XSize` to `Cfg_RelLimit`) drive the configuration
-inputs of the core, and `Cfg_Taken` of the core returns to the MIB, which then shows the values in its active
-registers and clears CFG_PENDING. The input adapter does not depend on the image dimensions: it forwards samples and
-end marks only.
+inputs of the core; `Cfg_Taken` and the values the core took (`Act_XSize` to `Act_RelLimit`) return to the MIB,
+which shows them in its active registers and clears CFG_PENDING. The input adapter does not depend on the image
+dimensions: it forwards samples and end marks only.
 
 ## 4. Ports
 

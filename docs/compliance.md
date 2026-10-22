@@ -13,19 +13,19 @@ the standard" of the module specifications.
 
 | CCSDS clause | Title | Owner | Requirements | Test cases | Status |
 | --- | --- | --- | --- | --- | --- |
-| 3.2 | Dimensions | PR-1 | CO-RC-01, MB-RC-02, PR-IF-01, PR-RC-01 | TC-CO-52, TC-MB-05, TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11, TC-PR-12, TC-PR-13, TC-PR-18, TC-PR-19, TC-PR-20, TC-PR-22, TC-PR-34, TC-PR-41 | Verified |
+| 3.2 | Dimensions | PR-1 | CO-RC-01, CO-RC-07, MB-RC-02, PR-IF-01, PR-RC-01 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11, TC-PR-12, TC-PR-13, TC-PR-18, TC-PR-19, TC-PR-20, TC-PR-22, TC-PR-34, TC-PR-41 | Verified |
 | 3.3 | Dynamic range | PR-1 | PR-IF-01 | TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11, TC-PR-12, TC-PR-13, TC-PR-18, TC-PR-19, TC-PR-20, TC-PR-22, TC-PR-34 | Verified |
 | 3.4 | Sample coordinate indices | PR-1 | PR-IF-03 | TC-PR-01, TC-PR-14, TC-PR-22, TC-PR-31, TC-PR-32, TC-PR-33, TC-PR-34, TC-PR-37 | Verified |
 | 3.5 | Supplementary information tables | CO-1 | CO-HD-03 | TC-CO-14, TC-CO-35, TC-CO-36, TC-CO-48 | Verified |
 | 4.2 | Number of bands for prediction | PR-2 | PR-LS-01 | TC-PR-01, TC-PR-02, TC-PR-07, TC-PR-11, TC-PR-13, TC-PR-24, TC-PR-34 | Verified |
-| 4.3 | Full and reduced prediction modes | PR-2 | MB-RC-02, PR-LS-02 | TC-MB-05, TC-PR-01, TC-PR-02, TC-PR-12, TC-PR-24, TC-PR-34 | Verified |
-| 4.4 | Local sum | PR-2 | MB-RC-02, PR-LS-03, PR-RC-01 | TC-CO-52, TC-MB-05, TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-12, TC-PR-34, TC-PR-41 | Verified |
+| 4.3 | Full and reduced prediction modes | PR-2 | CO-RC-07, MB-RC-02, PR-LS-02 | TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-02, TC-PR-12, TC-PR-24, TC-PR-34 | Verified |
+| 4.4 | Local sum | PR-2 | CO-RC-07, MB-RC-02, PR-LS-03, PR-RC-01 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-12, TC-PR-34, TC-PR-41 | Verified |
 | 4.5 | Local differences | PR-2 | PR-LS-04 | TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-12, TC-PR-34 | Verified |
 | 4.6 | Weights | PR-3 | PR-PD-01, PR-PD-02 | TC-PR-01, TC-PR-09, TC-PR-11, TC-PR-23, TC-PR-34, TC-PR-36 | Verified |
 | 4.7 | Prediction calculation | PR-3 | PR-PD-03 | TC-PR-01, TC-PR-02, TC-PR-11, TC-PR-15, TC-PR-17, TC-PR-18, TC-PR-20, TC-PR-24, TC-PR-34 | Verified |
 | 4.8.1 | Quantizer output | PR-4 | PR-QU-01 | TC-PR-01, TC-PR-04, TC-PR-16, TC-PR-34 | Verified |
-| 4.8.2.1, 4.8.2.2 | Controlling maximum error, allowed error limit values | PR-4 | CO-RC-02, MB-RC-02, PR-QU-02, PR-QU-03, PR-RC-02 | TC-CO-52, TC-MB-05, TC-PR-01, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-26, TC-PR-28, TC-PR-30, TC-PR-34, TC-PR-35, TC-PR-38, TC-PR-41 | Verified |
-| 4.8.2.3 | Error limit assignment methods | PR-1 | CO-RC-02, MB-RC-02, PR-QU-03, PR-RC-02 | TC-CO-52, TC-MB-05, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-34, TC-PR-35, TC-PR-38, TC-PR-41 | Verified |
+| 4.8.2.1, 4.8.2.2 | Controlling maximum error, allowed error limit values | PR-4 | CO-RC-02, CO-RC-07, MB-RC-02, PR-QU-02, PR-QU-03, PR-RC-02 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-26, TC-PR-28, TC-PR-30, TC-PR-34, TC-PR-35, TC-PR-38, TC-PR-41 | Verified |
+| 4.8.2.3 | Error limit assignment methods | PR-1 | CO-RC-02, CO-RC-07, MB-RC-02, PR-QU-03, PR-RC-02 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-34, TC-PR-35, TC-PR-38, TC-PR-41 | Verified |
 | 4.8.2.4 | Periodic error limit updating | PR-1 | CH-IF-05, CO-CF-04, CO-FR-07, CO-RC-02, CO-RC-03, PR-IF-04, PR-RC-02 | TC-CH-01, TC-CH-03, TC-CO-47, TC-CO-52, TC-CO-53, TC-CO-56, TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-33, TC-PR-34, TC-PR-35, TC-PR-36, TC-PR-37, TC-PR-38, TC-PR-41 | Verified |
 | 4.9 | Sample representatives | PR-5 | PR-SR-01 | TC-PR-04, TC-PR-06, TC-PR-26, TC-PR-29, TC-PR-34 | Verified |
 | 4.10 | Weight update | PR-5 | PR-WU-01, PR-WU-02 | TC-PR-01, TC-PR-03, TC-PR-09, TC-PR-11, TC-PR-15, TC-PR-18, TC-PR-23, TC-PR-34, TC-PR-36, TC-PR-39 | Verified |
@@ -47,11 +47,11 @@ reference included).
 | Module | Requirements | Verified by a test case | Without a test case |
 | --- | --- | --- | --- |
 | `ocp_channel` | 12 | 12 | - |
-| `ocp_core` | 36 | 36 | - |
+| `ocp_core` | 37 | 37 | - |
 | `ocp_entropy_coder` | 16 | 16 | - |
 | `ocp_input_adapter` | 13 | 13 | - |
 | `ocp_mib` | 13 | 13 | - |
 | `ocp_pkg` | 5 | 5 | - |
 | `ocp_predictor` | 30 | 30 | - |
 
-Requirements: 125; without a test case: 0; test cases of the plans not run by a testbench: 0.
+Requirements: 126; without a test case: 0; test cases of the plans not run by a testbench: 0.

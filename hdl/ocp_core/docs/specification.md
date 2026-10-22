@@ -32,7 +32,7 @@ set by the generics (section 2.6).
 | CO-HD-05 | The predictor metadata shall contain the quantization subpart (error limit update period, absolute and relative error limit blocks with their values unless updated periodically) except in lossless compression. | 5.3.3.4 |
 | CO-HD-06 | The predictor metadata shall contain the sample representative subpart with the damping and offset tables when selected. | 5.3.3.5 |
 | CO-HD-07 | The entropy coder metadata shall have the structure of the selected coder, with the accumulator initialisation table of the sample-adaptive coder when selected. | 5.3.4 |
-| CO-HD-08 | With `RuntimeConfig_g` the header of an image shall carry the image dimensions and the absolute and relative error limit values that the image took at its start (CO-RC-03); its length shall not depend on them. | 5.3.2.2, 5.3.3.4.3, 5.3.3.4.4 |
+| CO-HD-08 | With `RuntimeConfig_g` the header of an image shall carry the image dimensions and the absolute and relative error limit values that the image took at its start (CO-RC-03, CO-RC-07); its length shall not depend on them. | 5.3.2.2, 5.3.3.4.3, 5.3.3.4.4 |
 
 ### 2.3 Bit packer (CO-2) and image sequencer (CO-3)
 
@@ -68,11 +68,12 @@ set by the generics (section 2.6).
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | CO-RC-01 | With `RuntimeConfig_g` true the core shall compress images of NX, NY and NZ samples given on `Cfg_XSize`, `Cfg_YSize` and `Cfg_ZSize`, each from 1 to the maximum `XSize_g`, `YSize_g` and `ZSize_g`, in BI order with the sub-frame interleaving depth M = min(`SubFrameDepth_g`, NZ). | 3.2, 5.3.2.2, 5.4.2.2.1 |
-| CO-RC-02 | With `RuntimeConfig_g` true and absolute or relative error limits, the core shall use the band-independent error limit values given on `Cfg_AbsLimit` and `Cfg_RelLimit` (their DA and DR least significant bits), with the fidelity control method and the bit depths DA and DR of the generics. | 4.8.2.2, 4.8.2.3, 4.8.2.4.1 |
-| CO-RC-03 | The core shall take the configuration inputs at the start of every image (when it accepts the first sample of the image) and use the values for the whole image, its header, the samples taken and, with the image framing, the samples discarded after it; a change of the inputs at any other time shall not affect the image in progress. The core shall pulse `Cfg_Taken` for one clock cycle when it takes the inputs. | 4.8.2.4.1, 4.8.2.4.3 |
+| CO-RC-02 | With `RuntimeConfig_g` true and absolute or relative error limits, the core shall use the band-independent error limit values given on `Cfg_AbsLimit` and `Cfg_RelLimit` (from 0 to 2^DA - 1 and 2^DR - 1), with the fidelity control method and the bit depths DA and DR of the generics. | 4.8.2.2, 4.8.2.3, 4.8.2.4.1 |
+| CO-RC-03 | The core shall take the configuration inputs at the start of every image (when it accepts the first sample of the image) and use the values for the whole image, its header, the samples taken and, with the image framing, the samples discarded after it; a change of the inputs at any other time shall not affect the image in progress. The core shall pulse `Cfg_Taken` in the clock cycle in which it takes the inputs and shall output the values taken on `Act_XSize`, `Act_YSize`, `Act_ZSize`, `Act_AbsLimit` and `Act_RelLimit` from the next clock cycle until the next image start (after a reset the maxima and the first values of `AbsErrorLimits_g` and `RelErrorLimits_g`; zero for an error limit method not in use). | 4.8.2.4.1, 4.8.2.4.3 |
 | CO-RC-04 | With `RuntimeConfig_g` true the core shall not use the stride order of the predictor (PR-TP-03); the compressed images are the same, the throughput is that of PR-TP-01. | none |
 | CO-RC-05 | Between the start of an image and its first sample the core shall need a fixed number of clock cycles for the image start (the same for every image of a configuration, counted in the throughput model). | none |
-| CO-RC-06 | With `RuntimeConfig_g` false the core shall ignore the configuration inputs and keep `Cfg_Taken` at '0'; its compressed images and its resources shall be those without the runtime configuration. | none |
+| CO-RC-06 | With `RuntimeConfig_g` false the core shall ignore the configuration inputs and keep `Cfg_Taken` and the `Act_` outputs at zero; its compressed images and its resources shall be those without the runtime configuration. | none |
+| CO-RC-07 | With `RuntimeConfig_g` true the core shall take a configuration input outside its range at the image start as the nearest valid value: NX, NY or NZ below 1 as 1 and above its maximum as the maximum, NX = 1 as 2 in a configuration that needs images at least two samples wide (full prediction or neighbour-oriented local sums), an error limit value above 2^DA - 1 or 2^DR - 1 as that value. The image shall be compressed with the values taken, its header and the `Act_` outputs shall carry them, and the next image shall start normally. | 3.2, 4.3.1, 4.4.1, 4.8.2.2, 4.8.2.3 |
 
 ### 2.7 Configuration checks
 
@@ -104,8 +105,9 @@ predictor or the entropy coders use are described in their specifications. Gener
 | `RuntimeConfig_g` | false | | Image dimensions and band-independent error limit values from the configuration inputs (section 2.6); `XSize_g`, `YSize_g` and `ZSize_g` are then the maxima, for which the memories and counters are sized |
 
 Configuration inputs (used with `RuntimeConfig_g` true): `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize` (17 bits each, the value
-NX, NY, NZ from 1 to 65536), `Cfg_AbsLimit`, `Cfg_RelLimit` (16 bits each, the DA and DR least significant bits used)
-and the output `Cfg_Taken`.
+NX, NY, NZ from 1 to 65536) and `Cfg_AbsLimit`, `Cfg_RelLimit` (16 bits each, from 0 to 2^DA - 1 and 2^DR - 1).
+Configuration outputs: `Cfg_Taken` and the values taken for the last image, `Act_XSize`, `Act_YSize`, `Act_ZSize`
+(17 bits each) and `Act_AbsLimit`, `Act_RelLimit` (16 bits each).
 
 ## 4. Interpretation of the standard
 
@@ -127,4 +129,4 @@ and the output `Cfg_Taken`.
 | With `UseInLast_g` true, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged with `Out_Error` and the samples up to the next `In_Last` are discarded (CO-FR-04) |
 | A source that learns only at the end of a group of samples that the group is faulty (for example a packet with a memory error) sets `In_Last` and `In_Error` with its last sample | The image ends there and is flagged even when its sample count is complete (CO-FR-08) |
 | A source of error limit values that delivers them ahead of the request drops the remaining values of an aborted image within two clock cycles of `Ev_ImageError` and continues with the values of the next image | The core takes no value for three clock cycles after an early `In_Last` and then the values of the next image (CO-FR-07) |
-| With `RuntimeConfig_g`, the configuration inputs hold values in their ranges (CO-RC-01, CO-RC-02; NX = 1 only with reduced prediction and column-oriented local sums) and are stable while the first sample of an image is accepted; `ocp_mib` checks the values before they reach the core | The core takes the inputs as they are at the image start (CO-RC-03); a simulation assertion reports a value outside its range |
+| With `RuntimeConfig_g`, the configuration inputs hold values in their ranges (CO-RC-01, CO-RC-02; NX = 1 only with reduced prediction and column-oriented local sums) and all five change in the same clock cycle; `ocp_mib` checks the values before they reach the core and changes them together | The core takes a value outside its range as the nearest valid value (CO-RC-07), and a simulation assertion of severity warning reports it; inputs that change in different clock cycles around an image start can give the image a mix of previous and new values |

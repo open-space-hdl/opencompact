@@ -86,8 +86,9 @@ detected.
 | `Ev_ImageError` | out | Framing error event (one cycle) |
 | `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | Error injection: channels 0 to 11 go to the predictor, channel 12 to the statistics memory and channel 13 to the codeword buffer of the entropy coder |
 | `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize` | in | With `RuntimeConfig_g`: NX, NY, NZ of the next image (17 bits, 1 to the maxima) |
-| `Cfg_AbsLimit`, `Cfg_RelLimit` | in | With `RuntimeConfig_g`: band-independent absolute and relative error limit values of the next image (16 bits, the DA and DR least significant bits used) |
-| `Cfg_Taken` | out | With `RuntimeConfig_g`: pulse when the core takes the configuration inputs for an image |
+| `Cfg_AbsLimit`, `Cfg_RelLimit` | in | With `RuntimeConfig_g`: band-independent absolute and relative error limit values of the next image (16 bits, 0 to 2^DA - 1 and 2^DR - 1) |
+| `Cfg_Taken` | out | With `RuntimeConfig_g`: pulse in the clock cycle in which the core takes the configuration inputs for an image |
+| `Act_XSize`, `Act_YSize`, `Act_ZSize`, `Act_AbsLimit`, `Act_RelLimit` | out | With `RuntimeConfig_g`: the values the core took for the last image, after the range limitation (17 and 16 bits) |
 
 ## 6. Runtime configuration
 
@@ -95,7 +96,10 @@ With `RuntimeConfig_g` the configuration of an image is taken once, when the fir
 input of the core (CO-RC-03), into an entry of a configuration queue, and `Cfg_Taken` pulses. The entry travels with
 the image to the units that need it at their own image start, because these units work on different images at the
 same time: while the header generator still outputs the header of image k, the predictor may already compress image
-k + 1.
+k + 1. On the way into the entry every input passes the range limitation of CO-RC-07, a comparison with constants
+and a multiplexer per input, so that no unit addresses outside its memories or counts an image without a bounded
+end, whatever arrives at the inputs. The limited values also go into the register of the active configuration,
+which drives the `Act_` outputs until the next image start; `ocp_mib` reads its active registers from there.
 
 | Unit | Uses from the entry | Change against the constant configuration |
 | --- | --- | --- |
@@ -106,8 +110,11 @@ k + 1.
 
 The queue holds the configurations of the images that have started at the input and whose compressed image is not
 yet complete; it has 16 entries, like the error flag queue of the image framer, and while it is full the core takes
-no first sample of a new image. With `RuntimeConfig_g` false the queue, the image-start sequencer and the field
-substitution are not instantiated, and the units use the constants as before (CO-RC-06).
+no first sample of a new image. The queue and the register of the active configuration are registers, not
+memories (no RAM inference, like the error flag queue), and rely on the TMR of the synthesis tool. With
+`RuntimeConfig_g` false the queue, the range limitation, the register of the active configuration, the image-start
+sequencer and the field substitution are not instantiated, the `Act_` outputs are zero, and the units use the
+constants as before (CO-RC-06).
 
 ### 6.1 Image-start sequencer
 

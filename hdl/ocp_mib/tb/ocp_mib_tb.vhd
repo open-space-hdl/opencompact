@@ -699,8 +699,9 @@ begin
                 end if;
 
             elsif run("test_runtime_commit") then
-                -- Write cycle of a COMMIT relative to the rise of AwValid (calibration)
-                setNext(XSize_g, YSize_g, ZSize_g, 0, 0);
+                -- Write cycle of a COMMIT relative to the rise of AwValid (calibration); limits 1 so that the
+                -- first COMMIT below (limits 0) changes every field
+                setNext(XSize_g, YSize_g, ZSize_g, 1, 1);
                 await_completion(AXILITE_VVCT, Axi_c, 10 us, "pending values");
                 Cnt_v   := TakeCnt;
                 TakeArm <= true;

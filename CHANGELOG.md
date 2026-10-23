@@ -12,10 +12,11 @@ feature and a patch version for a fix.
   (19 + NZ clock cycles without an item) holds back the next image once the output FIFO of the predictor is full; the
   model took the samples of consecutive images in the cycles of the predictor alone, too early for sequences of small
   images or of images at one sample per cycle. The compressed images are not affected; the core is unchanged.
-- Verification: the test end fails on a missing or an extra expected alert. `ocpTestEnd` relied on the end status of
-  UVVM, which UVVM updates only when an alert occurs; it now compares the alert counters with the expected alerts.
 
 ### Changed
+
+- Verification: the test end compares the alert counters of every level itself and ends the simulation with a
+  failure, whatever the stop limits of the test.
 
 - Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCompact changes.
 

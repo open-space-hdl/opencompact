@@ -329,7 +329,7 @@ def output_fifo_depth(lat):
     return depth
 
 
-def coder_cycles(g, speculation=True, images=1, dims=None, start=None):
+def coder_cycles(g, speculation=True, images=1, dims=None, start=None, tail=True):
     """Issue cycle of every sample of consecutive images, with the output of the predictor modelled cycle by cycle
     from the RTL (CO-TP-01):
 
@@ -347,11 +347,14 @@ def coder_cycles(g, speculation=True, images=1, dims=None, start=None):
     With dims ((nx, ny, nz) of every image; g holds the maxima) the images have their own dimensions (runtime
     configuration): the first sample of an image is accepted with the configuration in the cycle after the last
     sample of the previous image was issued (the output FIFO does not hold it back) and issued once the image-start
-    sequencer is done, start + 1 cycles later; its acceptance cycle is returned for it."""
+    sequencer is done, start + 1 cycles later; its acceptance cycle is returned for it.
+
+    With tail false the output takes one item per cycle whatever the coder (the predictor alone, as in its
+    testbench)."""
     lat0 = latencies(g, speculation)
     depth = lat0["depth"]
     fdepth = output_fifo_depth(lat0)
-    hybrid = g["EntropyCoder_g"] == "HYBRID"
+    hybrid = tail and g["EntropyCoder_g"] == "HYBRID"
     if dims is None:
         dims = [(g["XSize_g"], g["YSize_g"], g["ZSize_g"])] * images
         runtime = False
@@ -483,13 +486,14 @@ def issue_cycles(g, speculation=True, images=1):
     return cycles
 
 
-def runtime_accept_cycles(g, dims, speculation=True):
+def runtime_accept_cycles(g, dims, speculation=True, tail=True):
     """Acceptance cycle of every sample at the input of the predictor for consecutive images of a runtime
     configuration (g: the generics with the maxima; dims: (nx, ny, nz) of every image), without back pressure. The
     first sample of an image is accepted with the configuration (CO-RC-03) in the cycle after the last sample of the
     previous image was issued, and issued image_start_cycles(g) + 1 cycles later, once the image-start sequencer is
-    done (CO-RC-05); with the hybrid coder the tail of an image can hold back the next image (coder_cycles)."""
-    return coder_cycles(g, speculation, dims=dims, start=image_start_cycles(g))
+    done (CO-RC-05); with the hybrid coder the tail of an image can hold back the next image (coder_cycles). With
+    tail false the output takes one item per cycle (the predictor without an entropy coder)."""
+    return coder_cycles(g, speculation, dims=dims, start=image_start_cycles(g), tail=tail)
 
 
 def issue_span(g, speculation=True, images=1):

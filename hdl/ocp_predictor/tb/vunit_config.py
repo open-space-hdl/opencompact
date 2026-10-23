@@ -88,7 +88,8 @@ def add_runtime(test, name, cfg):
     gen = {k: all_generics[k] for k in ocp_generics.PREDICTOR}
     seq = [line.split() for line in (ROOT / "tb" / "golden" / name / "runtime.txt").read_text().splitlines()]
     dims = [tuple(int(v) for v in values[5:8]) for values in seq]
-    cycles = ocp_throughput.runtime_accept_cycles(all_generics, dims)
+    # The testbench takes one item per cycle at the output of the predictor (no entropy coder, no coder tail)
+    cycles = ocp_throughput.runtime_accept_cycles(all_generics, dims, tail=False)
     starts, k = [], 0
     for nx, ny, nz in dims:
         starts.append(cycles[k] - cycles[0])

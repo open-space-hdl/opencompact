@@ -448,6 +448,16 @@ buffer; the input buffer takes the first sample of the next image four cycles af
 exceeds the input span of an image by the stride skew and the latency of the output buffer (c29: 4322 cycles for
 2880 samples). TC-CO-50 checks the period exactly.
 
+The hybrid coder takes no item for 19 + NZ clock cycles after the last item of an image: its pipeline empties, it
+outputs the flush words and the final accumulators of the NZ bands (the compressed image tail). The output FIFO of the
+predictor absorbs the items of the next image during that time; once it is full, the predictor holds back the next
+samples. A sequence of images that each fill the FIFO again (images of a single pixel, or images at one sample per
+cycle) therefore takes about 19 + NZ cycles per image more than the predictor alone: c22_single_pixel_hybrid (6
+samples per image) takes 31 cycles per image instead of 6 once the FIFO is full, c26_tp_bil_near_abs 1945 cycles per
+image instead of 1920. `issue_cycles(g, images=n)` of `tools/ocp_throughput.py` includes the tail (it simulates the
+output FIFO and the coder cycle by cycle), and so does `image_period`; for the two images of the configurations of
+TC-CO-50 the tail does not change the period. The other coders take one item per cycle.
+
 Size of a compressed image: `max_image_bytes(cfg)` of `tools/ocp_model.py` is a strict upper bound on the size of
 the compressed image of any image of a configuration; its docstring names the clause of every term:
 

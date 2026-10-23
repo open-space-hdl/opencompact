@@ -16,6 +16,13 @@ feature and a patch version for a fix.
 - LIMITS register: the band-independent error limit values (of the generics, or of the last image with the runtime
   configuration); GENERICS.RUNTIME_CONFIG.
 
+### Fixed
+
+- Throughput model (`tools/ocp_throughput.py`, user guide section 8.1): with the hybrid coder the tail of every image
+  (19 + NZ clock cycles without an item) holds back the next image once the output FIFO of the predictor is full; the
+  model took the samples of consecutive images in the cycles of the predictor alone, too early for sequences of small
+  images or of images at one sample per cycle. The compressed images are not affected; the core is unchanged.
+
 ### Changed
 
 - Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCompact changes.

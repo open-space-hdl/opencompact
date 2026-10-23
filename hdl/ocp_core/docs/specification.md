@@ -41,7 +41,7 @@ set by the generics (section 2.6).
 | CO-PK-01 | The compressed image shall be the header followed by the body. | 5.2.1 |
 | CO-PK-02 | After the last codeword of the body, fill bits (zeros) shall be appended up to the next output word boundary so that the size of the compressed image is a multiple of the output word size B, from 1 to 8 bytes. | 5.2.2, 5.4.3.2.4.4, 5.4.3.3.5.4.5, 5.4.3.4.3.2 |
 | CO-PK-03 | Images shall be compressed one after the other; every image shall start with the initial state of the standard and with its own header. | 5.2.1 |
-| CO-TP-01 | The bit packer shall take one codeword (or header part) per clock cycle while the compressed image needs on average at most `OutWidth_g` bits per clock cycle, so that the core takes the samples of consecutive images in the cycles of the predictor. | none |
+| CO-TP-01 | The bit packer shall take one codeword (or header part) per clock cycle while the compressed image needs on average at most `OutWidth_g` bits per clock cycle, so that the core takes the samples of consecutive images in the cycles of the throughput model: those of the predictor, held back only by the tail of the hybrid coder (19 + NZ clock cycles per image without an item) when the output FIFO of the predictor is full. | none |
 
 ### 2.4 Image framer (CO-4)
 

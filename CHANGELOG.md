@@ -12,7 +12,8 @@ feature and a patch version for a fix.
   generics) and the band-independent error limit values of every image from new configuration ports of `ocp_core`
   (`Cfg_*`, `Cfg_Taken`, `Act_*`) or, in `ocp_channel`, from new AXI4-Lite registers of `ocp_mib` (CONTROL, STATUS,
   NEXT_X, NEXT_Y, NEXT_Z, NEXT_LIMITS). Values outside their ranges are taken as the nearest valid values. With the
-  generic false the core is unchanged.
+  generic false the compressed images and the throughput are unchanged, and the logic added for the runtime
+  configuration has no loads.
 - LIMITS register: the band-independent error limit values (of the generics, or of the last image with the runtime
   configuration); GENERICS.RUNTIME_CONFIG.
 

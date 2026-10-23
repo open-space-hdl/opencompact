@@ -134,6 +134,7 @@ Generics of `ocp_core` (simulated: in a test of the regression or of the CCSDS t
 | `OutWidth_g` | 8, 16, 32, 64 | `ocp_core` | 8, 16, 32, 64 | 8, 16, 32, 64; 12 stops |
 | `Speculation_g` | Boolean | Type | Both values (false in TC-PR-39) | Both values |
 | `RamStyle_g` | Values of the synthesis tool | Open Logic (attribute value) | "auto" | "auto", "block" |
+| `RuntimeConfig_g` | Boolean; true excludes periodic updating, band-dependent error limits, the header tables whose length depends on NZ and supplementary information tables | Type; `ocp_core` (CO-CF-04) | Both values (true in rc01 to rc05, with NX, NY and NZ per image from 1 to the maxima) | Both values (true in rc01 to rc05, with NX = 65536 and with NZ = M = 65536); each of the nine excluded combinations stops |
 
 ## 4. Mutations of the early end of an image
 
@@ -150,3 +151,99 @@ fails a job without a transfer for 20000 clock cycles.
 | Input order: the error limit state is not reset at the early end | `test_framing` c31_small_bi_periodic_abs | Fails: byte mismatch of the next image |
 | Hybrid coder: the count of initialised bands is one too low | `test_framing` r21_random | Fails: byte mismatch already in a complete image |
 | Hybrid coder: the count of initialised bands is not used (the tail reads every band from the memory) | `test_framing` r21_random | Fails: byte mismatch of the aborted image |
+
+## 5. Resources with `RuntimeConfig_g` false (TC-CO-55)
+
+The GHDL synthesis (GHDL 6.0.0, raw netlist) of the synthesis top level of every configuration of
+`lint/synth_check.py` with `RuntimeConfig_g` false (the 62 configurations and the bounds b01 to b06) was compared
+module by module with the synthesis of the same top level on the RTL of version 0.1.1, both with Open Logic
+4.7.0-ft.9: the register bits (the width of every flip-flop cell) and the number of cells of every type.
+
+- No module other than `ocp_predictor` and `ocp_hybrid_coder` differs in a register bit or in a cell, in any
+  configuration.
+- `ocp_predictor`: GHDL implements the register record of the two-process pattern as one flip-flop cell, so the
+  fields added for the runtime configuration are part of it, although nothing reads them with the generic false
+  (every read is in a branch of `RuntimeConfig_g`). These fields are the state of the image start (the hold register
+  of the first sample, the dimensions and M of the image, the issue distances, the speculative run across rows) and
+  three fields of every pipeline item (NX, the last column, the speculative run). The record of 0.1.1 is unchanged
+  otherwise, so the added bits are exactly the width of these fields: 84 to 402 bits. 3 to 15 cells change with them
+  (the multiplexers that write the fields).
+- `ocp_hybrid_coder` (the 17 configurations with the hybrid coder): the output `Cfg_Done` (two `mux2` cells and one
+  `pmux` cell), which `ocp_core` reads only with the runtime configuration, and the band of the tail, now computed once
+  instead of three times (`smod` -2, `strunc` +1): a refactoring with the same function.
+
+FPGA synthesis tools remove registers and logic without loads, so the utilisation after synthesis is expected to
+equal that of version 0.1.1. CO-RC-06 is verified by this netlist analysis; the equality after synthesis is open
+until the out-of-context flow of Vivado (`lint/vivado_ooc.py` c01) shows the same utilisation before and after the
+runtime configuration.
+
+| Configuration | Register bits of `ocp_predictor` | Added | Changed cells of `ocp_predictor` | Changed cells of `ocp_hybrid_coder` |
+| --- | --- | --- | --- | --- |
+| c01_lossless_bip | 27817 to 28004 | 187 | 14 | none |
+| c02_lossless_bil_column | 22990 to 23153 | 163 | 14 | none |
+| c03_lossless_bsq_narrow | 19120 to 19279 | 159 | 11 | none |
+| c04_near_abs_hybrid | 62774 to 63067 | 293 | 3 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| c05_near_rel_bi4_signed | 58874 to 59165 | 291 | 14 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| c06_near_both_block | 70836 to 71129 | 293 | 3 | none |
+| c07_lossless_block_bsq | 18863 to 19039 | 176 | 11 | none |
+| c08_restricted_d4 | 16403 to 16559 | 156 | 14 | none |
+| c09_custom_weights | 31906 to 32073 | 167 | 14 | none |
+| c10_periodic_limits | 59792 to 60085 | 293 | 15 | mux2 +2, pmux +1, uextend -1 |
+| c11_wide_d32 | 89940 to 90115 | 175 | 14 | none |
+| c12_single_column | 17502 to 17601 | 99 | 14 | none |
+| c13_single_band_hybrid | 24649 to 24814 | 165 | 14 | mux2 +2, pmux +1 |
+| c14_supplementary_tables | 25219 to 25366 | 147 | 14 | none |
+| c15_noise_escape | 21125 to 21292 | 167 | 14 | none |
+| c16_hybrid_low_entropy | 48554 to 48882 | 328 | 3 | mux2 +2, pmux +1, uextend -1 |
+| c17_block_zero_runs | 19392 to 19570 | 178 | 11 | none |
+| c18_block_d24_mixed | 30281 to 30456 | 175 | 14 | none |
+| c19_block_restricted_d2 | 31823 to 32100 | 277 | 15 | none |
+| c20_hybrid_d28 | 36492 to 36651 | 159 | 14 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| c21_sample_periodic | 38334 to 38615 | 281 | 15 | none |
+| c22_single_pixel_hybrid | 16419 to 16509 | 90 | 14 | mux2 +2, pmux +1, smod -1, strunc +1 |
+| c23_extreme_weights | 21599 to 21750 | 151 | 14 | none |
+| c24_reduced_p0 | 12999 to 13147 | 148 | 14 | none |
+| c25_tp_bsq_lossless | 33081 to 33254 | 173 | 11 | none |
+| c26_tp_bil_near_abs | 75093 to 75410 | 317 | 14 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| c27_tp_bip_full | 31978 to 32148 | 170 | 14 | none |
+| c28_tp_bsq_near_abs | 54281 to 54593 | 312 | 11 | none |
+| c29_tp_bip_near_stride | 58108 to 58367 | 259 | 3 | none |
+| c30_tp_bip_both_stride | 42090 to 42347 | 257 | 3 | mux2 +2, pmux +1, smod -2, strunc +1, utrunc -1 |
+| c31_small_bi_periodic_abs | 50009 to 50224 | 215 | 15 | none |
+| c32_small_bip_periodic_rel | 42580 to 42792 | 212 | 15 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| c33_small_bip_stride_block | 55974 to 56193 | 219 | 3 | none |
+| c34_small_bsq_lossless | 20715 to 20855 | 140 | 11 | none |
+| c35_small_bil_periodic_spec | 50801 to 51113 | 312 | 15 | none |
+| c36_block_j64_spikes | 13777 to 13959 | 182 | 11 | none |
+| c37_block_d32_custom | 34992 to 35151 | 159 | 11 | none |
+| c38_header_bounds | 52617 to 52851 | 234 | 15 | none |
+| r01_random | 81720 to 82018 | 298 | 14 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| r02_random | 39936 to 40173 | 237 | 14 | mux2 +2, pmux +1 |
+| r03_random | 117431 to 117833 | 402 | 11 | none |
+| r04_random | 40846 to 41052 | 206 | 15 | none |
+| r05_random | 24620 to 24704 | 84 | 14 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| r06_random | 101172 to 101377 | 205 | 14 | none |
+| r07_random | 68032 to 68173 | 141 | 11 | mux2 +2, pmux +1 |
+| r08_random | 124161 to 124408 | 247 | 11 | none |
+| r09_random | 51507 to 51650 | 143 | 14 | none |
+| r10_random | 41943 to 42042 | 99 | 14 | none |
+| r11_random | 18686 to 18808 | 122 | 14 | none |
+| r12_random | 44696 to 44858 | 162 | 14 | none |
+| r13_random | 63404 to 63680 | 276 | 14 | none |
+| r14_random | 29955 to 30084 | 129 | 11 | mux2 +2, pmux +1 |
+| r15_random | 74669 to 74841 | 172 | 11 | none |
+| r16_random | 100111 to 100361 | 250 | 14 | none |
+| r17_random | 24804 to 24967 | 163 | 14 | mux2 +2, pmux +1 |
+| r18_random | 48089 to 48240 | 151 | 14 | none |
+| r19_random | 39154 to 39285 | 131 | 14 | none |
+| r20_random | 148380 to 148638 | 258 | 14 | none |
+| r21_random | 25453 to 25554 | 101 | 11 | mux2 +2, pmux +1, smod -2, strunc +1 |
+| r22_random | 16516 to 16635 | 119 | 3 | none |
+| r23_random | 31277 to 31410 | 133 | 14 | none |
+| r24_random | 25847 to 25972 | 125 | 14 | none |
+| b01_x_65536 | 29347 to 29680 | 333 | 14 | none |
+| b02_y_65536 | 15469 to 15561 | 92 | 14 | none |
+| b03_z_m_65536 | 19942 to 20066 | 124 | 14 | none |
+| b04_bsq_z_65536 | 29553 to 29678 | 125 | 11 | none |
+| b05_no_speculation | 22215 to 22388 | 173 | 11 | none |
+| b06_ram_style_block | 27817 to 28004 | 187 | 14 | none |

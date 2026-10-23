@@ -23,6 +23,12 @@ Every event input increments its own counter, also back to back; a write clears 
 of the clearing write counts (the counter equals the pulses from the write cycle of the slave on). A reset clears the
 counters. The saturation at 2^32 - 1 is not reached in simulation (verification plan, section 4).
 
+Findings:
+
+| Finding | Resolution |
+| --- | --- |
+| `test_runtime_commit` (TC-MB-07): the calibration COMMIT wrote the error limit values of the first checked COMMIT, so that COMMIT changed only NX, NY and NZ, and the atomicity check counted one clock cycle with a partial change | The calibration COMMIT writes other error limit values, so every checked COMMIT changes all five outputs; the check thereby showed that it detects a partial change |
+
 ## 3. Generic ranges
 
 The generics of `ocp_mib` are those of the channel; their values come from the 62 configurations of

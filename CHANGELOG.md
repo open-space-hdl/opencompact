@@ -15,6 +15,9 @@ feature and a patch version for a fix.
 
 ### Changed
 
+- Verification: the test end compares the alert counters of every level itself and ends the simulation with a
+  failure, whatever the stop limits of the test.
+
 - Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCompact changes.
 
 ## [0.1.1] - 2026-10-19

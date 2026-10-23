@@ -140,11 +140,27 @@ package body ocp_tb_pkg is
     end procedure;
 
     procedure ocpTestEnd (signal runner : inout runner_sync_t) is
+        variable Mismatch_v : boolean := false;
     begin
         report_alert_counters(FINAL);
-        if shared_uvvm_status.mismatch_on_expected_simulation_warnings_or_worse /= 0 then
-            alert(TB_ERROR, "UVVM alert counters do not match the expected alerts", "ocpTestEnd");
-        end if;
+
+        -- UVVM updates its end status (shared_uvvm_status) only when an alert occurs, so an expected alert
+        -- that never came would pass unnoticed: the counters are compared here
+        for L in WARNING to TB_FAILURE loop
+
+            if L /= MANUAL_CHECK and get_alert_counter(L, REGARD) /= get_alert_counter(L, EXPECT) then
+                Mismatch_v := true;
+                log(ID_SEQUENCER, t_alert_level'image(L) & ": " & integer'image(get_alert_counter(L, REGARD))
+                                  & " alerts, " & integer'image(get_alert_counter(L, EXPECT)) & " expected",
+                    "ocpTestEnd");
+            end if;
+
+        end loop;
+
+        -- A failure ends the simulation, whatever the stop limits of the test
+        assert not Mismatch_v
+            report "ocpTestEnd: the alerts of the test differ from the expected alerts (summary above)"
+            severity failure;
         test_runner_cleanup(runner);
     end procedure;
 

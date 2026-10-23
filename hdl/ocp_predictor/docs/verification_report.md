@@ -30,7 +30,8 @@ model with the dimensions of every image (TC-PR-41); rc02 runs without the strid
 combination of NX from 1 to 64, M from 1 to the maximum NZ and NY of 1, 2, 3 and 64, and at nine further points up to
 65536 in every dimension (the maxima and the saturation of the factors), the image-start sequencer computes the same
 issue conditions as the elaboration function for constant generics and needs the same number of cycles for every input
-(TC-PR-40).
+(TC-PR-40). Two mutations of the runtime path (NX not taken, issue distance 0) each make their test fail
+([ocp_core verification report](../../ocp_core/docs/verification_report.md), section 6).
 
 Findings:
 

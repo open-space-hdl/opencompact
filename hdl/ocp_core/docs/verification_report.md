@@ -266,3 +266,21 @@ runtime configuration.
 | b04_bsq_z_65536 | 29553 to 29678 | 125 | 11 | none |
 | b05_no_speculation | 22215 to 22388 | 173 | 11 | none |
 | b06_ram_style_block | 27817 to 28004 | 187 | 14 | none |
+
+## 6. Mutations of the runtime configuration
+
+Each mutation was applied to the RTL once, outside the repository, and the named test was run; before the mutations
+the nine tests passed on the unchanged RTL. Every mutation makes its test fail with the check named.
+
+| Mutation | Test | Result |
+| --- | --- | --- |
+| `ocp_predictor`: NX of the configuration not taken (the image keeps the NX of the image before) | `ocp_predictor_tb` rc01 `test_runtime` | Fails: mapped quantizer index of an item differs from the reference model |
+| `ocp_predictor`: issue distance within a band 0 | `ocp_predictor_tb` rc04 `test_runtime` | Fails: mapped quantizer index of an item differs from the reference model |
+| `ocp_core`: NX = 1 not raised to 2 where full prediction needs NX >= 2 (CO-RC-07) | `ocp_core_tb` rc04 `test_runtime_range` | Fails: `Act_XSize` of the image |
+| `ocp_core`: the header read pointer of the configuration queue moves on at the start of a header instead of its end | `ocp_core_tb` rc01 `test_runtime` | Fails: byte mismatch of the compressed image |
+| `ocp_header`: the sub-frame interleaving depth of the maxima in BI order | `ocp_core_tb` rc02 `test_runtime` | Fails: byte mismatch in the header |
+| `ocp_hybrid_coder`: the tail covers the bands of the maximum NZ | `ocp_core_tb` rc05 `test_runtime` | Fails: byte mismatch of the compressed image |
+| `ocp_image_framer`: the dimensions of an image not taken at its first sample | `ocp_core_tb` rc01 `test_runtime` with `UseInLast_g` | Fails: error flag on the last word of a correct image |
+| `ocp_mib`: a COMMIT in the cycle of `Cfg_Taken` does not leave CFG_PENDING set | `ocp_mib_tb` rc04 `test_runtime_commit` | Fails: STATUS after the COMMIT |
+| `ocp_mib`: NX of a COMMIT reaches the configuration output one clock cycle after the other fields | `ocp_mib_tb` rc04 `test_runtime_commit` | Fails: the values taken with a COMMIT before `Cfg_Taken` |
+| `ocp_mib`: no range check of NZ | `ocp_mib_tb` rc04 `test_runtime_config` | Fails: STATUS (CFG_ERROR) after NZ = 0 |

@@ -34,7 +34,9 @@ five configuration outputs carry either all previous or all new values, never a 
 `Cfg_Taken` gives the new values to the image that starts, a COMMIT in the cycle of `Cfg_Taken` or one cycle after it
 leaves the previous values for that image and keeps CFG_PENDING set until the next `Cfg_Taken` (TC-MB-07). With the
 generic false the registers of the runtime configuration read zero and ignore writes, and LIMITS reads the error limit
-values of the generics (TC-MB-06).
+values of the generics (TC-MB-06). Three mutations of the runtime registers (pending flag, a delayed output field, the
+range check) each make their test fail ([ocp_core verification report](../../ocp_core/docs/verification_report.md),
+section 6).
 
 Findings:
 

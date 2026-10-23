@@ -25,6 +25,9 @@ feature and a patch version for a fix.
 
 ### Changed
 
+- Verification: the test end compares the alert counters of every level itself and ends the simulation with a
+  failure, whatever the stop limits of the test.
+
 - Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCompact changes.
 - Register map version 2 (ID 0x4F435002): the registers above are added, the existing ones keep their offsets and
   fields.

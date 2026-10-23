@@ -2,11 +2,12 @@
 
 ## 1. Test results
 
-Run on 2026-10-18 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
-4.7.0-ft.6: `python run.py "*ocp_core*" "*ocp_bit_packer*"`. The same tests pass in QuestaSim (Questa Pro Microchip
-Edition 2024.3, time resolution 1 fs, 2026-10-19), with code coverage and in the optimised run without it; the code
-coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL 6.0.0 on
-2026-10-18 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+Run on 2026-10-23 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
+4.7.0-ft.9: `python run.py "*ocp_core*" "*ocp_bit_packer*"`. The tests of version 0.1.1 pass in QuestaSim (Questa Pro
+Microchip Edition 2024.3, time resolution 1 fs, 2026-10-19), with code coverage and in the optimised run without it;
+the code coverage of that version is in [coverage.md](../../../docs/coverage.md). The tests of the runtime
+configuration run in QuestaSim with the next release. The tests of the CCSDS test data set ran in GHDL 6.0.0 on
+2026-10-18 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`), before the runtime configuration.
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
@@ -14,6 +15,9 @@ coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS 
 | `ocp_core_tb` `test_ecc` | 4 (every memory of the core), each also with `UseInLast_g` | 8 |
 | `ocp_core_tb` `test_reset` | 5, each also with `UseInLast_g` | 10 |
 | `ocp_core_tb` `test_framing` | 16 (eleven images with four early and two missing image end markers; aborted images back to back at every abort position of the configuration; eight images with `In_Error`; eight resets during the error handling) | 16 |
+| `ocp_core_tb` `test_runtime` (TC-CO-52, TC-CO-54) | 7 (rc01 to rc05, sequences of 20 images; rc02 and rc04 also with back pressure), each also with `UseInLast_g` | 14 |
+| `ocp_core_tb` `test_runtime_timing` (TC-CO-53) | 2 (rc01, rc04), each also with `UseInLast_g` | 4 |
+| `ocp_core_tb` `test_runtime_range` (TC-CO-57) | 2 (rc04, rc05), each also with `UseInLast_g` | 4 |
 | `ocp_bit_packer_tb` `test_random` | 30 | 30 |
 | `ocp_bit_packer_tb` `test_byte_order` | 5 | 5 |
 | `ocp_core_tb` `test_golden` with the CCSDS test data set | 300 (75 of them with back pressure), each also with `UseInLast_g` | 600 |
@@ -44,7 +48,22 @@ equals the reference and carries `Out_Error`; with an early `In_Last` it is abor
 without `In_Last` or on discarded samples changes nothing (CO-FR-08). In the periodic configurations the error limit
 source drops the remaining values of an aborted image, and the next image takes its own values. Every requirement of the
 specification is covered. All 62 configurations synthesize with GHDL without errors and without latches, with and
-without the image framing (`python lint/synth_check.py [--in-last]`).
+without the image framing (`python lint/synth_check.py [--in-last]`); so do rc01 to rc05 with `RuntimeConfig_g` true,
+also with the maxima NX = 65536 and NZ = M = 65536, and each of the nine combinations that CO-CF-04 excludes stops the
+elaboration with its message (TC-CO-56).
+
+With the runtime configuration (`RuntimeConfig_g` true) every image of the sequences of 20 images of rc01 to rc05
+equals byte by byte the compressed image of `ocp_model` for the dimensions and error limit values of that image, also
+with input gaps and output stalls (rc02, rc04) and with the image framing, and its header, decoded by the header
+parser of `ocp_model`, carries them; `Cfg_Taken` pulses once per image and the `Act_` outputs show the values of the
+image (TC-CO-52). Without back pressure the first sample of every image is accepted exactly in the cycle of the
+throughput model with the runtime dimensions, the image-start cycles and the tail of the hybrid coder (TC-CO-54, all
+five configurations). With configuration values that change two cycles before, in and two cycles after the acceptance
+of the first sample of an image and in the middle of an image, every image uses the values of the cycle in which its
+first sample is accepted; aborted images and discarded samples keep their configuration, and the next image takes the
+new values (TC-CO-53). Values outside their ranges are taken as the nearest valid values, and the next valid image is
+compressed normally (TC-CO-57). With `RuntimeConfig_g` false every existing test passes on the unchanged golden data
+(TC-CO-55; resources in section 5).
 
 In the 12 configurations of TC-CO-50 (every coder without and with the stride order, from one sample per cycle to
 25 cycles per sample, periodic error limit updating) the first sample of the second image is accepted exactly

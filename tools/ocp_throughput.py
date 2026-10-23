@@ -268,9 +268,130 @@ def items(g):
                     yield ("S", z, y, x)
 
 
+# Tail of the hybrid coder (ocp_hybrid_coder): after the last item of an image, accepted in cycle a, the coder takes
+# no item in the cycles a + 1 to a + HYBRID_TAIL + NZ: its pipeline of 8 stages empties (a + 9), it outputs the 8 flush
+# words (a + 10 to a + 17), then reads the final accumulators of the NZ bands with a latency of 2 (a + 18 on) and ends
+# the image with the last of them (a + 19 + NZ)
+HYBRID_TAIL = 19
+
+
+def output_fifo_depth(lat):
+    """Depth of the output FIFO of the predictor: room for every item in flight (ocp_predictor, FifoDepth_c)."""
+    depth = 1
+    while depth < lat["depth"] + 8:
+        depth *= 2
+    return depth
+
+
+def coder_cycles(g, speculation=True, images=1):
+    """Issue cycle of every sample of consecutive images, with the output of the predictor modelled cycle by cycle
+    from the RTL (CO-TP-01):
+
+    - the issue stage takes the next item once the samples it depends on have left the feedback loops (as
+      issue_cycles) and while Inflight + level + 2 does not exceed the depth of the output FIFO (ocp_predictor);
+    - an item reaches the output FIFO `depth` cycles after its issue; the FIFO (olo_ft_fifo_sync) counts a write in
+      its level from the next cycle, offers the item two cycles after the write and lowers the level two cycles
+      after the read;
+    - the register stage behind the FIFO (olo_base_pl_stage) holds a main and a shadow item, its ready is registered;
+    - the hybrid coder takes no item during the tail of an image (HYBRID_TAIL + NZ cycles after its last item), the
+      other coders take one item per cycle.
+
+    The codewords leave the coder without back pressure (the bit packer keeps up, CO-TP-01)."""
+    lat = latencies(g, speculation)
+    depth = lat["depth"]
+    fdepth = output_fifo_depth(lat)
+    hybrid = g["EntropyCoder_g"] == "HYBRID"
+    nx = g["XSize_g"]
+    tail = HYBRID_TAIL + g["ZSize_g"]
+    seq = []
+    for _ in range(images):
+        image = list(items(g))
+        seq += [(item, k == len(image) - 1) for k, item in enumerate(image)]
+    issue = 0
+    last_band = {}
+    last_pixel = {}
+    prev = -1
+    writes = {}
+    inflight = 0
+    fifo = []
+    wr_level = rd_level = 0
+    rd_up = wr_down = False
+    main = shadow = None
+    in_ready = True
+    ending_until = -1
+    taken = 0
+    cycles = []
+    t = 0
+    while taken < len(seq):
+        # Combinational signals of the cycle
+        coder_ready = not (hybrid and t <= ending_until)
+        written = writes.pop(t, None)
+        fifo_read = rd_level > 0 and in_ready
+        issued = False
+        if issue < len(seq) and inflight + wr_level + 2 <= fdepth:
+            (kind, z, y, x), _ = seq[issue]
+            earliest = prev + 1
+            if kind == "S":
+                need_w = (lat["c"] > 0 and y * nx + x > 1 and
+                          (not lat["spec"] or (not lat["run_rows"] and x == 0)))
+                l_same = max(lat["l_fix"], lat["l_w"] if need_w else 0)
+                if z in last_band:
+                    earliest = max(earliest, last_band[z] + l_same)
+                if lat["l_cross"]:
+                    if (z - 1, x) in last_pixel:
+                        earliest = max(earliest, last_pixel[(z - 1, x)] + lat["l_cross"])
+                    if lat["narrow"] and y == 0 and x > 0 and (z - 1, x - 1) in last_pixel:
+                        earliest = max(earliest, last_pixel[(z - 1, x - 1)] + lat["l_cross"])
+            if t >= earliest:
+                issued = True
+                prev = t
+                if kind == "S":
+                    last_band[z] = t
+                    last_pixel[(z, x)] = t
+                    cycles.append(t)
+                writes[t + depth] = issue
+                issue += 1
+        # Registers at the end of the cycle: items in flight, FIFO, register stage, coder
+        inflight += int(issued) - int(written is not None)
+        new_rd_up = written is not None
+        new_wr_level = wr_level
+        if written is not None:
+            fifo.append(written)
+            new_wr_level += 0 if wr_down else 1
+        elif wr_down:
+            new_wr_level -= 1
+        new_wr_down = fifo_read
+        new_rd_level = rd_level
+        read = None
+        if fifo_read:
+            read = fifo.pop(0)
+            new_rd_level -= 0 if rd_up else 1
+        elif rd_up:
+            new_rd_level += 1
+        stuck = main is not None and not coder_ready and (rd_level > 0 or shadow is not None)
+        if main is not None and coder_ready:
+            if seq[main][1] and hybrid:
+                ending_until = t + tail
+            taken += 1
+            main, shadow = shadow, None
+        if fifo_read:
+            if stuck:
+                shadow = read
+            else:
+                main = read
+        in_ready = not stuck
+        wr_level, rd_level, rd_up, wr_down = new_wr_level, new_rd_level, new_rd_up, new_wr_down
+        t += 1
+    return cycles
+
+
 def issue_cycles(g, speculation=True, images=1):
     """Issue cycle of every sample of images consecutive images (without back pressure at the input and the
-    output)."""
+    output). With the hybrid coder and more than one image the tail of an image can hold back the next image through
+    the output FIFO of the predictor (coder_cycles); within one image the coder takes one item per cycle. In stride
+    order the samples enter an input buffer (stride_cycles)."""
+    if images > 1 and g["EntropyCoder_g"] == "HYBRID" and stride_params(g, latencies(g, speculation)) is None:
+        return coder_cycles(g, speculation, images)
     lat = latencies(g, speculation)
     nx = g["XSize_g"]
     last_band = {}

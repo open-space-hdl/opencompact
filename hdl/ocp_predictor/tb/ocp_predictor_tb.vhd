@@ -83,7 +83,12 @@ entity ocp_predictor_tb is
         Damping_g              : string   := "0";
         Offset_g               : string   := "0";
         -- Speculative weight loop where it applies
-        Speculation_g          : boolean  := true
+        Speculation_g          : boolean  := true;
+        -- Runtime configuration (test_runtime): the images of tb/golden/<config>/runtime.txt; expected
+        -- acceptance cycles of the first sample of every image relative to the first (throughput model)
+        RuntimeConfig_g        : boolean  := false;
+        RtImages_g             : natural  := 0;
+        ExpStarts_g            : string   := ""
     );
 end entity;
 
@@ -118,6 +123,49 @@ architecture sim of ocp_predictor_tb is
     signal Ecc_Ded   : std_logic;
 
     signal SinkDone : boolean := false;
+
+    -- Runtime configuration: configuration inputs, take pulse, acceptance cycle of the first sample of every
+    -- image
+    signal Cfg_XSize    : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_YSize    : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_ZSize    : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_AbsLimit : std_logic_vector(15 downto 0) := (others => '0');
+    signal Cfg_RelLimit : std_logic_vector(15 downto 0) := (others => '0');
+    signal Cfg_Take     : std_logic;
+    signal Takes        : natural                       := 0;
+
+    type NatArr_t is array (natural range <>) of natural;
+
+    signal StartCyc : NatArr_t(0 to 63) := (others => 0);
+
+    -- Values of image k of runtime.txt: driven NX, NY, NZ, absolute and relative limit, then the values taken
+    impure function rtValues (k : natural) return integer_vector is
+        variable Line_v : line;
+        variable V_v    : integer_vector(0 to 9);
+
+        file Rt_f : text;
+    begin
+        file_open(Rt_f, GoldenDir_g & "/runtime.txt", read_mode);
+
+        for i in 0 to k loop
+            readline(Rt_f, Line_v);
+        end loop;
+
+        for i in V_v'range loop
+            read(Line_v, V_v(i));
+        end loop;
+
+        file_close(Rt_f);
+        return V_v;
+    end function;
+
+    function twoDigits (k : natural) return string is
+    begin
+        if k < 10 then
+            return "0" & to_string(k);
+        end if;
+        return to_string(k);
+    end function;
 
     -- Throughput: cycles of the first and the last accepted sample, number of samples
     signal RateFirst : natural := 0;
@@ -163,28 +211,35 @@ begin
             SampleRepResolution_g  => SampleRepResolution_g,
             Damping_g              => parseIntVec(Damping_g),
             Offset_g               => parseIntVec(Offset_g),
-            Speculation_g          => Speculation_g
+            Speculation_g          => Speculation_g,
+            RuntimeConfig_g        => RuntimeConfig_g
         )
         port map (
-            Clk       => Clk,
-            Rst       => Rst,
-            In_Valid  => In_Valid,
-            In_Ready  => In_Ready,
-            In_Data   => In_Data,
-            Lim_Valid => Lim_Valid,
-            Lim_Ready => Lim_Ready,
-            Lim_Data  => Lim_Data,
-            Img_Start => open,
-            Out_Valid => Out_Valid,
-            Out_Ready => Out_Ready,
-            Out_Data  => Out_Data,
-            Out_Kind  => Out_Kind,
-            Out_Band  => Out_Band,
-            Out_First => Out_First,
-            Out_Init  => Out_Init,
-            Out_Last  => Out_Last,
-            Ecc_Sec   => Ecc_Sec,
-            Ecc_Ded   => Ecc_Ded
+            Clk          => Clk,
+            Rst          => Rst,
+            In_Valid     => In_Valid,
+            In_Ready     => In_Ready,
+            In_Data      => In_Data,
+            Lim_Valid    => Lim_Valid,
+            Lim_Ready    => Lim_Ready,
+            Lim_Data     => Lim_Data,
+            Cfg_XSize    => Cfg_XSize,
+            Cfg_YSize    => Cfg_YSize,
+            Cfg_ZSize    => Cfg_ZSize,
+            Cfg_AbsLimit => Cfg_AbsLimit,
+            Cfg_RelLimit => Cfg_RelLimit,
+            Cfg_Take     => Cfg_Take,
+            Img_Start    => open,
+            Out_Valid    => Out_Valid,
+            Out_Ready    => Out_Ready,
+            Out_Data     => Out_Data,
+            Out_Kind     => Out_Kind,
+            Out_Band     => Out_Band,
+            Out_First    => Out_First,
+            Out_Init     => Out_Init,
+            Out_Last     => Out_Last,
+            Ecc_Sec      => Ecc_Sec,
+            Ecc_Ded      => Ecc_Ded
         );
 
     Clk <= not Clk after ClkPeriod_c / 2;
@@ -193,12 +248,13 @@ begin
     -- Test sequencer
     -----------------------------------------------------------------------------------------------
     p_main : process is
+        constant Starts_c : integer_vector := parseIntVec(ExpStarts_g & ",0");
     begin
         test_runner_setup(runner, runner_cfg);
         disable_log_msg(ID_POS_ACK);
 
         while test_suite loop
-            if run("test_golden") then
+            if run("test_golden") or run("test_runtime") then
                 Rst <= '1';
                 wait for 5 * ClkPeriod_c;
                 wait until rising_edge(Clk);
@@ -211,6 +267,19 @@ begin
                 if ExpCycles_g > 0 then
                     check_value(RateLast - RateFirst, ExpCycles_g, ERROR,
                                 "cycles between the first and the last sample (throughput model)");
+                end if;
+                -- Runtime configuration: one take per image, the first sample of every image in the cycle of
+                -- the throughput model (image-start sequencer)
+                if RuntimeConfig_g then
+                    check_value(Takes, RtImages_g, ERROR, "one configuration take per image");
+                    if ExpStarts_g /= "" then
+
+                        for k in 0 to RtImages_g - 1 loop
+                            check_value(StartCyc(k) - StartCyc(0), Starts_c(Starts_c'low + k), ERROR,
+                                        "image " & to_string(k) & ": cycle of the first sample (throughput model)");
+                        end loop;
+
+                    end if;
                 end if;
                 log(ID_SEQUENCER, "output in " & to_string(OutLastC - OutFirstC + 1) & " cycles");
                 if ExpOutCycles_g > 0 then
@@ -233,13 +302,34 @@ begin
 
     -- Image samples (little-endian 8, 16 or 32-bit containers)
     p_source : process is
-        variable Byte_v : natural;
-        variable Eof_v  : boolean;
-        variable Smp_v  : std_logic_vector(31 downto 0);
+        variable Byte_v  : natural;
+        variable Eof_v   : boolean;
+        variable Smp_v   : std_logic_vector(31 downto 0);
+        variable Img_v   : natural;
+        variable First_v : boolean;
+        variable V_v     : integer_vector(0 to 9);
+
+        -- Configuration inputs of image k (the values driven on the configuration inputs)
+        procedure drive (k : natural) is
+        begin
+            V_v          := rtValues(k);
+            Cfg_XSize    <= std_logic_vector(to_unsigned(V_v(0), 17));
+            Cfg_YSize    <= std_logic_vector(to_unsigned(V_v(1), 17));
+            Cfg_ZSize    <= std_logic_vector(to_unsigned(V_v(2), 17));
+            Cfg_AbsLimit <= std_logic_vector(to_unsigned(V_v(3), 16));
+            Cfg_RelLimit <= std_logic_vector(to_unsigned(V_v(4), 16));
+        end procedure;
 
         file Img_f : ByteFile_t;
     begin
-        file_open(Img_f, GoldenDir_g & "/image.raw", read_mode);
+        Img_v := 0;
+        if RuntimeConfig_g then
+            file_open(Img_f, GoldenDir_g & "/image_00.raw", read_mode);
+            drive(0);
+        else
+            file_open(Img_f, GoldenDir_g & "/image.raw", read_mode);
+        end if;
+        First_v := true;
         wait until Rst = '0';
 
         loop
@@ -250,6 +340,15 @@ begin
                 Smp_v(8 * b + 7 downto 8 * b) := std_logic_vector(to_unsigned(Byte_v, 8));
             end loop;
 
+            -- Runtime configuration: the next image with its configuration
+            if Eof_v and RuntimeConfig_g and Img_v + 1 < RtImages_g then
+                file_close(Img_f);
+                Img_v   := Img_v + 1;
+                First_v := true;
+                drive(Img_v);
+                file_open(Img_f, GoldenDir_g & "/image_" & twoDigits(Img_v) & ".raw", read_mode);
+                next;
+            end if;
             exit when Eof_v;
 
             while random(0, 99) < InGapPct_g loop
@@ -260,6 +359,16 @@ begin
             In_Data  <= Smp_v(DynamicRange_g - 1 downto 0);
             wait until rising_edge(Clk) and In_Ready = '1';
             In_Valid <= '0';
+            if RuntimeConfig_g then
+                -- The configuration is taken with the first sample of the image only; afterwards the inputs
+                -- already carry the values of the next image (they must not change the image in progress)
+                check_value(Cfg_Take, toSl(First_v), ERROR, "image " & to_string(Img_v) & ": configuration taken " &
+                            "with the first sample only");
+                if First_v and Img_v + 1 < RtImages_g then
+                    drive(Img_v + 1);
+                end if;
+                First_v := false;
+            end if;
         end loop;
 
         file_close(Img_f);
@@ -282,6 +391,10 @@ begin
                 end if;
                 OutLastC <= Cycle_v;
                 OutCnt_v := OutCnt_v + 1;
+            end if;
+            if Cfg_Take = '1' then
+                StartCyc(Takes) <= Cycle_v;
+                Takes           <= Takes + 1;
             end if;
             if In_Valid = '1' and In_Ready = '1' then
                 if Count_v = 0 then
@@ -334,13 +447,26 @@ begin
         variable Val_v   : std_logic_vector(31 downto 0);
         variable Items_v : natural := 0;
         variable Last_v  : boolean;
+        variable Img_v   : natural := 0;
 
         file Ref_f : text;
     begin
-        file_open(Ref_f, GoldenDir_g & "/delta.txt", read_mode);
+        if RuntimeConfig_g then
+            file_open(Ref_f, GoldenDir_g & "/delta_00.txt", read_mode);
+        else
+            file_open(Ref_f, GoldenDir_g & "/delta.txt", read_mode);
+        end if;
         wait until Rst = '0';
 
-        while not endfile(Ref_f) loop
+        loop
+            -- Runtime configuration: the items of the next image
+            if endfile(Ref_f) and RuntimeConfig_g and Img_v + 1 < RtImages_g then
+                file_close(Ref_f);
+                log(ID_SEQUENCER, "image " & to_string(Img_v) & " checked (" & to_string(Items_v) & " items so far)");
+                Img_v := Img_v + 1;
+                file_open(Ref_f, GoldenDir_g & "/delta_" & twoDigits(Img_v) & ".txt", read_mode);
+            end if;
+            exit when endfile(Ref_f);
             readline(Ref_f, Line_v);
             read(Line_v, Kind_v);
             Last_v := endfile(Ref_f);
@@ -376,7 +502,8 @@ begin
                 end if;
                 check_value(Out_Data, Val_v(OutW_c - 1 downto 0), ERROR, "item " & to_string(Items_v) & ": limit");
             end if;
-            check_value(Out_Last, toSl(Last_v), ERROR, "item " & to_string(Items_v) & ": last flag");
+            check_value(Out_Last, toSl(Last_v), ERROR, "image " & to_string(Img_v) & " item " & to_string(Items_v) &
+                        ": last flag");
             Items_v := Items_v + 1;
         end loop;
 

@@ -52,7 +52,10 @@ entity ocp_hybrid_coder is
         HybridAccuInitHigh_g : integer_vector            := (0 => 0);
         AbsBitDepth_g        : positive range 1 to 16    := 1;
         RelBitDepth_g        : positive range 1 to 16    := 1;
-        RamStyle_g           : string                    := "auto"
+        RamStyle_g           : string                    := "auto";
+        -- Runtime configuration: the number of bands of every image from Cfg_ZSize (ZSize_g is the
+        -- maximum)
+        RuntimeConfig_g      : boolean                   := false
     );
     port (
         Clk           : in    std_logic;
@@ -77,9 +80,13 @@ entity ocp_hybrid_coder is
         Ecc_Ded       : out   std_logic;
         -- Error injection into the next write of the statistics memory or of the codeword buffer: a
         -- single or a double bit error
-        ErrInj_Stats  : in    std_logic := '0';
-        ErrInj_Buffer : in    std_logic := '0';
-        ErrInj_Double : in    std_logic := '0'
+        ErrInj_Stats  : in    std_logic                     := '0';
+        ErrInj_Buffer : in    std_logic                     := '0';
+        ErrInj_Double : in    std_logic                     := '0';
+        -- Runtime configuration: NZ of the image whose tail comes next (1 to ZSize_g); Cfg_Done pulses when
+        -- the tail of an image is complete
+        Cfg_ZSize     : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_Done      : out   std_logic
     );
 end entity;
 
@@ -280,6 +287,8 @@ begin
         variable Fb_v     : std_logic_vector(13 downto 0);
         variable TailV_v  : boolean;
         variable UseRom_v : boolean;
+        variable Nz_v     : natural range 0 to 131071;
+        variable Band_v   : natural range 0 to maximum(ZSize_g, 16);
     begin
         v := r;
 
@@ -492,8 +501,15 @@ begin
         -- the low-entropy codes (two per codeword), final accumulator of every band (read one per
         -- cycle, room in the codeword buffer for the reads in flight), a '1' bit after the last
         -------------------------------------------------------------------------------------------
-        TailV_v := false;
-        v.TailV := '0' & r.TailV(1);
+        TailV_v  := false;
+        v.TailV  := '0' & r.TailV(1);
+        Cfg_Done <= '0';
+        -- Bands of the image: the generic or the configuration of the image
+        if RuntimeConfig_g then
+            Nz_v := to_integer(unsigned(Cfg_ZSize));
+        else
+            Nz_v := ZSize_g;
+        end if;
 
         case r.Tail is
             when TIdle_s =>
@@ -523,8 +539,12 @@ begin
 
             when TAcc_s =>
                 -- Reads: the memory delivers the accumulator two cycles later
-                RdAddr <= std_logic_vector(to_unsigned(r.TailRd mod ZSize_g, ZW_c));
-                if r.TailRd < ZSize_g and to_integer(unsigned(FifoLevel)) + 4 <= FifoDepth_c then
+                if RuntimeConfig_g then
+                    RdAddr <= std_logic_vector(to_unsigned(r.TailRd, ZW_c));
+                else
+                    RdAddr <= std_logic_vector(to_unsigned(r.TailRd mod ZSize_g, ZW_c));
+                end if;
+                if r.TailRd < Nz_v and to_integer(unsigned(FifoLevel)) + 4 <= FifoDepth_c then
                     v.TailV(1) := '1';
                     v.TailRd   := r.TailRd + 1;
                 end if;
@@ -532,16 +552,21 @@ begin
                     TailV_v := true;
                     -- Final accumulator from the memory, or the initial one for a band without statistics in
                     -- this image (a single-pixel image, an image that ended before the band was initialised)
-                    UseRom_v     := OnePixel_c or r.TailIdx mod ZSize_g >= r.InitTop;
+                    if RuntimeConfig_g then
+                        Band_v := r.TailIdx;
+                    else
+                        Band_v := r.TailIdx mod ZSize_g;
+                    end if;
+                    UseRom_v     := OnePixel_c or Band_v >= r.InitTop;
                     StatsUse     <= toSl(not UseRom_v);
                     FifoInLength <= std_logic_vector(to_unsigned(AccW_c, CwLenWidth_c));
                     if UseRom_v then
-                        Acc_v := AccRom_c(r.TailIdx mod ZSize_g);
+                        Acc_v := AccRom_c(Band_v);
                     else
                         Acc_v := unsigned(RdData(AccW_c - 1 downto 0));
                     end if;
                     FifoInData <= std_logic_vector(resize(Acc_v, CwWidth_c));
-                    if r.TailIdx mod ZSize_g = ZSize_g - 1 then
+                    if Band_v = Nz_v - 1 then
                         -- Final '1' bit (5.4.3.3.5.4.4); the bit packer appends the fill bits
                         FifoInLength <= std_logic_vector(to_unsigned(AccW_c + 1, CwLenWidth_c));
                         FifoInData   <= std_logic_vector(shift_left(resize(Acc_v, CwWidth_c), 1) or to_unsigned(1, CwWidth_c));
@@ -551,6 +576,7 @@ begin
                         v.Row        := initRows;
                         v.Flush      := NullFlush_c;
                         v.InitTop    := 0;
+                        Cfg_Done     <= '1';
                     else
                         v.TailIdx := r.TailIdx + 1;
                     end if;

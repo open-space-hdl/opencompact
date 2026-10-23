@@ -94,6 +94,10 @@ entity ocp_channel is
         OutWidth_g             : positive                                   := 8;
         Speculation_g          : boolean                                    := true;
         RamStyle_g             : string                                     := "auto";
+        -- Runtime configuration of the image dimensions and error limit values over the AXI4-Lite port
+        -- (ocp_mib, register map section "Runtime configuration"); XSize_g, YSize_g and ZSize_g are the
+        -- maxima
+        RuntimeConfig_g        : boolean                                    := false;
         -- Streams: SDU stream and compressed image stream in bits (8, 16, 32, 64 or 128)
         InStreamWidth_g        : positive                                   := 128;
         OutStreamWidth_g       : positive                                   := 128;
@@ -188,6 +192,19 @@ architecture rtl of ocp_channel is
     -- Error flag of the image whose last word is in the output converter, last beat of the converter
     signal ErrFlag  : std_logic;
     signal ConvLast : std_logic;
+
+    -- Runtime configuration: committed configuration of the MIB, take of the core, values the core took
+    signal CfgXSize    : std_logic_vector(16 downto 0);
+    signal CfgYSize    : std_logic_vector(16 downto 0);
+    signal CfgZSize    : std_logic_vector(16 downto 0);
+    signal CfgAbsLimit : std_logic_vector(15 downto 0);
+    signal CfgRelLimit : std_logic_vector(15 downto 0);
+    signal CfgTaken    : std_logic;
+    signal ActXSize    : std_logic_vector(16 downto 0);
+    signal ActYSize    : std_logic_vector(16 downto 0);
+    signal ActZSize    : std_logic_vector(16 downto 0);
+    signal ActAbsLimit : std_logic_vector(15 downto 0);
+    signal ActRelLimit : std_logic_vector(15 downto 0);
 
 begin
 
@@ -286,6 +303,7 @@ begin
             RestrictedCodes_g      => RestrictedCodes_g,
             RefInterval_g          => RefInterval_g,
             UseInLast_g            => true,
+            RuntimeConfig_g        => RuntimeConfig_g,
             OutWidth_g             => OutWidth_g,
             Speculation_g          => Speculation_g,
             RamStyle_g             => RamStyle_g
@@ -312,7 +330,18 @@ begin
             Ev_ImageError  => Ev_ImageError,
             ErrInj_Channel => ErrInj_Channel,
             ErrInj_Double  => ErrInj_Double,
-            ErrInj_Valid   => ErrInj_Valid
+            ErrInj_Valid   => ErrInj_Valid,
+            Cfg_XSize      => CfgXSize,
+            Cfg_YSize      => CfgYSize,
+            Cfg_ZSize      => CfgZSize,
+            Cfg_AbsLimit   => CfgAbsLimit,
+            Cfg_RelLimit   => CfgRelLimit,
+            Cfg_Taken      => CfgTaken,
+            Act_XSize      => ActXSize,
+            Act_YSize      => ActYSize,
+            Act_ZSize      => ActZSize,
+            Act_AbsLimit   => ActAbsLimit,
+            Act_RelLimit   => ActRelLimit
         );
 
     Ecc_Sec <= EccSec;
@@ -418,7 +447,14 @@ begin
             AccuInit_g             => AccuInit_g,
             BlockSize_g            => BlockSize_g,
             RestrictedCodes_g      => RestrictedCodes_g,
-            RefInterval_g          => RefInterval_g
+            RefInterval_g          => RefInterval_g,
+            AbsBandDependent_g     => AbsBandDependent_g,
+            AbsBitDepth_g          => AbsBitDepth_g,
+            AbsErrorLimits_g       => AbsErrorLimits_g,
+            RelBandDependent_g     => RelBandDependent_g,
+            RelBitDepth_g          => RelBitDepth_g,
+            RelErrorLimits_g       => RelErrorLimits_g,
+            RuntimeConfig_g        => RuntimeConfig_g
         )
         port map (
             Clk               => Clk,
@@ -445,7 +481,18 @@ begin
             Ev_SduError       => EvSduError,
             Ev_SduDiscarded   => EvSduDiscarded,
             Ecc_Sec           => EccSec,
-            Ecc_Ded           => EccDed
+            Ecc_Ded           => EccDed,
+            Cfg_XSize         => CfgXSize,
+            Cfg_YSize         => CfgYSize,
+            Cfg_ZSize         => CfgZSize,
+            Cfg_AbsLimit      => CfgAbsLimit,
+            Cfg_RelLimit      => CfgRelLimit,
+            Cfg_Taken         => CfgTaken,
+            Act_XSize         => ActXSize,
+            Act_YSize         => ActYSize,
+            Act_ZSize         => ActZSize,
+            Act_AbsLimit      => ActAbsLimit,
+            Act_RelLimit      => ActRelLimit
         );
 
 end architecture;

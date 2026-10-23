@@ -10,7 +10,7 @@
 #define OCP_REGS_H
 
 /* Identification */
-#define OCP_REGMAP_ID 0x4F435001u
+#define OCP_REGMAP_ID 0x4F435002u
 
 /* Register addresses */
 #define OCP_ID                0x000u
@@ -31,6 +31,13 @@
 #define OCP_SDUS_DISCARDED    0x04Cu
 #define OCP_ECC_CORRECTED     0x050u
 #define OCP_ECC_UNCORRECTABLE 0x054u
+#define OCP_CONTROL           0x060u
+#define OCP_STATUS            0x064u
+#define OCP_NEXT_X            0x068u
+#define OCP_NEXT_Y            0x06Cu
+#define OCP_NEXT_Z            0x070u
+#define OCP_NEXT_LIMITS       0x074u
+#define OCP_LIMITS            0x078u
 
 /* Fields: position (SHIFT) and mask after the shift (MASK); fields with a generic width have no mask */
 
@@ -45,6 +52,8 @@
 #define OCP_GENERICS_OUT_BYTES_MASK         0xFu
 #define OCP_GENERICS_SAMPLE_BYTES_SHIFT     14u
 #define OCP_GENERICS_SAMPLE_BYTES_MASK      0x7u
+#define OCP_GENERICS_RUNTIME_CONFIG_SHIFT   18u
+#define OCP_GENERICS_RUNTIME_CONFIG_MASK    0x1u
 #define OCP_GENERICS_SPECULATION_SHIFT      17u
 #define OCP_GENERICS_SPECULATION_MASK       0x1u
 
@@ -142,6 +151,33 @@
 #define OCP_ECC_UNCORRECTABLE_COUNT_SHIFT 0u
 #define OCP_ECC_UNCORRECTABLE_COUNT_MASK  0xFFFFFFFFu
 
+#define OCP_CONTROL_COMMIT_SHIFT 0u
+#define OCP_CONTROL_COMMIT_MASK  0x1u
+
+#define OCP_STATUS_CFG_ERROR_SHIFT   1u
+#define OCP_STATUS_CFG_ERROR_MASK    0x1u
+#define OCP_STATUS_CFG_PENDING_SHIFT 0u
+#define OCP_STATUS_CFG_PENDING_MASK  0x1u
+
+#define OCP_NEXT_X_SIZE_SHIFT 0u
+#define OCP_NEXT_X_SIZE_MASK  0x1FFFFu
+
+#define OCP_NEXT_Y_SIZE_SHIFT 0u
+#define OCP_NEXT_Y_SIZE_MASK  0x1FFFFu
+
+#define OCP_NEXT_Z_SIZE_SHIFT 0u
+#define OCP_NEXT_Z_SIZE_MASK  0x1FFFFu
+
+#define OCP_NEXT_LIMITS_REL_SHIFT 16u
+#define OCP_NEXT_LIMITS_REL_MASK  0xFFFFu
+#define OCP_NEXT_LIMITS_ABS_SHIFT 0u
+#define OCP_NEXT_LIMITS_ABS_MASK  0xFFFFu
+
+#define OCP_LIMITS_REL_SHIFT 16u
+#define OCP_LIMITS_REL_MASK  0xFFFFu
+#define OCP_LIMITS_ABS_SHIFT 0u
+#define OCP_LIMITS_ABS_MASK  0xFFFFu
+
 /* Reset values of the registers whose fields all have a fixed reset value */
 #define OCP_IMAGES_DONE_RESET       0x00000000u
 #define OCP_IMAGES_ABORTED_RESET    0x00000000u
@@ -149,5 +185,7 @@
 #define OCP_SDUS_DISCARDED_RESET    0x00000000u
 #define OCP_ECC_CORRECTED_RESET     0x00000000u
 #define OCP_ECC_UNCORRECTABLE_RESET 0x00000000u
+#define OCP_CONTROL_RESET           0x00000000u
+#define OCP_STATUS_RESET            0x00000000u
 
 #endif /* OCP_REGS_H */

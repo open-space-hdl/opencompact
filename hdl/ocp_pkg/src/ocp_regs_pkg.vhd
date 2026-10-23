@@ -25,7 +25,7 @@ package ocp_regs_pkg is
     -----------------------------------------------------------------------------------------------
     -- Identification
     -----------------------------------------------------------------------------------------------
-    constant RegMapId_c : std_logic_vector(31 downto 0) := x"4F435001";
+    constant RegMapId_c : std_logic_vector(31 downto 0) := x"4F435002";
 
     -----------------------------------------------------------------------------------------------
     -- Register addresses (byte addresses)
@@ -48,6 +48,13 @@ package ocp_regs_pkg is
     constant RegSdusDiscarded_c    : natural := 16#04C#;
     constant RegEccCorrected_c     : natural := 16#050#;
     constant RegEccUncorrectable_c : natural := 16#054#;
+    constant RegControl_c          : natural := 16#060#;
+    constant RegStatus_c           : natural := 16#064#;
+    constant RegNextX_c            : natural := 16#068#;
+    constant RegNextY_c            : natural := 16#06C#;
+    constant RegNextZ_c            : natural := 16#070#;
+    constant RegNextLimits_c       : natural := 16#074#;
+    constant RegLimits_c           : natural := 16#078#;
 
     -----------------------------------------------------------------------------------------------
     -- Fields: bit of a one-bit field, lowest and highest bit of a wider field
@@ -64,6 +71,7 @@ package ocp_regs_pkg is
     constant GenericsOutBytesHi_c       : natural := 13;
     constant GenericsSampleBytesLo_c    : natural := 14;
     constant GenericsSampleBytesHi_c    : natural := 16;
+    constant GenericsRuntimeConfig_c    : natural := 18;
     constant GenericsSpeculation_c      : natural := 17;
 
     constant ImageXSizeLo_c : natural := 0;
@@ -153,6 +161,30 @@ package ocp_regs_pkg is
     constant EccUncorrectableCountLo_c : natural := 0;
     constant EccUncorrectableCountHi_c : natural := 31;
 
+    constant ControlCommit_c : natural := 0;
+
+    constant StatusCfgError_c   : natural := 1;
+    constant StatusCfgPending_c : natural := 0;
+
+    constant NextXSizeLo_c : natural := 0;
+    constant NextXSizeHi_c : natural := 16;
+
+    constant NextYSizeLo_c : natural := 0;
+    constant NextYSizeHi_c : natural := 16;
+
+    constant NextZSizeLo_c : natural := 0;
+    constant NextZSizeHi_c : natural := 16;
+
+    constant NextLimitsRelLo_c : natural := 16;
+    constant NextLimitsRelHi_c : natural := 31;
+    constant NextLimitsAbsLo_c : natural := 0;
+    constant NextLimitsAbsHi_c : natural := 15;
+
+    constant LimitsRelLo_c : natural := 16;
+    constant LimitsRelHi_c : natural := 31;
+    constant LimitsAbsLo_c : natural := 0;
+    constant LimitsAbsHi_c : natural := 15;
+
     -----------------------------------------------------------------------------------------------
     -- Reset values of the registers whose fields all have a fixed reset value
     -----------------------------------------------------------------------------------------------
@@ -162,5 +194,7 @@ package ocp_regs_pkg is
     constant RegSdusDiscardedReset_c    : std_logic_vector(31 downto 0) := x"00000000";
     constant RegEccCorrectedReset_c     : std_logic_vector(31 downto 0) := x"00000000";
     constant RegEccUncorrectableReset_c : std_logic_vector(31 downto 0) := x"00000000";
+    constant RegControlReset_c          : std_logic_vector(31 downto 0) := x"00000000";
+    constant RegStatusReset_c           : std_logic_vector(31 downto 0) := x"00000000";
 
 end package;

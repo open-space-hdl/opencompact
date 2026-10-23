@@ -38,10 +38,17 @@
    "AccuInit_g": "4",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x0000000C",
@@ -52,7 +59,8 @@
    "PREDICTOR": "0x00002003",
    "WEIGHTS": "0x0007F60D",
    "ADAPTIVE": "0x00041612",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c02_lossless_bil_column": {
@@ -94,10 +102,17 @@
    "AccuInit_g": "2,3,4,5,6,7,8,9,3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -108,7 +123,8 @@
    "PREDICTOR": "0x00002855",
    "WEIGHTS": "0x0009E50A",
    "ADAPTIVE": "0x000F3810",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c03_lossless_bsq_narrow": {
@@ -150,10 +166,17 @@
    "AccuInit_g": "2",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x0000000A",
@@ -164,7 +187,8 @@
    "PREDICTOR": "0x00002022",
    "WEIGHTS": "0x0105D408",
    "ADAPTIVE": "0x0002250C",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c04_near_abs_hybrid": {
@@ -206,10 +230,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 4,
+   "AbsErrorLimits_g": "2",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -220,7 +251,8 @@
    "PREDICTOR": "0x00033003",
    "WEIGHTS": "0x0007F60E",
    "ADAPTIVE": "0x00002710",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000002"
   }
  },
  "c05_near_rel_bi4_signed": {
@@ -262,10 +294,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": true,
+   "RelBitDepth_g": 8,
+   "RelErrorLimits_g": "16,32,64,8,0,128,24",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x0000000A",
@@ -276,7 +315,8 @@
    "PREDICTOR": "0x00002476",
    "WEIGHTS": "0x010BE50C",
    "ADAPTIVE": "0x00001614",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c06_near_both_block": {
@@ -318,10 +358,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4
+   "RefInterval_g": 4,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 5,
+   "AbsErrorLimits_g": "1,2,3,4,8,12,16,31,0,5",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 10,
+   "RelErrorLimits_g": "40",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -332,7 +379,8 @@
    "PREDICTOR": "0x00044004",
    "WEIGHTS": "0x0008070F",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00000410"
+   "BLOCK": "0x00000410",
+   "LIMITS": "0x00280000"
   }
  },
  "c07_lossless_block_bsq": {
@@ -374,10 +422,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 64,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x00000010",
@@ -388,7 +443,8 @@
    "PREDICTOR": "0x00002001",
    "WEIGHTS": "0x003DA409",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00100040"
+   "BLOCK": "0x00100040",
+   "LIMITS": "0x00000000"
   }
  },
  "c08_restricted_d4": {
@@ -430,10 +486,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 8,
    "RestrictedCodes_g": true,
-   "RefInterval_g": 128
+   "RefInterval_g": 128,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000010",
@@ -444,7 +507,8 @@
    "PREDICTOR": "0x00002002",
    "WEIGHTS": "0x0003C406",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00008088"
+   "BLOCK": "0x00008088",
+   "LIMITS": "0x00000000"
   }
  },
  "c09_custom_weights": {
@@ -486,10 +550,17 @@
    "AccuInit_g": "6",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x0000000C",
@@ -500,7 +571,8 @@
    "PREDICTOR": "0x00002804",
    "WEIGHTS": "0x2B0DE810",
    "ADAPTIVE": "0x00064918",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c10_periodic_limits": {
@@ -542,10 +614,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 5,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 6,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x0000000C",
@@ -556,7 +635,8 @@
    "PREDICTOR": "0x00182803",
    "WEIGHTS": "0x0007F50C",
    "ADAPTIVE": "0x00001612",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c11_wide_d32": {
@@ -598,10 +678,17 @@
    "AccuInit_g": "14",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x00000008",
@@ -612,7 +699,8 @@
    "PREDICTOR": "0x0000400F",
    "WEIGHTS": "0x0013A413",
    "ADAPTIVE": "0x000E8B20",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c12_single_column": {
@@ -654,10 +742,17 @@
    "AccuInit_g": "5",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000040",
@@ -668,7 +763,8 @@
    "PREDICTOR": "0x00002072",
    "WEIGHTS": "0x0005F40B",
    "ADAPTIVE": "0x00051610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c13_single_band_hybrid": {
@@ -710,10 +806,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000030",
    "IMAGE_Y": "0x00000020",
@@ -724,7 +827,8 @@
    "PREDICTOR": "0x00002000",
    "WEIGHTS": "0x0007D40A",
    "ADAPTIVE": "0x0000150C",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c14_supplementary_tables": {
@@ -766,10 +870,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x00000008",
@@ -780,7 +891,8 @@
    "PREDICTOR": "0x00002002",
    "WEIGHTS": "0x0007F50D",
    "ADAPTIVE": "0x00032610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c15_noise_escape": {
@@ -822,10 +934,17 @@
    "AccuInit_g": "0",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -836,7 +955,8 @@
    "PREDICTOR": "0x00002001",
    "WEIGHTS": "0x0013A408",
    "ADAPTIVE": "0x00001408",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c16_hybrid_low_entropy": {
@@ -878,10 +998,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 8,
+   "AbsErrorLimits_g": "0,3,6,12,24,48,96,160,255",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x00000010",
@@ -892,7 +1019,8 @@
    "PREDICTOR": "0x00002002",
    "WEIGHTS": "0x0007E40A",
    "ADAPTIVE": "0x0000150C",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c17_block_zero_runs": {
@@ -934,10 +1062,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 8,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 70
+   "RefInterval_g": 70,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000018",
@@ -948,7 +1083,8 @@
    "PREDICTOR": "0x00002001",
    "WEIGHTS": "0x003DA408",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00004608"
+   "BLOCK": "0x00004608",
+   "LIMITS": "0x00000000"
   }
  },
  "c18_block_d24_mixed": {
@@ -990,10 +1126,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 32,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -1004,7 +1147,8 @@
    "PREDICTOR": "0x00003002",
    "WEIGHTS": "0x0009E40C",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00100020"
+   "BLOCK": "0x00100020",
+   "LIMITS": "0x00000000"
   }
  },
  "c19_block_restricted_d2": {
@@ -1046,10 +1190,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": true,
-   "RefInterval_g": 8
+   "RefInterval_g": 8,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x00000010",
@@ -1060,7 +1211,8 @@
    "PREDICTOR": "0x00282002",
    "WEIGHTS": "0x0013A404",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00000890"
+   "BLOCK": "0x00000890",
+   "LIMITS": "0x00000000"
   }
  },
  "c20_hybrid_d28": {
@@ -1102,10 +1254,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x0000000A",
@@ -1116,7 +1275,8 @@
    "PREDICTOR": "0x00003203",
    "WEIGHTS": "0x0007F50E",
    "ADAPTIVE": "0x00005A18",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c21_sample_periodic": {
@@ -1158,10 +1318,17 @@
    "AccuInit_g": "5",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 4,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": true,
+   "RelBitDepth_g": 7,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x00000008",
@@ -1172,7 +1339,8 @@
    "PREDICTOR": "0x00082452",
    "WEIGHTS": "0x0007E40B",
    "ADAPTIVE": "0x0005260E",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c22_single_pixel_hybrid": {
@@ -1214,10 +1382,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000001",
@@ -1228,7 +1403,8 @@
    "PREDICTOR": "0x00002072",
    "WEIGHTS": "0x0005F408",
    "ADAPTIVE": "0x00003610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c23_extreme_weights": {
@@ -1270,10 +1446,17 @@
    "AccuInit_g": "1",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -1284,7 +1467,8 @@
    "PREDICTOR": "0x00002002",
    "WEIGHTS": "0x0135AB13",
    "ADAPTIVE": "0x00011408",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c24_reduced_p0": {
@@ -1326,10 +1510,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 8,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 16
+   "RefInterval_g": 16,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -1340,7 +1531,8 @@
    "PREDICTOR": "0x00002050",
    "WEIGHTS": "0x0005F408",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00001008"
+   "BLOCK": "0x00001008",
+   "LIMITS": "0x00000000"
   }
  },
  "c25_tp_bsq_lossless": {
@@ -1382,10 +1574,17 @@
    "AccuInit_g": "5",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x0000000C",
@@ -1396,7 +1595,8 @@
    "PREDICTOR": "0x00003033",
    "WEIGHTS": "0x0007F613",
    "ADAPTIVE": "0x00051612",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c26_tp_bil_near_abs": {
@@ -1438,10 +1638,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 10,
+   "AbsErrorLimits_g": "12",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000008",
@@ -1452,7 +1659,8 @@
    "PREDICTOR": "0x00023073",
    "WEIGHTS": "0x0007F613",
    "ADAPTIVE": "0x00002610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x0000000C"
   }
  },
  "c27_tp_bip_full": {
@@ -1494,10 +1702,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 32
+   "RefInterval_g": 32,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -1508,7 +1723,8 @@
    "PREDICTOR": "0x00004003",
    "WEIGHTS": "0x0007F613",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00002010"
+   "BLOCK": "0x00002010",
+   "LIMITS": "0x00000000"
   }
  },
  "c28_tp_bsq_near_abs": {
@@ -1550,10 +1766,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 6,
+   "AbsErrorLimits_g": "3",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000006",
@@ -1564,7 +1787,8 @@
    "PREDICTOR": "0x00003032",
    "WEIGHTS": "0x0007E50F",
    "ADAPTIVE": "0x00031610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000003"
   }
  },
  "c29_tp_bip_near_stride": {
@@ -1606,10 +1830,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 4,
+   "AbsErrorLimits_g": "2",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x00000006",
@@ -1620,7 +1851,8 @@
    "PREDICTOR": "0x00023003",
    "WEIGHTS": "0x0007F50E",
    "ADAPTIVE": "0x00031610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000002"
   }
  },
  "c30_tp_bip_both_stride": {
@@ -1662,10 +1894,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 6,
+   "AbsErrorLimits_g": "20",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 8,
+   "RelErrorLimits_g": "30",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000A",
    "IMAGE_Y": "0x00000005",
@@ -1676,7 +1915,8 @@
    "PREDICTOR": "0x00003072",
    "WEIGHTS": "0x0007F50D",
    "ADAPTIVE": "0x00002610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x001E0014"
   }
  },
  "c31_small_bi_periodic_abs": {
@@ -1718,10 +1958,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 3,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000004",
@@ -1732,7 +1979,8 @@
    "PREDICTOR": "0x00082802",
    "WEIGHTS": "0x0007F40C",
    "ADAPTIVE": "0x00031610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c32_small_bip_periodic_rel": {
@@ -1774,10 +2022,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": true,
+   "RelBitDepth_g": 5,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000004",
@@ -1788,7 +2043,8 @@
    "PREDICTOR": "0x00182853",
    "WEIGHTS": "0x0007F40B",
    "ADAPTIVE": "0x00002610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c33_small_bip_stride_block": {
@@ -1830,10 +2086,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 8,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4
+   "RefInterval_g": 4,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 4,
+   "AbsErrorLimits_g": "3",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x00000004",
@@ -1844,7 +2107,8 @@
    "PREDICTOR": "0x00023002",
    "WEIGHTS": "0x0007F50D",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00000408"
+   "BLOCK": "0x00000408",
+   "LIMITS": "0x00000003"
   }
  },
  "c34_small_bsq_lossless": {
@@ -1886,10 +2150,17 @@
    "AccuInit_g": "2",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000008",
    "IMAGE_Y": "0x00000004",
@@ -1900,7 +2171,8 @@
    "PREDICTOR": "0x00002002",
    "WEIGHTS": "0x0007E40A",
    "ADAPTIVE": "0x0002150C",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c35_small_bil_periodic_spec": {
@@ -1942,10 +2214,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 3,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000004",
@@ -1956,7 +2235,8 @@
    "PREDICTOR": "0x00082832",
    "WEIGHTS": "0x0007F40C",
    "ADAPTIVE": "0x00031610",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "c36_block_j64_spikes": {
@@ -1998,10 +2278,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 64,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000040",
    "IMAGE_Y": "0x00000008",
@@ -2012,7 +2299,8 @@
    "PREDICTOR": "0x00002010",
    "WEIGHTS": "0x0005F408",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00100040"
+   "BLOCK": "0x00100040",
+   "LIMITS": "0x00000000"
   }
  },
  "c37_block_d32_custom": {
@@ -2054,10 +2342,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x00000008",
    "IMAGE_Y": "0x00000004",
@@ -2068,7 +2363,8 @@
    "PREDICTOR": "0x00004001",
    "WEIGHTS": "0x5A07F413",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00100010"
+   "BLOCK": "0x00100010",
+   "LIMITS": "0x00000000"
   }
  },
  "c38_header_bounds": {
@@ -2110,10 +2406,17 @@
    "AccuInit_g": "14",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 16,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": true,
+   "RelBitDepth_g": 16,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000003",
@@ -2124,7 +2427,8 @@
    "PREDICTOR": "0x00983032",
    "WEIGHTS": "0x0007F410",
    "ADAPTIVE": "0x000E7820",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r01_random": {
@@ -2166,10 +2470,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 14,
+   "RelErrorLimits_g": "7264",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000008",
    "IMAGE_Y": "0x00000002",
@@ -2180,7 +2491,8 @@
    "PREDICTOR": "0x00002117",
    "WEIGHTS": "0x00124407",
    "ADAPTIVE": "0x00004613",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x1C600000"
   }
  },
  "r02_random": {
@@ -2222,10 +2534,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 6,
+   "AbsErrorLimits_g": "46",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 8,
+   "RelErrorLimits_g": "204",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000A",
    "IMAGE_Y": "0x0000000B",
@@ -2236,7 +2555,8 @@
    "PREDICTOR": "0x00002A60",
    "WEIGHTS": "0x2F0E660E",
    "ADAPTIVE": "0x00004717",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00CC0000"
   }
  },
  "r03_random": {
@@ -2278,10 +2598,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 32,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 1
+   "RefInterval_g": 1,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "1,1,1,1,1,0,1,0,0,0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x00000015",
    "IMAGE_Y": "0x00000001",
@@ -2292,7 +2619,8 @@
    "PREDICTOR": "0x00033D04",
    "WEIGHTS": "0x000E6508",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00000120"
+   "BLOCK": "0x00000120",
+   "LIMITS": "0x00000000"
   }
  },
  "r04_random": {
@@ -2334,10 +2662,17 @@
    "AccuInit_g": "0,0,0,0",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0,1,0,1",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "1",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x00000009",
@@ -2348,7 +2683,8 @@
    "PREDICTOR": "0x001B3015",
    "WEIGHTS": "0x0106080C",
    "ADAPTIVE": "0x000F8A1C",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00010000"
   }
  },
  "r05_random": {
@@ -2390,10 +2726,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000005",
@@ -2404,7 +2747,8 @@
    "PREDICTOR": "0x00003856",
    "WEIGHTS": "0x01062611",
    "ADAPTIVE": "0x00002812",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r06_random": {
@@ -2446,10 +2790,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 16
+   "RefInterval_g": 16,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 3,
+   "AbsErrorLimits_g": "4",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000004",
    "IMAGE_Y": "0x00000006",
@@ -2460,7 +2811,8 @@
    "PREDICTOR": "0x0001303F",
    "WEIGHTS": "0x0007D511",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00001010"
+   "BLOCK": "0x00001010",
+   "LIMITS": "0x00000000"
   }
  },
  "r07_random": {
@@ -2502,10 +2854,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000002",
@@ -2516,7 +2875,8 @@
    "PREDICTOR": "0x00002C6D",
    "WEIGHTS": "0x003FC50B",
    "ADAPTIVE": "0x0000140F",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r08_random": {
@@ -2558,10 +2918,17 @@
    "AccuInit_g": "4",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 4,
+   "AbsErrorLimits_g": "12",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 6,
+   "RelErrorLimits_g": "33",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x0000000E",
    "IMAGE_Y": "0x0000000D",
@@ -2572,7 +2939,8 @@
    "PREDICTOR": "0x0001256F",
    "WEIGHTS": "0x00060B13",
    "ADAPTIVE": "0x00042717",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00210000"
   }
  },
  "r09_random": {
@@ -2614,10 +2982,17 @@
    "AccuInit_g": "12,4",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000D",
    "IMAGE_Y": "0x00000004",
@@ -2628,7 +3003,8 @@
    "PREDICTOR": "0x00002A3E",
    "WEIGHTS": "0x0101F411",
    "ADAPTIVE": "0x000F4B1F",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r10_random": {
@@ -2670,10 +3046,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 64,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 100
+   "RefInterval_g": 100,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x0000000D",
@@ -2684,7 +3067,8 @@
    "PREDICTOR": "0x00003F78",
    "WEIGHTS": "0x0003F912",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00006440"
+   "BLOCK": "0x00006440",
+   "LIMITS": "0x00000000"
   }
  },
  "r11_random": {
@@ -2726,10 +3110,17 @@
    "AccuInit_g": "0",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x00000004",
@@ -2740,7 +3131,8 @@
    "PREDICTOR": "0x00003D02",
    "WEIGHTS": "0x1A10190A",
    "ADAPTIVE": "0x00005915",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r12_random": {
@@ -2782,10 +3174,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 16
+   "RefInterval_g": 16,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000017",
    "IMAGE_Y": "0x00000007",
@@ -2796,7 +3195,8 @@
    "PREDICTOR": "0x0000242B",
    "WEIGHTS": "0x000BB90A",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00001010"
+   "BLOCK": "0x00001010",
+   "LIMITS": "0x00000000"
   }
  },
  "r13_random": {
@@ -2838,10 +3238,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 64,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 2
+   "RefInterval_g": 2,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 2,
+   "AbsErrorLimits_g": "1,3,3,1,2,1",
+   "RelBandDependent_g": true,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "1,1,1,1,1,1",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000017",
    "IMAGE_Y": "0x00000002",
@@ -2852,7 +3259,8 @@
    "PREDICTOR": "0x00003768",
    "WEIGHTS": "0x00129A0B",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00000240"
+   "BLOCK": "0x00000240",
+   "LIMITS": "0x00000000"
   }
  },
  "r14_random": {
@@ -2894,10 +3302,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": true,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "1,1",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000001",
@@ -2908,7 +3323,8 @@
    "PREDICTOR": "0x00012653",
    "WEIGHTS": "0x00125B07",
    "ADAPTIVE": "0x00003A19",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r15_random": {
@@ -2950,10 +3366,17 @@
    "AccuInit_g": "0,0,0,0,0,0,0,0,0",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": true,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0,0,1,0,1,0,1,1,0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000002",
    "IMAGE_Y": "0x00000002",
@@ -2964,7 +3387,8 @@
    "PREDICTOR": "0x0000306A",
    "WEIGHTS": "0x3A0A290F",
    "ADAPTIVE": "0x000F6A20",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r16_random": {
@@ -3006,10 +3430,17 @@
    "AccuInit_g": "4",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": true,
+   "RelBitDepth_g": 3,
+   "RelErrorLimits_g": "0,4",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x0000000D",
@@ -3020,7 +3451,8 @@
    "PREDICTOR": "0x0000375E",
    "WEIGHTS": "0x000E180D",
    "ADAPTIVE": "0x00046A0F",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r17_random": {
@@ -3062,10 +3494,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000017",
    "IMAGE_Y": "0x00000010",
@@ -3076,7 +3515,8 @@
    "PREDICTOR": "0x00003521",
    "WEIGHTS": "0x0013E50A",
    "ADAPTIVE": "0x00003A1D",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r18_random": {
@@ -3118,10 +3558,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 64,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 100
+   "RefInterval_g": 100,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x0000000A",
    "IMAGE_Y": "0x00000001",
@@ -3132,7 +3579,8 @@
    "PREDICTOR": "0x00022C3F",
    "WEIGHTS": "0x01129708",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00006440"
+   "BLOCK": "0x00006440",
+   "LIMITS": "0x00000000"
   }
  },
  "r19_random": {
@@ -3174,10 +3622,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 64,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 2
+   "RefInterval_g": 2,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000003",
@@ -3188,7 +3643,8 @@
    "PREDICTOR": "0x00043D06",
    "WEIGHTS": "0x01126512",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00000240"
+   "BLOCK": "0x00000240",
+   "LIMITS": "0x00000000"
   }
  },
  "r20_random": {
@@ -3230,10 +3686,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 8,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 5
+   "RefInterval_g": 5,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 7,
+   "RelErrorLimits_g": "8",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x0000000B",
@@ -3244,7 +3707,8 @@
    "PREDICTOR": "0x00012C4E",
    "WEIGHTS": "0x00084A0A",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00000508"
+   "BLOCK": "0x00000508",
+   "LIMITS": "0x00080000"
   }
  },
  "r21_random": {
@@ -3286,10 +3750,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000002",
    "IMAGE_Y": "0x00000001",
@@ -3300,7 +3771,8 @@
    "PREDICTOR": "0x0004277D",
    "WEIGHTS": "0x17084905",
    "ADAPTIVE": "0x0000590F",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r22_random": {
@@ -3342,10 +3814,17 @@
    "AccuInit_g": "2,2,1,3,0,0,1",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x0000000B",
@@ -3356,7 +3835,8 @@
    "PREDICTOR": "0x00042101",
    "WEIGHTS": "0x12107809",
    "ADAPTIVE": "0x000F3A08",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  },
  "r23_random": {
@@ -3398,10 +3878,17 @@
    "AccuInit_g": "3",
    "BlockSize_g": 32,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 100
+   "RefInterval_g": 100,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000B",
    "IMAGE_Y": "0x00000003",
@@ -3412,7 +3899,8 @@
    "PREDICTOR": "0x00002600",
    "WEIGHTS": "0x010FAB12",
    "ADAPTIVE": "0x00000000",
-   "BLOCK": "0x00006420"
+   "BLOCK": "0x00006420",
+   "LIMITS": "0x00000000"
   }
  },
  "r24_random": {
@@ -3454,10 +3942,17 @@
    "AccuInit_g": "10",
    "BlockSize_g": 16,
    "RestrictedCodes_g": false,
-   "RefInterval_g": 4096
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": false
   },
   "words": {
-   "ID": "0x4F435001",
+   "ID": "0x4F435002",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000007",
    "IMAGE_Y": "0x00000006",
@@ -3468,7 +3963,328 @@
    "PREDICTOR": "0x00003262",
    "WEIGHTS": "0x000DE80B",
    "ADAPTIVE": "0x000A3B12",
-   "BLOCK": "0x00000000"
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
+  }
+ },
+ "rc01_bi_m1_sample": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 16,
+   "YSize_g": 12,
+   "ZSize_g": 8,
+   "DynamicRange_g": 12,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BI",
+   "SubFrameDepth_g": 1,
+   "OutputWordSize_g": 2,
+   "EntropyCoder_g": "SAMPLE_ADAPTIVE",
+   "Fidelity_g": "LOSSLESS",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 3,
+   "PredictionMode_g": "FULL",
+   "LocalSum_g": "WIDE_NEIGHBOR",
+   "RegisterSize_g": 32,
+   "SampleRepResolution_g": 0,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 13,
+   "WeightUpdateInterval_g": 5,
+   "WeightUpdateVmin_g": -1,
+   "WeightUpdateVmax_g": 3,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 16,
+   "RescaleCounterSize_g": 6,
+   "InitialCountExp_g": 1,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "3",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": true
+  },
+  "words": {
+   "ID": "0x4F435002",
+   "GENERICS": "0x0006A210",
+   "IMAGE_X": "0x00000010",
+   "IMAGE_Y": "0x0000000C",
+   "IMAGE_Z": "0x00000008",
+   "SAMPLES": "0x0000000C",
+   "ORDER": "0x00000100",
+   "CODER": "0x00000002",
+   "PREDICTOR": "0x00002003",
+   "WEIGHTS": "0x0007F50D",
+   "ADAPTIVE": "0x00031610",
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
+  }
+ },
+ "rc02_bi_mnz_hybrid_abs": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 12,
+   "YSize_g": 8,
+   "ZSize_g": 10,
+   "DynamicRange_g": 14,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BI",
+   "SubFrameDepth_g": 10,
+   "OutputWordSize_g": 4,
+   "EntropyCoder_g": "HYBRID",
+   "Fidelity_g": "ABSOLUTE",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 3,
+   "PredictionMode_g": "FULL",
+   "LocalSum_g": "WIDE_NEIGHBOR",
+   "RegisterSize_g": 48,
+   "SampleRepResolution_g": 2,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 14,
+   "WeightUpdateInterval_g": 6,
+   "WeightUpdateVmin_g": -1,
+   "WeightUpdateVmax_g": 3,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 18,
+   "RescaleCounterSize_g": 6,
+   "InitialCountExp_g": 2,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "3",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 6,
+   "AbsErrorLimits_g": "3",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": true
+  },
+  "words": {
+   "ID": "0x4F435002",
+   "GENERICS": "0x0006A210",
+   "IMAGE_X": "0x0000000C",
+   "IMAGE_Y": "0x00000008",
+   "IMAGE_Z": "0x0000000A",
+   "SAMPLES": "0x0000000E",
+   "ORDER": "0x00000A00",
+   "CODER": "0x00000054",
+   "PREDICTOR": "0x00023003",
+   "WEIGHTS": "0x0007F60E",
+   "ADAPTIVE": "0x00002612",
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000003"
+  }
+ },
+ "rc03_bsq_block_rel": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 10,
+   "YSize_g": 10,
+   "ZSize_g": 6,
+   "DynamicRange_g": 16,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BSQ",
+   "SubFrameDepth_g": 1,
+   "OutputWordSize_g": 1,
+   "EntropyCoder_g": "BLOCK_ADAPTIVE",
+   "Fidelity_g": "RELATIVE",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 2,
+   "PredictionMode_g": "FULL",
+   "LocalSum_g": "NARROW_NEIGHBOR",
+   "RegisterSize_g": 40,
+   "SampleRepResolution_g": 0,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 12,
+   "WeightUpdateInterval_g": 5,
+   "WeightUpdateVmin_g": -2,
+   "WeightUpdateVmax_g": 4,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 16,
+   "RescaleCounterSize_g": 6,
+   "InitialCountExp_g": 1,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "3",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 8,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 8,
+   "RelErrorLimits_g": "20",
+   "RuntimeConfig_g": true
+  },
+  "words": {
+   "ID": "0x4F435002",
+   "GENERICS": "0x0006A210",
+   "IMAGE_X": "0x0000000A",
+   "IMAGE_Y": "0x0000000A",
+   "IMAGE_Z": "0x00000006",
+   "SAMPLES": "0x00000010",
+   "ORDER": "0x00000001",
+   "CODER": "0x000000A1",
+   "PREDICTOR": "0x00002822",
+   "WEIGHTS": "0x0009E50C",
+   "ADAPTIVE": "0x00000000",
+   "BLOCK": "0x00000810",
+   "LIMITS": "0x00140000"
+  }
+ },
+ "rc04_bi_m4_sample_both": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 16,
+   "YSize_g": 8,
+   "ZSize_g": 12,
+   "DynamicRange_g": 16,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BI",
+   "SubFrameDepth_g": 4,
+   "OutputWordSize_g": 3,
+   "EntropyCoder_g": "SAMPLE_ADAPTIVE",
+   "Fidelity_g": "ABSOLUTE_RELATIVE",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 4,
+   "PredictionMode_g": "FULL",
+   "LocalSum_g": "WIDE_NEIGHBOR",
+   "RegisterSize_g": 48,
+   "SampleRepResolution_g": 0,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 13,
+   "WeightUpdateInterval_g": 6,
+   "WeightUpdateVmin_g": -1,
+   "WeightUpdateVmax_g": 3,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 16,
+   "RescaleCounterSize_g": 6,
+   "InitialCountExp_g": 1,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "4",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 5,
+   "AbsErrorLimits_g": "4",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 9,
+   "RelErrorLimits_g": "64",
+   "RuntimeConfig_g": true
+  },
+  "words": {
+   "ID": "0x4F435002",
+   "GENERICS": "0x0006A210",
+   "IMAGE_X": "0x00000010",
+   "IMAGE_Y": "0x00000008",
+   "IMAGE_Z": "0x0000000C",
+   "SAMPLES": "0x00000010",
+   "ORDER": "0x00000400",
+   "CODER": "0x000000C3",
+   "PREDICTOR": "0x00003004",
+   "WEIGHTS": "0x0007F60D",
+   "ADAPTIVE": "0x00041610",
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00400004"
+  }
+ },
+ "rc05_bsq_column_hybrid": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 8,
+   "YSize_g": 8,
+   "ZSize_g": 5,
+   "DynamicRange_g": 10,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BSQ",
+   "SubFrameDepth_g": 1,
+   "OutputWordSize_g": 2,
+   "EntropyCoder_g": "HYBRID",
+   "Fidelity_g": "LOSSLESS",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 2,
+   "PredictionMode_g": "REDUCED",
+   "LocalSum_g": "WIDE_COLUMN",
+   "RegisterSize_g": 32,
+   "SampleRepResolution_g": 0,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 11,
+   "WeightUpdateInterval_g": 4,
+   "WeightUpdateVmin_g": -1,
+   "WeightUpdateVmax_g": 3,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 14,
+   "RescaleCounterSize_g": 5,
+   "InitialCountExp_g": 1,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "3",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "RuntimeConfig_g": true
+  },
+  "words": {
+   "ID": "0x4F435002",
+   "GENERICS": "0x0006A210",
+   "IMAGE_X": "0x00000008",
+   "IMAGE_Y": "0x00000008",
+   "IMAGE_Z": "0x00000005",
+   "SAMPLES": "0x0000000A",
+   "ORDER": "0x00000001",
+   "CODER": "0x00000012",
+   "PREDICTOR": "0x00002052",
+   "WEIGHTS": "0x0007F40B",
+   "ADAPTIVE": "0x0000150E",
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000000"
   }
  }
 }

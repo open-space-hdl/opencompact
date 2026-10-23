@@ -32,6 +32,9 @@ library ieee;
     use ieee.std_logic_1164.all;
     use ieee.numeric_std.all;
 
+library std;
+    use std.textio.all;
+
 library uvvm_util;
     context uvvm_util.uvvm_util_context;
 
@@ -128,7 +131,9 @@ entity ocp_channel_tb is
         HybridAccuInitHigh_g   : string   := "0";
         BlockSize_g            : positive := 16;
         RestrictedCodes_g      : boolean  := false;
-        RefInterval_g          : positive := 4096
+        RefInterval_g          : positive := 4096;
+        -- Runtime configuration (test_runtime): the images of tb/golden/<config>/runtime.txt
+        RuntimeConfig_g        : boolean  := false
     );
 end entity;
 
@@ -174,6 +179,36 @@ architecture sim of ocp_channel_tb is
     constant PkDepth_c     : positive := 64;
 
     type PkArr_t is array (0 to PkDepth_c - 1) of natural;
+
+    function twoDigits (k : natural) return string is
+    begin
+        if k < 10 then
+            return "0" & to_string(k);
+        end if;
+        return to_string(k);
+    end function;
+
+    -- Runtime configuration: values of image k of runtime.txt (driven NX, NY, NZ, absolute and relative
+    -- limit, then the values taken)
+    impure function rtValues (k : natural) return integer_vector is
+        variable Line_v : line;
+        variable V_v    : integer_vector(0 to 9);
+
+        file Rt_f : text;
+    begin
+        file_open(Rt_f, GoldenDir_g & "/runtime.txt", read_mode);
+
+        for i in 0 to k loop
+            readline(Rt_f, Line_v);
+        end loop;
+
+        for i in V_v'range loop
+            read(Line_v, V_v(i));
+        end loop;
+
+        file_close(Rt_f);
+        return V_v;
+    end function;
 
     -- Sample with the early end of an aborted image (the positions of AbortPos_g in turn)
     function abortPos (i : natural) return natural is
@@ -230,9 +265,13 @@ architecture sim of ocp_channel_tb is
     signal SrcDone   : natural  := 0;
     signal Pk        : PkArr_t;
     signal PkPos     : PkArr_t;
-    signal PkCount   : natural  := 0;
-    signal PkChecked : natural  := 0;
-    signal PkDrop    : boolean  := false;
+    -- Runtime configuration: image of runtime.txt that the images of the next job use (-1: image.raw),
+    -- per expected packet the image plus 1 (0: compressed.bin)
+    signal RtImg     : integer := -1;
+    signal PkImg     : PkArr_t;
+    signal PkCount   : natural := 0;
+    signal PkChecked : natural := 0;
+    signal PkDrop    : boolean := false;
 
     -- Expected counter steps of the source model
     signal ExpDone    : natural := 0;
@@ -315,7 +354,8 @@ begin
             UserWidth_g            => UserWidth_c,
             UserLastMask_g         => LastMask_c,
             UserLastValue_g        => LastValue_c,
-            UserErrorMask_g        => ErrorMask_c
+            UserErrorMask_g        => ErrorMask_c,
+            RuntimeConfig_g        => RuntimeConfig_g
         )
         port map (
             Clk               => Clk,
@@ -395,6 +435,7 @@ begin
         variable Channels_v : integer_vector(0 to 15);
         variable NCh_v      : natural;
         variable D_v        : std_logic_vector(31 downto 0);
+        variable V_v        : integer_vector(0 to 9);
 
         procedure syncClk is
         begin
@@ -420,13 +461,20 @@ begin
 
         -- Runs a job and waits until the sink has checked every expected packet; a job that does not end
         -- within its time limit fails the test (watchdog)
-        procedure job (images : positive; plan : Plan_t) is
-            variable Cycles_v : natural := 0;
+        procedure startJob (images : positive; plan : Plan_t) is
         begin
             JobImages <= images;
             JobPlan   <= plan;
             Job_v     := Job_v + 1;
             JobStart  <= Job_v;
+        end procedure;
+
+        procedure job (images : positive; plan : Plan_t; started : boolean := false) is
+            variable Cycles_v : natural := 0;
+        begin
+            if not started then
+                startJob(images, plan);
+            end if;
             wait until SrcDone = Job_v for images * (Samples_c * 400 + 50000) * ClkPeriod_c;
             check_value(SrcDone = Job_v, ERROR, "job " & to_string(Job_v) & ": the source ends within its time limit");
 
@@ -454,6 +502,32 @@ begin
             chk(RegSdusDiscarded_c, ExpDisc, msg & ": SDUS_DISCARDED");
         end procedure;
 
+        -- Runtime configuration: pending values (NEXT_X to NEXT_LIMITS) and COMMIT
+        procedure configure (x : natural; y : natural; z : natural; a : natural; r : natural) is
+        begin
+            regWrite(AXILITE_VVCT, Axi_c, RegNextX_c, std_logic_vector(to_unsigned(x, 32)));
+            regWrite(AXILITE_VVCT, Axi_c, RegNextY_c, std_logic_vector(to_unsigned(y, 32)));
+            regWrite(AXILITE_VVCT, Axi_c, RegNextZ_c, std_logic_vector(to_unsigned(z, 32)));
+            regWrite(AXILITE_VVCT, Axi_c, RegNextLimits_c, std_logic_vector(to_unsigned(r, 16)) &
+                                                            std_logic_vector(to_unsigned(a, 16)));
+            regWrite(AXILITE_VVCT, Axi_c, RegControl_c, x"00000001");
+        end procedure;
+
+        -- The active registers show the values of image k of runtime.txt (MB-RC-04)
+        procedure chkActive (k : natural; msg : string) is
+            constant V_c : integer_vector(0 to 9) := rtValues(k);
+            variable M_v : natural                := 0;
+        begin
+            chk(RegImageX_c, V_c(5), msg & ": IMAGE_X");
+            chk(RegImageY_c, V_c(6), msg & ": IMAGE_Y");
+            chk(RegImageZ_c, V_c(7), msg & ": IMAGE_Z");
+            chk(RegLimits_c, V_c(9) * 65536 + V_c(8), msg & ": LIMITS");
+            if EncodingOrder_g = "BI" then
+                M_v := minimum(SubFrameDepth_g, V_c(7));
+            end if;
+            chk(RegOrder_c, M_v * 256 + toInt(EncodingOrder_g = "BSQ"), msg & ": ORDER");
+        end procedure;
+
         procedure inject (channel : natural; double : std_logic) is
         begin
             ErrInj_Channel <= std_logic_vector(to_unsigned(channel, 4));
@@ -475,7 +549,7 @@ begin
 
         while test_suite loop
             if run("test_golden") then
-                chk(RegId_c, 16#4F435001#, "ID");
+                chk(RegId_c, 16#4F435002#, "ID");
                 job(Images_g, (others => Normal_c));
                 check_value(ExpDone, Images_g, ERROR, "model: images done");
                 chkCounters("correct images");
@@ -516,6 +590,42 @@ begin
                     check_value(unsigned(D_v) > 0, ERROR,
                                 "channel " & to_string(Channels_v(i)) & ": ECC_UNCORRECTABLE");
                 end loop;
+
+            elsif run("test_runtime") then
+                -- Configuration A (image 0 of runtime.txt), committed before its image
+                V_v   := rtValues(0);
+                configure(V_v(0), V_v(1), V_v(2), V_v(3), V_v(4));
+                chk(RegStatus_c, 1, "configuration A committed: CFG_PENDING");
+                RtImg <= 0;
+                startJob(1, (others => Normal_c));
+
+                -- Configuration B committed while the image of A is compressed: once the core has taken A
+                loop
+                    regRead(AXILITE_VVCT, Axi_c, RegStatus_c, D_v);
+                    exit when D_v(0) = '0';
+                end loop;
+
+                chkActive(0, "image A started");
+                V_v := rtValues(1);
+                configure(V_v(0), V_v(1), V_v(2), V_v(3), V_v(4));
+                chk(RegStatus_c, 1, "configuration B committed while the image of A is compressed");
+                job(1, (others => Normal_c), true);
+                chkActive(0, "after image A");
+                chk(RegStatus_c, 1, "after image A: B pending");
+                -- Image B with configuration B
+                RtImg <= 1;
+                job(1, (others => Normal_c));
+                chkActive(1, "after image B");
+                chk(RegStatus_c, 0, "after image B: nothing pending");
+                -- Configuration C out of range: rejected, the next image uses B
+                configure(XSize_g + 1, V_v(1), V_v(2), V_v(3), V_v(4));
+                chk(RegStatus_c, 2, "configuration C rejected: CFG_ERROR");
+                regWrite(AXILITE_VVCT, Axi_c, RegStatus_c, x"00000002");
+                chk(RegStatus_c, 0, "CFG_ERROR cleared");
+                job(1, (others => Normal_c));
+                chkActive(1, "after the image after C");
+                chk(RegStatus_c, 0, "after the image after C: nothing pending");
+                chkCounters("runtime configuration");
 
             elsif run("test_reset") then
                 job(1, (others => Normal_c));
@@ -572,6 +682,7 @@ begin
         begin
             Pk(Pk_v mod PkDepth_c)    <= kind;
             PkPos(Pk_v mod PkDepth_c) <= pos;
+            PkImg(Pk_v mod PkDepth_c) <= RtImg + 1;
             Pk_v                      := Pk_v + 1;
             PkCount                   <= Pk_v;
             if kind = PkGolden_c or kind = PkAny_c then
@@ -674,6 +785,8 @@ begin
         variable Rem_v     : natural;
         variable Swallow_v : boolean;
         variable Resets_v  : natural := 0;
+        variable N_v       : positive;
+        variable Rt_v      : integer_vector(0 to 9);
     begin
         wait on JobStart;
         Abort_v   := false;
@@ -700,16 +813,22 @@ begin
                 Split_v := Pos_v + 1;
             end if;
             NSdu_v := 0;
-            Rem_v  := Samples_c;
-            Got_v  := 0;
-            J_v    := 0;
+            -- Samples of the image (runtime configuration: the dimensions of the image of runtime.txt)
+            N_v := Samples_c;
+            if RtImg >= 0 then
+                Rt_v := rtValues(RtImg);
+                N_v  := Rt_v(5) * Rt_v(6) * Rt_v(7);
+            end if;
+            Rem_v := N_v;
+            Got_v := 0;
+            J_v   := 0;
 
             while Rem_v > 0 loop
                 NSdu_v := NSdu_v + 1;
                 if random(0, 9) = 0 then
                     Sizes_v(NSdu_v) := 1;
                 else
-                    Sizes_v(NSdu_v) := minimum(Rem_v, random(1, minimum(MaxSdu_g, maximum(1, Samples_c / 3))));
+                    Sizes_v(NSdu_v) := minimum(Rem_v, random(1, minimum(MaxSdu_g, maximum(1, N_v / 3))));
                 end if;
                 if Got_v < Split_v then
                     Sizes_v(NSdu_v) := minimum(Sizes_v(NSdu_v), Split_v - Got_v);
@@ -749,7 +868,11 @@ begin
             end case;
 
             -- SDUs of the image
-            file_open(Img_f, GoldenDir_g & "/image.raw", read_mode);
+            if RtImg >= 0 then
+                file_open(Img_f, GoldenDir_g & "/image_" & twoDigits(RtImg) & ".raw", read_mode);
+            else
+                file_open(Img_f, GoldenDir_g & "/image.raw", read_mode);
+            end if;
 
             for s in 1 to NSdu_v loop
 
@@ -848,6 +971,9 @@ begin
             Kind_v := Pk(Got_v mod PkDepth_c);
             if Kind_v = PkAborted_c then
                 file_open(Ref_f, GoldenDir_g & "/aborted_" & to_string(PkPos(Got_v mod PkDepth_c)) & ".bin", read_mode);
+            elsif PkImg(Got_v mod PkDepth_c) > 0 then
+                file_open(Ref_f, GoldenDir_g & "/compressed_" & twoDigits(PkImg(Got_v mod PkDepth_c) - 1) & ".bin",
+                          read_mode);
             else
                 file_open(Ref_f, GoldenDir_g & "/compressed.bin", read_mode);
             end if;

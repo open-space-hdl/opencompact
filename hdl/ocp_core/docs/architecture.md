@@ -103,15 +103,19 @@ which drives the `Act_` outputs until the next image start; `ocp_mib` reads its 
 
 | Unit | Uses from the entry | Change against the constant configuration |
 | --- | --- | --- |
-| Image framer (`UseInLast_g`) | NX NY NZ | The sample count starts from NX NY NZ - 1 of the image; the product is computed in the image start |
+| Image framer (`UseInLast_g`) | NX, NY, NZ | Instead of the count down from NX NY NZ - 1, a mixed-radix count of the sample position (x fastest, then y, then z, in every input order) against NX - 1, NY - 1 and NZ - 1 of the image, taken with its first sample (`Cfg_Take` of the predictor); no product is needed |
 | Predictor | NX, NY, NZ, M, error limit values | Position counters compare with the dimensions of the image; memories keep the sizes of the maxima, line memories the pitch of the maximum NX; the image-start sequencer computes the conditions of the dependency checks (section 6.1); the band-independent error limit values replace the constants; no stride order (CO-RC-04) |
-| Entropy coder | NZ, NX = NY = 1 | Statistics memories for the maximum NZ; the hybrid tail covers the NZ bands of the image; the single-pixel case of the hybrid coder from the dimensions of the image |
+| Entropy coder | NZ (hybrid coder) | Statistics memories for the maximum NZ; the hybrid tail covers the NZ bands of the image; a band without statistics in the image (also every band of a single-pixel image) ends with its initial accumulator |
 | Header generator | NX, NY, NZ, error limit values | The header parts that hold these fields are the ROM parts with the runtime bits replaced (section 6.2) |
 
-The queue holds the configurations of the images that have started at the input and whose compressed image is not
-yet complete; it has 16 entries, like the error flag queue of the image framer, and while it is full the core takes
-no first sample of a new image. The queue and the register of the active configuration are registers, not
-memories (no RAM inference, like the error flag queue), and rely on the TMR of the synthesis tool. With
+The queue holds the configurations of the images that have started at the input and whose header (and, with the
+hybrid coder, whose tail) is not yet complete: an entry is written when the predictor takes the first sample of an
+image, the header generator reads its entry with a read pointer that moves on after the last part of a header, the
+hybrid coder with a second read pointer that moves on after the tail of an image. The framer and the predictor take
+the values directly in the cycle of the take. The queue has 16 entries, like the error flag queue of the image
+framer, and while it is full the core takes no first sample of a new image. The queue and the register of the active
+configuration are registers, not memories (no RAM inference, like the error flag queue), and rely on the TMR of the
+synthesis tool. With
 `RuntimeConfig_g` false the queue, the range limitation, the register of the active configuration, the image-start
 sequencer and the field substitution are not instantiated, the `Act_` outputs are zero, and the units use the
 constants as before (CO-RC-06).
@@ -124,8 +128,9 @@ of a band lies NX M - M issues back, in BSQ order NX - 1 issues; the local diffe
 NX M - M + 1 issues after they are written in BI order and NX NY issues in BSQ order. With constant dimensions the
 elaboration computes from these distances which dependencies can be closer than the latency of the loops, and how long
 the history of issued bands must be. With runtime dimensions the image-start sequencer computes the same conditions
-from the dimensions of the image, in a few clock cycles before the first sample of the image is started (CO-RC-05),
-with one adder and comparator stepped by a small state machine instead of a combinational path. The history of issued
+from the dimensions of the image, in imageStartCycles clock cycles (7 to 9) before the first sample of the image is
+started (CO-RC-05), with one adder stepped by a small state machine instead of a combinational product: the factors
+of a gap are saturated just above the largest latency, which keeps the comparisons exact. The history of issued
 bands is sized for the worst case over the allowed dimensions. The sequencer is an entity with its own ports so that
 its results can be compared with the elaboration function for every NX and M of a range (verification plan of the
 predictor).
@@ -136,6 +141,7 @@ The header stays a constant built by the procedure `build` (section 2), with the
 the procedure also records the bit position and width of every runtime field: X Size, Y Size and Z Size of the
 essential subpart (each NX, NY, NZ mod 2^16) and the band-independent absolute and relative error limit values of the
 quantization subpart (DA and DR bits). When the header generator outputs a part that contains a runtime field, it
-replaces those bits with the value of the image. The fields have fixed widths and positions, so the header length does
-not depend on the runtime values (CO-HD-08); the configurations whose header length would depend on NZ are excluded by
-CO-CF-04.
+replaces those bits with the value of the image (the queue entry of the image whose header is output). In BI order
+the sub-frame interleaving depth M = min(`SubFrameDepth_g`, NZ) is a runtime field as well. The fields have fixed
+widths and positions, so the header length does not depend on the runtime values (CO-HD-08); the configurations
+whose header length would depend on NZ, and those with supplementary information tables, are excluded by CO-CF-04.

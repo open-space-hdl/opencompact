@@ -67,7 +67,7 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | `AbsBitDepth_g`, `RelBitDepth_g` | EC-1, EC-2 | 1 to 16 | DA, DR |
 | `BlockSize_g`, `RestrictedCodes_g`, `RefInterval_g` | EC-3 | 8, 16, 32, 64; D <= 4; 1 to 4096 | J, restricted code options, r |
 | `XSize_g`, `YSize_g` | EC-2 | | Image of one pixel per band: the final accumulators are the initial ones |
-| `RuntimeConfig_g` | EC-1, EC-2 | | NX, NY, NZ of every image from the configuration of the image (EC-RC-01); `ZSize_g` sizes the statistics |
+| `RuntimeConfig_g` | EC-2 | | NZ of every image from the configuration of the image (`Cfg_ZSize`, EC-RC-01); `ZSize_g` sizes the statistics |
 
 ## 4. Interpretation of the standard
 

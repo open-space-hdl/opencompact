@@ -23,6 +23,16 @@
 --   Out_Error, the samples up to the next In_Last are discarded), images ended with In_Error
 --   (CO-FR-08: on the last sample a complete image with Out_Error, early an abort, without In_Last
 --   or on discarded samples ignored), between correct images and followed by resets at random times
+-- * test_runtime (RuntimeConfig_g): the image sequence of tb/golden/<config>/runtime.txt back to
+--   back, every image with its own dimensions and error limit values; the configuration inputs
+--   carry the values of the next image from the cycle after the take; Cfg_Taken once per image,
+--   the Act_ outputs show the values of the image, the first sample of every image in the cycle
+--   of the throughput model
+-- * test_runtime_timing: the configuration inputs change two cycles before, in the cycle of and
+--   two cycles after the acceptance of the first sample, and in the middle of an image; with the
+--   image framing images aborted by an early In_Last and images with a missing In_Last
+-- * test_runtime_range: the images of range.txt, configuration inputs outside their ranges taken
+--   as the nearest valid values (CO-RC-07)
 --
 -- With UseInLast_g the source sets In_Last on the last sample of every image; without it In_Last
 -- and In_Error are random (ignored by the core).
@@ -35,6 +45,9 @@
 library ieee;
     use ieee.std_logic_1164.all;
     use ieee.numeric_std.all;
+
+library std;
+    use std.textio.all;
 
 library uvvm_util;
     context uvvm_util.uvvm_util_context;
@@ -81,6 +94,12 @@ entity ocp_core_tb is
         UseInLast_g            : boolean  := false;
         HeaderBytes_g          : natural  := 0;
         AbortPos_g             : string   := "0";
+        -- Runtime configuration: image list tb/golden/<config>/<RtList_g>.txt (runtime or range) and
+        -- its number of images (ExpStarts_g: the first sample of every image, taken with its
+        -- configuration)
+        RuntimeConfig_g        : boolean  := false;
+        RtList_g               : string   := "runtime";
+        RtImages_g             : natural  := 0;
         -- Configuration
         XSize_g                : positive := 8;
         YSize_g                : positive := 8;
@@ -209,6 +228,81 @@ architecture sim of ocp_core_tb is
         return n * (Samples_c * 200 + 50000) * ClkPeriod_c;
     end function;
 
+    function twoDigits (k : natural) return string is
+    begin
+        if k < 10 then
+            return "0" & to_string(k);
+        end if;
+        return to_string(k);
+    end function;
+
+    -- Line k of a text file of the golden directory as integers
+    impure function lineValues (name : string; k : natural; n : positive) return integer_vector is
+        variable Line_v : line;
+        variable V_v    : integer_vector(0 to n - 1);
+
+        file Txt_f : text;
+    begin
+        file_open(Txt_f, GoldenDir_g & "/" & name, read_mode);
+
+        for i in 0 to k loop
+            readline(Txt_f, Line_v);
+        end loop;
+
+        for i in V_v'range loop
+            read(Line_v, V_v(i));
+        end loop;
+
+        file_close(Txt_f);
+        return V_v;
+    end function;
+
+    -- Runtime configuration: values of image k (from 0) of the list: driven NX, NY, NZ, absolute and
+    -- relative error limit value, then the values taken (CO-RC-07)
+    impure function rtValues (k : natural) return integer_vector is
+    begin
+        return lineValues(RtList_g & ".txt", k, 10);
+    end function;
+
+    -- Test image, compressed image and number of samples of image img (from 1) of a job
+    impure function imageFile (img : positive) return string is
+    begin
+        if not RuntimeConfig_g then
+            return GoldenDir_g & "/image.raw";
+        elsif RtList_g = "range" then
+            return GoldenDir_g & "/range_image_" & twoDigits(img - 1) & ".raw";
+        end if;
+        return GoldenDir_g & "/image_" & twoDigits(img - 1) & ".raw";
+    end function;
+
+    impure function refFile (img : positive) return string is
+    begin
+        if not RuntimeConfig_g then
+            return GoldenDir_g & "/compressed.bin";
+        elsif RtList_g = "range" then
+            return GoldenDir_g & "/range_" & twoDigits(img - 1) & ".bin";
+        end if;
+        return GoldenDir_g & "/compressed_" & twoDigits(img - 1) & ".bin";
+    end function;
+
+    impure function abortFile (img : positive; pos : natural) return string is
+    begin
+        if RuntimeConfig_g then
+            return GoldenDir_g & "/rtabort_" & twoDigits(img - 1) & ".bin";
+        end if;
+        return GoldenDir_g & "/aborted_" & to_string(pos) & ".bin";
+    end function;
+
+    impure function imageSamples (img : positive) return positive is
+        variable V_v : integer_vector(0 to 9);
+    begin
+        if not RuntimeConfig_g then
+            return Samples_c;
+        end if;
+        V_v := rtValues(img - 1);
+        return V_v(5) * V_v(6) * V_v(7);
+    end function;
+
     -- Framing of image i of a job (images beyond the plan are correct)
     function planOf (p : Plan_t; i : positive) return Plan_r is
     begin
@@ -240,6 +334,22 @@ architecture sim of ocp_core_tb is
     signal ErrInj_Channel : std_logic_vector(3 downto 0)                  := (others => '0');
     signal ErrInj_Double  : std_logic                                     := '0';
     signal ErrInj_Valid   : std_logic                                     := '0';
+    signal Cfg_XSize      : std_logic_vector(16 downto 0)                 := (others => '0');
+    signal Cfg_YSize      : std_logic_vector(16 downto 0)                 := (others => '0');
+    signal Cfg_ZSize      : std_logic_vector(16 downto 0)                 := (others => '0');
+    signal Cfg_AbsLimit   : std_logic_vector(15 downto 0)                 := (others => '0');
+    signal Cfg_RelLimit   : std_logic_vector(15 downto 0)                 := (others => '0');
+    signal Cfg_Taken      : std_logic;
+    signal Act_XSize      : std_logic_vector(16 downto 0);
+    signal Act_YSize      : std_logic_vector(16 downto 0);
+    signal Act_ZSize      : std_logic_vector(16 downto 0);
+    signal Act_AbsLimit   : std_logic_vector(15 downto 0);
+    signal Act_RelLimit   : std_logic_vector(15 downto 0);
+
+    -- Runtime configuration: takes of the job (their cycles in StartCyc); timing test (changes of the
+    -- configuration inputs around the take)
+    signal Takes    : natural := 0;
+    signal RtTiming : boolean := false;
 
     -- Jobs: JobStart counts the started jobs; source and sink report the number of the job they
     -- finished (or that a reset aborted)
@@ -335,6 +445,7 @@ begin
             RestrictedCodes_g      => RestrictedCodes_g,
             RefInterval_g          => RefInterval_g,
             UseInLast_g            => UseInLast_g,
+            RuntimeConfig_g        => RuntimeConfig_g,
             OutWidth_g             => OutWidth_g
         )
         port map (
@@ -359,7 +470,18 @@ begin
             Ev_ImageError  => Ev_ImageError,
             ErrInj_Channel => ErrInj_Channel,
             ErrInj_Double  => ErrInj_Double,
-            ErrInj_Valid   => ErrInj_Valid
+            ErrInj_Valid   => ErrInj_Valid,
+            Cfg_XSize      => Cfg_XSize,
+            Cfg_YSize      => Cfg_YSize,
+            Cfg_ZSize      => Cfg_ZSize,
+            Cfg_AbsLimit   => Cfg_AbsLimit,
+            Cfg_RelLimit   => Cfg_RelLimit,
+            Cfg_Taken      => Cfg_Taken,
+            Act_XSize      => Act_XSize,
+            Act_YSize      => Act_YSize,
+            Act_ZSize      => Act_ZSize,
+            Act_AbsLimit   => Act_AbsLimit,
+            Act_RelLimit   => Act_RelLimit
         );
 
     Clk <= not Clk after ClkPeriod_c / 2;
@@ -433,10 +555,26 @@ begin
             ErrInj_Valid   <= '0';
         end procedure;
 
+        -- Runtime configuration: one take per image, the first samples in the cycles of the model
+        procedure checkTakes (images : natural) is
+            constant Starts_c : integer_vector := parseIntVec(ExpStarts_g & ",0");
+        begin
+            check_value(Takes, images, ERROR, "one configuration take per image");
+            if ExpStarts_g /= "" then
+
+                for k in 0 to images - 1 loop
+                    check_value(StartCyc(k) - StartCyc(0), Starts_c(Starts_c'low + k), ERROR,
+                                "image " & to_string(k) & ": cycle of the first sample (throughput model)");
+                end loop;
+
+            end if;
+        end procedure;
+
         variable Channels_v : integer_vector(0 to 15);
         variable NCh_v      : natural;
         variable Wait_v     : natural;
         variable Plan_v     : Plan_t;
+        variable Ab_v       : integer_vector(0 to 1);
         constant Starts_c   : integer_vector := parseIntVec(ExpStarts_g & ",0");
     begin
         test_runner_setup(runner, runner_cfg);
@@ -629,6 +767,38 @@ begin
 
                 checkIdle;
 
+            elsif run("test_runtime") or run("test_runtime_range") then
+                reset;
+                job(RtImages_g, true);
+                checkTakes(RtImages_g);
+                check_value(SecCount + DedCount, 0, ERROR, "no memory error");
+                check_value(ErrCount, 0, ERROR, "no framing error");
+                checkIdle;
+
+            elsif run("test_runtime_timing") then
+                -- The configuration inputs change around the take (source, RtTiming); with the image
+                -- framing the images of rtabort.txt end early and two images miss In_Last
+                RtTiming <= true;
+                Plan_v   := NormalPlan_c;
+                if UseInLast_g then
+                    Ab_v                := lineValues("rtabort.txt", 0, 2);
+                    Plan_v(Ab_v(0) + 1) := (Early_c,
+                                            Ab_v(1));
+                    Ab_v                := lineValues("rtabort.txt", 1, 2);
+                    Plan_v(Ab_v(0) + 1) := (Early_c,
+                                            Ab_v(1));
+                    Plan_v(4)           := (Missing_c,
+                                            5);
+                    Plan_v(11)          := (Missing_c,
+                                            1);
+                end if;
+                reset;
+                job(RtImages_g, true, Plan_v);
+                checkTakes(RtImages_g);
+                check_value(ErrCount, 4 * toInt(UseInLast_g), ERROR, "one framing error event per image with an error");
+                check_value(SecCount + DedCount, 0, ERROR, "no memory error");
+                checkIdle;
+
             end if;
         end loop;
 
@@ -640,6 +810,27 @@ begin
     p_source : process is
         variable Abort_v : boolean;
         variable Wait_v  : natural;
+        variable N_v     : positive;
+        variable V_v     : integer_vector(0 to 9);
+        variable Mode_v  : natural;
+        variable Next_v  : integer_vector(0 to 9);
+
+        -- Configuration inputs: values driven for image k of the list (or the values that follow
+        -- after the last image)
+        procedure drive (k : natural) is
+            variable D_v : integer_vector(0 to 9);
+        begin
+            if k < RtImages_g then
+                D_v := rtValues(k);
+            else
+                D_v := rtValues(0);
+            end if;
+            Cfg_XSize    <= std_logic_vector(to_unsigned(D_v(0), 17));
+            Cfg_YSize    <= std_logic_vector(to_unsigned(D_v(1), 17));
+            Cfg_ZSize    <= std_logic_vector(to_unsigned(D_v(2), 17));
+            Cfg_AbsLimit <= std_logic_vector(to_unsigned(D_v(3), 16));
+            Cfg_RelLimit <= std_logic_vector(to_unsigned(D_v(4), 16));
+        end procedure;
 
         -- One sample (Wait_v: cycles until it is taken); a reset aborts the job
         procedure send (data : std_logic_vector; last : std_logic; err : std_logic) is
@@ -684,7 +875,24 @@ begin
         for img in 1 to JobImages loop
             Plan_v := planOf(JobPlan, img);
             Idx_v  := 0;
-            file_open(Img_f, GoldenDir_g & "/image.raw", read_mode);
+            N_v    := imageSamples(img);
+            file_open(Img_f, imageFile(img), read_mode);
+            -- Runtime configuration: the values of the image on the configuration inputs; in the timing
+            -- test two cycles before the first sample (modes 0 and 2) or in the cycle in which the
+            -- core accepts it (mode 1)
+            Mode_v := 0;
+            if RuntimeConfig_g then
+                if RtTiming then
+                    Mode_v := (img - 1) mod 3;
+                end if;
+                if Mode_v /= 1 then
+                    drive(img - 1);
+                    if RtTiming then
+                        wait until rising_edge(Clk);
+                        wait until rising_edge(Clk);
+                    end if;
+                end if;
+            end if;
 
             loop
                 Smp_v := (others => '0');
@@ -697,16 +905,42 @@ begin
                 exit when Eof_v;
 
                 if UseInLast_g then
-                    Last_v := toSl((isComplete(Plan_v.Kind) and Idx_v = Samples_c - 1) or
+                    Last_v := toSl((isComplete(Plan_v.Kind) and Idx_v = N_v - 1) or
                                    (isEarly(Plan_v.Kind) and Idx_v = Plan_v.Pos));
-                    Err_v  := toSl((Plan_v.Kind = Flagged_c and Idx_v = Samples_c - 1) or
+                    Err_v  := toSl((Plan_v.Kind = Flagged_c and Idx_v = N_v - 1) or
                                    ((Plan_v.Kind = EarlyErr_c or Plan_v.Kind = StrayErr_c) and Idx_v = Plan_v.Pos));
                 else
                     Last_v := toSl(random(0, 1) = 1);
                     Err_v  := Last_v;
                 end if;
+                -- Timing test, mode 1: the values change in the cycle in which the first sample is accepted
+                if Idx_v = 0 and Mode_v = 1 then
+
+                    loop
+                        wait until rising_edge(Clk);
+                        exit when In_Ready = '1' or Rst = '1';
+                    end loop;
+
+                    drive(img - 1);
+                end if;
                 send(Smp_v(DynamicRange_g - 1 downto 0), Last_v, Err_v);
                 exit when Abort_v;
+                -- Runtime configuration: the core takes the configuration with the first sample only; then
+                -- the inputs carry other values (the next image), at once (mode 1), two cycles later (mode 0)
+                -- or in the middle of the image (mode 2)
+                if RuntimeConfig_g then
+                    check_value(Cfg_Taken, toSl(Idx_v = 0), ERROR, "image " & to_string(img) & " sample " &
+                                to_string(Idx_v) & ": configuration taken with the first sample only");
+                    if (Idx_v = 0 and Mode_v = 1) or (Idx_v = 0 and Mode_v = 0 and not RtTiming) then
+                        drive(img);
+                    elsif Idx_v = 0 and Mode_v = 0 then
+                        wait until rising_edge(Clk);
+                        wait until rising_edge(Clk);
+                        drive(img);
+                    elsif Idx_v = N_v / 2 and Mode_v = 2 then
+                        drive(img);
+                    end if;
+                end if;
 
                 -- In_Last early: the rest of the image is lost
                 if isEarly(Plan_v.Kind) and Idx_v = Plan_v.Pos then
@@ -719,7 +953,7 @@ begin
             file_close(Img_f);
             exit when Abort_v;
 
-            -- In_Last missing: further samples up to the next In_Last, discarded at once
+            -- In_Last missing: further samples up to the next In_Last, discarded at once (without a take)
             if Plan_v.Kind = Missing_c or Plan_v.Kind = MissingErr_c then
 
                 for i in 1 to Plan_v.Pos loop
@@ -742,18 +976,43 @@ begin
         variable Cycle_v : natural := 0;
         variable Count_v : natural := 0;
         variable Job_v   : natural := 0;
+        variable Takes_v : natural := 0;
+        variable Chk_v   : boolean := false;
+        variable V_v     : integer_vector(0 to 9);
     begin
         wait until rising_edge(Clk);
         if JobStart /= Job_v then
             Job_v     := JobStart;
             Count_v   := 0;
             RateCount <= 0;
+            Takes_v   := 0;
+            Takes     <= 0;
+        end if;
+        -- Runtime configuration: the Act_ outputs show the values taken from the cycle after the take
+        if Chk_v then
+            check_value(to_integer(unsigned(Act_XSize)), V_v(5), ERROR, "image " & to_string(Takes_v) & ": Act_XSize");
+            check_value(to_integer(unsigned(Act_YSize)), V_v(6), ERROR, "image " & to_string(Takes_v) & ": Act_YSize");
+            check_value(to_integer(unsigned(Act_ZSize)), V_v(7), ERROR, "image " & to_string(Takes_v) & ": Act_ZSize");
+            check_value(to_integer(unsigned(Act_AbsLimit)), V_v(8), ERROR,
+                        "image " & to_string(Takes_v) & ": Act_AbsLimit");
+            check_value(to_integer(unsigned(Act_RelLimit)), V_v(9), ERROR,
+                        "image " & to_string(Takes_v) & ": Act_RelLimit");
+            Chk_v := false;
+        end if;
+        if RuntimeConfig_g and Cfg_Taken = '1' and Rst = '0' then
+            if Takes_v < RtImages_g then
+                V_v := rtValues(Takes_v);
+            end if;
+            StartCyc(Takes_v) <= Cycle_v;
+            Takes_v           := Takes_v + 1;
+            Takes             <= Takes_v;
+            Chk_v             := true;
         end if;
         if In_Valid = '1' and In_Ready = '1' then
             if Count_v = 0 then
                 RateFirst <= Cycle_v;
             end if;
-            if Count_v mod Samples_c = 0 and Count_v / Samples_c <= StartCyc'high then
+            if not RuntimeConfig_g and Count_v mod Samples_c = 0 and Count_v / Samples_c <= StartCyc'high then
                 StartCyc(Count_v / Samples_c) <= Cycle_v;
                 log(ID_SEQUENCER, "image " & to_string(Count_v / Samples_c) & ": first sample in cycle " &
                     to_string(Cycle_v));
@@ -877,9 +1136,9 @@ begin
             Plan_v := planOf(JobPlan, img);
             -- An aborted image is the compressed image of the samples taken (reference model)
             if isEarly(Plan_v.Kind) then
-                file_open(Ref_f, GoldenDir_g & "/aborted_" & to_string(Plan_v.Pos) & ".bin", read_mode);
+                file_open(Ref_f, abortFile(img, Plan_v.Pos), read_mode);
             else
-                file_open(Ref_f, GoldenDir_g & "/compressed.bin", read_mode);
+                file_open(Ref_f, refFile(img), read_mode);
             end if;
             Cnt_v := 0;
             readByte(Ref_f, Exp_v, Eof_v);

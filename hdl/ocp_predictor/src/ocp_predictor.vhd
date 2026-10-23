@@ -78,7 +78,10 @@ entity ocp_predictor is
         -- Implementation
         Speculation_g          : boolean                   := true;
         Stride_g               : boolean                   := true;
-        RamStyle_g             : string                    := "auto"
+        RamStyle_g             : string                    := "auto";
+        -- Image dimensions and band-independent error limit values of every image from the
+        -- configuration inputs; XSize_g, YSize_g and ZSize_g are the maxima
+        RuntimeConfig_g        : boolean                   := false
     );
     port (
         Clk            : in    std_logic;
@@ -93,6 +96,16 @@ entity ocp_predictor is
         Lim_Valid      : in    std_logic                     := '0';
         Lim_Ready      : out   std_logic;
         Lim_Data       : in    std_logic_vector(15 downto 0) := (others => '0');
+        -- Runtime configuration (RuntimeConfig_g): NX, NY, NZ (1 to the maxima) and the error limit
+        -- values of the next image, taken with its first sample (Cfg_Take, a pulse in the clock cycle in
+        -- which the first sample is accepted); while Cfg_Ready is '0' no first sample is accepted
+        Cfg_Ready      : in    std_logic                     := '1';
+        Cfg_XSize      : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_YSize      : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_ZSize      : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_AbsLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_RelLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_Take       : out   std_logic;
         -- Pulse: the first item (sample or error limit value) of an image is accepted
         Img_Start      : out   std_logic;
         -- Entropy coder input sequence
@@ -294,18 +307,23 @@ architecture rtl of ocp_predictor is
     --   previous line (written from P(StRepSum_c))
     -- * Previous band at the same pixel (or at x - 1 in row 0 with narrow local sums): central local
     --   differences (from P(StDz_c)) and, in near-lossless compression, the sample representatives
-    constant Lw_c       : natural  := sel(Cmax_c > 0, StUpd_c - 1, 0);
-    constant Lwin_c     : natural  := sel(Gap1_c, 0, StRam_c + 2);
-    constant Lrep_c     : natural  := StRepSum_c + 2;
-    constant RowGap_c   : natural  := (XSize_g - 1) * sel(Bsq_c, 1, M_c);
-    constant SameRep_c  : boolean  := not RepIsSample_c and (WUsed_c or RowGap_c < Lrep_c);
-    constant Lfix_c     : natural  := maximum(Lwin_c, sel(SameRep_c, Lrep_c, 0));
-    constant Ldw_c      : natural  := StDz_c + 2;
-    constant DiffGap_c  : natural  := sel(Bsq_c, XSize_g * YSize_g, (XSize_g - 1) * M_c + 1);
-    constant CrossRep_c : boolean  := not RepIsSample_c and (P_c > 0 or Narrow_c);
-    constant CrossDw_c  : boolean  := DiffRam_c and DiffGap_c < Ldw_c;
-    constant Lcross_c   : natural  := maximum(sel(CrossRep_c, Lrep_c, 0), sel(CrossDw_c, Ldw_c, 0));
-    constant SbLen_c    : positive := maximum(maximum(maximum(Lw_c, Lfix_c), Lcross_c) - 1, 1);
+    -- The distances that depend on the image dimensions (window, sample representatives of the previous row,
+    -- central local differences of the previous sub-frame or band) come from issueDist: during the elaboration for
+    -- constant dimensions, from the image-start sequencer for runtime dimensions (ocp_image_start)
+    constant Lw_c        : natural     := sel(Cmax_c > 0, StUpd_c - 1, 0);
+    constant LwinMem_c   : natural     := StRam_c + 2;
+    constant Lrep_c      : natural     := StRepSum_c + 2;
+    constant Ldw_c       : natural     := StDz_c + 2;
+    constant CrossRep_c  : boolean     := not RepIsSample_c and (P_c > 0 or Narrow_c);
+    constant Dist_c      : IssueDist_r := issueDist(Bsq_c, SubFrameDepth_g, XSize_g, YSize_g, ZSize_g, P_c,
+                                                   RepIsSample_c, WUsed_c, CrossRep_c, LwinMem_c, Lrep_c, Ldw_c);
+    constant Lfix_c      : natural     := Dist_c.LFix;
+    constant Lcross_c    : natural     := Dist_c.LCross;
+    -- Largest distances over the dimensions up to the maxima (runtime configuration)
+    constant LfixMax_c   : natural  := maximum(sel(Gap1_c, 0, LwinMem_c), sel(RepIsSample_c, 0, Lrep_c));
+    constant LcrossMax_c : natural  := maximum(sel(CrossRep_c, Lrep_c, 0), sel(DiffRam_c, Ldw_c, 0));
+    constant SbLen_c     : positive := maximum(maximum(maximum(Lw_c, sel(RuntimeConfig_g, LfixMax_c, Lfix_c)),
+                                                       sel(RuntimeConfig_g, LcrossMax_c, Lcross_c)) - 1, 1);
 
     -- Output FIFO: room for every item in flight
     constant FifoDepth_c : positive := 2 ** log2ceil(NSt_c + 8);
@@ -315,9 +333,9 @@ architecture rtl of ocp_predictor is
     -- of a pixel): sample (z, t) of an image is processed in slot t M + z S. With S >= Lcross_c and
     -- coprime with M the sample of the previous band at the same pixel is S slots ahead, the previous
     -- sample of the band M slots. An input buffer delays band z by z (S - 1) slots, an output buffer
-    -- restores the input order.
+    -- restores the input order. Not with the runtime configuration (PR-RC-04).
     constant Stride_c : boolean := Stride_g and not Bsq_c and M_c = ZSize_g and ZSize_g > 1 and CrossRep_c and
-                                   not Periodic_c;
+                                   not Periodic_c and not RuntimeConfig_g;
 
     function gcd (a : positive; b : positive) return positive is
         variable A_v : natural := a;
@@ -678,6 +696,10 @@ architecture rtl of ocp_predictor is
         -- Stride order: index of the sample in the input order of the image, slot
         ArrIdx   : unsigned(AW_c - 1 downto 0);
         SlotIdx  : unsigned(SlW_c - 1 downto 0);
+        -- Runtime configuration: NX of the image, last column, run of the band across rows
+        Nx       : unsigned(XW_c - 1 downto 0);
+        XLast    : std_logic;
+        RunRows  : std_logic;
     end record;
 
     type ItemArr_t is array (0 to NSt_c - 1) of Item_r;
@@ -748,6 +770,22 @@ architecture rtl of ocp_predictor is
         EndV     : std_logic;
         EndA     : unsigned(AW_c - 1 downto 0);
         IssCnt   : unsigned(AW_c - 1 downto 0);
+        -- Runtime configuration: first sample of the image held while the image-start sequencer runs,
+        -- dimensions of the image at the issue stage (NX, the last index of every dimension, M and M - 1),
+        -- its issue conditions
+        Hold     : std_logic;
+        HoldData : std_logic_vector(D_c - 1 downto 0);
+        HoldEnd  : std_logic;
+        SeqBusy  : std_logic;
+        CurNx    : unsigned(XW_c - 1 downto 0);
+        CurXMax  : unsigned(XW_c - 1 downto 0);
+        CurYMax  : unsigned(YW_c - 1 downto 0);
+        CurZMax  : unsigned(ZW_c - 1 downto 0);
+        CurM     : unsigned(ZW_c - 1 downto 0);
+        CurMm1   : unsigned(ZW_c - 1 downto 0);
+        LFix     : natural range 0 to 255;
+        LCross   : natural range 0 to 255;
+        RunRows  : std_logic;
     end record;
 
     signal r, r_next : TwoProcess_r;
@@ -810,6 +848,13 @@ architecture rtl of ocp_predictor is
     signal CtxRdAddr   : std_logic_vector(log2ceil(CtxDepth_c) - 1 downto 0);
     signal CtxRdData   : std_logic_vector(DiffBits_c - 1 downto 0);
     signal CtxWrData   : std_logic_vector(DiffBits_c - 1 downto 0);
+    -- Image-start sequencer (runtime configuration)
+    signal SeqStart    : std_logic;
+    signal SeqDone     : std_logic;
+    signal SeqM        : std_logic_vector(16 downto 0);
+    signal SeqRunRows  : std_logic;
+    signal SeqLFix     : std_logic_vector(7 downto 0);
+    signal SeqLCross   : std_logic_vector(7 downto 0);
 
     -- Address of the sample representative of band z, column x, in row 0 or a later row: BI keeps
     -- the current line of every band, BSQ row 0 of the current and the previous band and the line
@@ -900,55 +945,71 @@ begin
     assert not (PeriodicUpdate_g and Bsq_c and not Lossless_c)
         report "ocp_predictor: periodic error limit updating is not allowed with BSQ order (CCSDS 4.8.2.4.4)"
         severity failure;
+    assert not (RuntimeConfig_g and PeriodicUpdate_g and not Lossless_c)
+        report "ocp_predictor: RuntimeConfig_g excludes periodic error limit updating (CCSDS 4.8.2.4)"
+        severity failure;
+    assert not (RuntimeConfig_g and ((UseAbs_c and AbsBandDependent_g) or (UseRel_c and RelBandDependent_g)))
+        report "ocp_predictor: RuntimeConfig_g excludes band-dependent error limits (CCSDS 4.8.2.3)"
+        severity failure;
 
     -----------------------------------------------------------------------------------------------
     -- Combinational process
     -----------------------------------------------------------------------------------------------
     p_comb : process (all) is
-        variable v         : TwoProcess_r;
-        variable O_v       : Item_r;
-        variable Zi_v      : natural;
-        variable Xi_v      : natural;
-        variable Yi_v      : natural;
-        variable XLast_v   : boolean;
-        variable ZLast_v   : boolean;
-        variable Block_v   : boolean;
-        variable Issue_v   : boolean;
-        variable First_v   : boolean;
-        variable Init_v    : boolean;
-        variable NeedW_v   : boolean;
-        variable Lsame_v   : natural;
-        variable Advance_v : boolean;
-        variable Zn_v      : natural;
-        variable Dt_v      : integer;
-        variable Xs_v      : integer;
-        variable StartS_v  : std_logic;
-        variable NA_v      : natural range 0 to 65536;
-        variable NR_v      : natural range 0 to 65536;
-        variable Sig_v     : signed(SW_c + 2 downto 0);
-        variable Ctx_v     : std_logic_vector(DiffBits_c - 1 downto 0);
-        variable Mod_v     : signed(HW_c - 1 downto 0);
-        variable Hw_v      : signed(HW_c - 1 downto 0);
-        variable RelM_v    : unsigned(SW_c + 16 downto 0);
-        variable M_v       : unsigned(15 downto 0);
-        variable L1_v      : signed(VW_c - 1 downto 0);
-        variable L2_v      : signed(VW_c - 1 downto 0);
-        variable Tm_v      : signed(TW_c downto 0);
-        variable Rho_v     : integer range -64 to 63;
-        variable Act_v     : boolean;
-        variable Wload_v   : WeightArr_t;
-        variable Wb_v      : WeightSet_t;
-        variable SelI_v    : natural range 0 to NC_c - 1;
-        variable SgnC_v    : std_logic;
-        variable Rem_v     : unsigned(18 downto 0);
-        variable QAbs_v    : unsigned(QW_c - 1 downto 0);
-        variable QAbsS_v   : signed(QW_c downto 0);
-        variable SPrime_v  : signed(SW_c + 1 downto 0);
-        variable Corr_v    : signed(RW_c - 1 downto 0);
-        variable Th1_v     : unsigned(QW_c - 1 downto 0);
-        variable Th2_v     : unsigned(QW_c - 1 downto 0);
-        variable Par_v     : signed(QW_c downto 0);
-        variable SRep2_v   : signed(RW_c - 1 downto 0);
+        variable v          : TwoProcess_r;
+        variable O_v        : Item_r;
+        variable Zi_v       : natural;
+        variable Xi_v       : natural;
+        variable Yi_v       : natural;
+        variable XLast_v    : boolean;
+        variable YLast_v    : boolean;
+        variable ZLast_v    : boolean;
+        variable SubEnd_v   : boolean;
+        variable SrcVld_v   : std_logic;
+        variable SrcData_v  : std_logic_vector(D_c - 1 downto 0);
+        variable SrcEnd_v   : std_logic;
+        variable FromIn_v   : boolean;
+        variable XMid_v     : boolean;
+        variable Block_v    : boolean;
+        variable Issue_v    : boolean;
+        variable First_v    : boolean;
+        variable Init_v     : boolean;
+        variable NeedW_v    : boolean;
+        variable RunRows_v  : boolean;
+        variable RunRowsP_v : boolean;
+        variable Lsame_v    : natural;
+        variable Lcross_v   : natural;
+        variable Advance_v  : boolean;
+        variable Zn_v       : natural;
+        variable Dt_v       : integer;
+        variable Xs_v       : integer;
+        variable StartS_v   : std_logic;
+        variable NA_v       : natural range 0 to 65536;
+        variable NR_v       : natural range 0 to 65536;
+        variable Sig_v      : signed(SW_c + 2 downto 0);
+        variable Ctx_v      : std_logic_vector(DiffBits_c - 1 downto 0);
+        variable Mod_v      : signed(HW_c - 1 downto 0);
+        variable Hw_v       : signed(HW_c - 1 downto 0);
+        variable RelM_v     : unsigned(SW_c + 16 downto 0);
+        variable M_v        : unsigned(15 downto 0);
+        variable L1_v       : signed(VW_c - 1 downto 0);
+        variable L2_v       : signed(VW_c - 1 downto 0);
+        variable Tm_v       : signed(TW_c downto 0);
+        variable Rho_v      : integer range -64 to 63;
+        variable Act_v      : boolean;
+        variable Wload_v    : WeightArr_t;
+        variable Wb_v       : WeightSet_t;
+        variable SelI_v     : natural range 0 to NC_c - 1;
+        variable SgnC_v     : std_logic;
+        variable Rem_v      : unsigned(18 downto 0);
+        variable QAbs_v     : unsigned(QW_c - 1 downto 0);
+        variable QAbsS_v    : signed(QW_c downto 0);
+        variable SPrime_v   : signed(SW_c + 1 downto 0);
+        variable Corr_v     : signed(RW_c - 1 downto 0);
+        variable Th1_v      : unsigned(QW_c - 1 downto 0);
+        variable Th2_v      : unsigned(QW_c - 1 downto 0);
+        variable Par_v      : signed(QW_c downto 0);
+        variable SRep2_v    : signed(RW_c - 1 downto 0);
 
         -- Pipeline registers of the stages: inputs (r) and outputs (v)
         alias Inp1_i      : Item_r is r.P(0);
@@ -1014,11 +1075,23 @@ begin
         v.EccSec  := or(EccSecVec and Use_v);
         v.EccDed  := or(EccDedVec and Use_v);
 
-        Zi_v    := to_integer(r.Z);
-        Xi_v    := to_integer(r.X);
-        Yi_v    := to_integer(r.Y);
-        XLast_v := Xi_v = XSize_g - 1;
-        ZLast_v := Zi_v = ZSize_g - 1;
+        Zi_v := to_integer(r.Z);
+        Xi_v := to_integer(r.X);
+        Yi_v := to_integer(r.Y);
+        -- Last position of every dimension and of the sub-frame: the generics, or the dimensions of the
+        -- image (runtime configuration)
+        if RuntimeConfig_g then
+            XLast_v  := r.X = r.CurXMax;
+            YLast_v  := r.Y = r.CurYMax;
+            ZLast_v  := r.Z = r.CurZMax;
+            SubEnd_v := r.Z = r.SubLow + r.CurMm1;
+        else
+            XLast_v  := Xi_v = XSize_g - 1;
+            YLast_v  := Yi_v = YSize_g - 1;
+            ZLast_v  := Zi_v = ZSize_g - 1;
+            SubEnd_v := r.Z = r.SubLow + M_c - 1;
+        end if;
+        SeqStart <= '0';
 
         -- Number of error limit values per update (CCSDS 5.4.2.2.2)
         NA_v := 0;
@@ -1086,12 +1159,53 @@ begin
                 end if;
             end if;
         elsif not Stride_c then
+            -- Source of the sample: the input. With the runtime configuration the first sample of an image
+            -- is accepted together with the configuration into the hold register, and issued from there
+            -- once the image-start sequencer has computed the issue conditions of the image (CO-RC-03,
+            -- CO-RC-05)
+            SrcVld_v  := In_Valid;
+            SrcData_v := In_Data;
+            SrcEnd_v  := In_End;
+            FromIn_v  := true;
+            if RuntimeConfig_g then
+                if r.Hold = '1' then
+                    SrcVld_v  := not r.SeqBusy;
+                    SrcData_v := r.HoldData;
+                    SrcEnd_v  := r.HoldEnd;
+                    FromIn_v  := false;
+                elsif r.ImgFresh = '1' then
+                    SrcVld_v := '0';
+                    FromIn_v := false;
+                    In_Ready <= Cfg_Ready;
+                    if In_Valid = '1' and Cfg_Ready = '1' then
+                        SeqStart   <= '1';
+                        v.Hold     := '1';
+                        v.HoldData := In_Data;
+                        v.HoldEnd  := In_End;
+                        v.SeqBusy  := '1';
+                        v.CurNx    := resize(unsigned(Cfg_XSize), XW_c);
+                        v.CurXMax  := resize(unsigned(Cfg_XSize) - 1, XW_c);
+                        v.CurYMax  := resize(unsigned(Cfg_YSize) - 1, YW_c);
+                        v.CurZMax  := resize(unsigned(Cfg_ZSize) - 1, ZW_c);
+                        v.AbsConst := unsigned(Cfg_AbsLimit);
+                        v.RelConst := unsigned(Cfg_RelLimit);
+                    end if;
+                end if;
+            end if;
+
             First_v := r.RowBase = 0 and r.X = 0;
             Init_v  := r.RowBase + resize(r.X, TW_c) = 1;
             -- The weights come from the memory unless the sample needs none (t = 0), starts with the
             -- initial weights (t = 1) or continues a speculative run of its band
-            NeedW_v := Cmax_c > 0 and not First_v and not Init_v and (not Spec_c or (not RunRows_c and r.X = 0));
-            Lsame_v := Lfix_c;
+            RunRows_v := RunRows_c or (RuntimeConfig_g and r.RunRows = '1');
+            NeedW_v   := Cmax_c > 0 and not First_v and not Init_v and (not Spec_c or (not RunRows_v and r.X = 0));
+            if RuntimeConfig_g then
+                Lsame_v  := r.LFix;
+                Lcross_v := r.LCross;
+            else
+                Lsame_v  := Lfix_c;
+                Lcross_v := Lcross_c;
+            end if;
             if NeedW_v then
                 Lsame_v := maximum(Lsame_v, Lw_c);
             end if;
@@ -1102,7 +1216,7 @@ begin
                     if i < Lsame_v and r.Sb(i).Band = r.Z then
                         Block_v := true;
                     end if;
-                    if i < Lcross_c and r.Z > 0 and r.Sb(i).Band = r.Z - 1 then
+                    if i < Lcross_v and r.Z > 0 and r.Sb(i).Band = r.Z - 1 then
                         if r.Sb(i).X = r.X or (Narrow_c and r.Y = 0 and r.X > 0 and r.Sb(i).X = r.X - 1) then
                             Block_v := true;
                         end if;
@@ -1111,8 +1225,10 @@ begin
             end loop;
 
             if not Block_v then
-                In_Ready <= '1';
-                if In_Valid = '1' then
+                if FromIn_v then
+                    In_Ready <= '1';
+                end if;
+                if SrcVld_v = '1' then
                     Issue_v      := true;
                     O_v.Valid    := '1';
                     O_v.Kind     := ItemSample_c;
@@ -1122,20 +1238,26 @@ begin
                     O_v.T        := r.RowBase + resize(r.X, TW_c);
                     O_v.First    := toSl(First_v);
                     O_v.Init     := toSl(Init_v);
-                    O_v.Sample   := toSample(In_Data);
+                    O_v.Sample   := toSample(SrcData_v);
                     O_v.SubFirst := toSl(r.Z = r.SubLow);
-                    O_v.SubLast  := toSl(r.Z = r.SubLow + M_c - 1 or ZLast_v);
+                    O_v.SubLast  := toSl(SubEnd_v or ZLast_v);
                     O_v.AbsLim   := r.AbsConst;
                     O_v.RelLim   := r.RelConst;
+                    O_v.Nx       := r.CurNx;
+                    O_v.XLast    := toSl(XLast_v);
+                    O_v.RunRows  := toSl(RunRows_v);
                     if Bsq_c then
-                        O_v.Last := toSl(ZLast_v and Yi_v = YSize_g - 1 and XLast_v);
+                        O_v.Last := toSl(ZLast_v and YLast_v and XLast_v);
                     else
-                        O_v.Last := toSl(Yi_v = YSize_g - 1 and XLast_v and ZLast_v);
+                        O_v.Last := toSl(YLast_v and XLast_v and ZLast_v);
+                    end if;
+                    if not FromIn_v then
+                        v.Hold := '0';
                     end if;
                     -- Sample of the previous band at t = 0 (CCSDS 4.7.3)
                     if First_v then
                         O_v.Alt  := r.LastT0;
-                        v.LastT0 := toSample(In_Data);
+                        v.LastT0 := toSample(SrcData_v);
                     end if;
 
                     -- Lossless compression without damping: the sample representatives are the
@@ -1143,18 +1265,18 @@ begin
                     if RepIsSample_c then
                         SrWrEna   <= '1';
                         SrWrAddr  <= srAddr(r.Z, r.Y = 0, Xi_v);
-                        SrWrData  <= In_Data;
+                        SrWrData  <= SrcData_v;
                         RepWrEna  <= '1';
                         RowWrEna  <= toSl(r.X = 0);
                         RepWrAddr <= bandAddr(r.Z);
-                        RepWrData <= In_Data;
+                        RepWrData <= SrcData_v;
                     end if;
 
                     -- Next position in the input order (5.4.2)
                     if Bsq_c then
                         if XLast_v then
                             v.X := (others => '0');
-                            if Yi_v = YSize_g - 1 then
+                            if YLast_v then
                                 v.Y       := (others => '0');
                                 v.RowBase := (others => '0');
                                 if ZLast_v then
@@ -1163,14 +1285,18 @@ begin
                                     v.Z := r.Z + 1;
                                 end if;
                             else
-                                v.Y       := r.Y + 1;
-                                v.RowBase := r.RowBase + XSize_g;
+                                v.Y := r.Y + 1;
+                                if RuntimeConfig_g then
+                                    v.RowBase := r.RowBase + r.CurNx;
+                                else
+                                    v.RowBase := r.RowBase + XSize_g;
+                                end if;
                             end if;
                         else
                             v.X := r.X + 1;
                         end if;
                     else
-                        if r.Z = r.SubLow + M_c - 1 or ZLast_v then
+                        if SubEnd_v or ZLast_v then
                             v.Z := r.SubLow;
                             if XLast_v then
                                 v.X := (others => '0');
@@ -1178,13 +1304,20 @@ begin
                                     v.Z       := (others => '0');
                                     v.SubLow  := (others => '0');
                                     v.LimDone := '0';
-                                    if Yi_v = YSize_g - 1 then
+                                    if YLast_v then
                                         v.Y       := (others => '0');
                                         v.RowBase := (others => '0');
                                     else
-                                        v.Y       := r.Y + 1;
-                                        v.RowBase := r.RowBase + XSize_g;
+                                        v.Y := r.Y + 1;
+                                        if RuntimeConfig_g then
+                                            v.RowBase := r.RowBase + r.CurNx;
+                                        else
+                                            v.RowBase := r.RowBase + XSize_g;
+                                        end if;
                                     end if;
+                                elsif RuntimeConfig_g then
+                                    v.SubLow := r.SubLow + r.CurM;
+                                    v.Z      := r.SubLow + r.CurM;
                                 else
                                     v.SubLow := r.SubLow + M_c;
                                     v.Z      := r.SubLow + M_c;
@@ -1199,7 +1332,7 @@ begin
 
                     -- Early end of the image (CO-FR-03): this sample is the last item, the next sample
                     -- is the first sample of a new image
-                    if In_End = '1' then
+                    if SrcEnd_v = '1' then
                         O_v.Last  := '1';
                         v.X       := (others => '0');
                         v.Y       := (others => '0');
@@ -1335,6 +1468,17 @@ begin
         end if;
         v.P(0) := O_v;
 
+        -- Image-start sequencer done: the issue conditions of the image apply to its first sample, which
+        -- leaves the hold register in the next clock cycle
+        if RuntimeConfig_g and SeqDone = '1' then
+            v.SeqBusy := '0';
+            v.CurM    := resize(unsigned(SeqM), ZW_c);
+            v.CurMm1  := resize(unsigned(SeqM) - 1, ZW_c);
+            v.LFix    := to_integer(unsigned(SeqLFix));
+            v.LCross  := to_integer(unsigned(SeqLCross));
+            v.RunRows := SeqRunRows;
+        end if;
+
         -- Start of an image: the first item after the last sample of the previous image
         Img_Start <= '0';
         if Stride_c then
@@ -1368,13 +1512,19 @@ begin
             Out1_o.Phi := PhiRom_c(Zi_v);
             Out1_o.Psi := PsiRom_c(Zi_v);
         end if;
-        if not Periodic_c then
+        -- Error limit values: from the generics, from the periodic updates or from the configuration of the
+        -- image (both taken at the issue stage)
+        if not Periodic_c and not RuntimeConfig_g then
             Out1_o.AbsLim := to_unsigned(AbsRom_c(Zi_v), 16);
             Out1_o.RelLim := to_unsigned(RelRom_c(Zi_v), 16);
         end if;
 
         -- (50): rho(t) = clip(vmin + floor((t - Nx) / t_inc), vmin, vmax), plus D - Omega
-        Tm_v := signed('0' & Inp1_i.T) - XSize_g;
+        if RuntimeConfig_g then
+            Tm_v := signed('0' & Inp1_i.T) - signed('0' & resize(Inp1_i.Nx, TW_c));
+        else
+            Tm_v := signed('0' & Inp1_i.T) - XSize_g;
+        end if;
         Tm_v := shift_right(Tm_v, WeightUpdateInterval_g);
         if Tm_v < 0 then
             Rho_v := WeightUpdateVmin_g;
@@ -1436,10 +1586,15 @@ begin
         end if;
 
         Sig_v := (others => '0');
+        if RuntimeConfig_g then
+            XMid_v := InpRam_i.X > 0 and InpRam_i.XLast = '0';
+        else
+            XMid_v := InpRam_i.X > 0 and InpRam_i.X /= XSize_g - 1;
+        end if;
 
         case Sum_c is
             when SumWideNeighbor_c =>
-                if InpRam_i.Y > 0 and InpRam_i.X > 0 and InpRam_i.X /= XSize_g - 1 then
+                if InpRam_i.Y > 0 and XMid_v then
                     Sig_v := resize(OutRam_o.W, Sig_v'length) + OutRam_o.NW + OutRam_o.N + OutRam_o.NE;
                 elsif InpRam_i.Y = 0 then
                     Sig_v := shift_left(resize(OutRam_o.W, Sig_v'length), 2);
@@ -1449,7 +1604,7 @@ begin
                     Sig_v := resize(OutRam_o.W, Sig_v'length) + OutRam_o.NW + shift_left(resize(OutRam_o.N, Sig_v'length), 1);
                 end if;
             when SumNarrowNeighbor_c =>
-                if InpRam_i.Y > 0 and InpRam_i.X > 0 and InpRam_i.X /= XSize_g - 1 then
+                if InpRam_i.Y > 0 and XMid_v then
                     Sig_v := resize(OutRam_o.NW, Sig_v'length) + shift_left(resize(OutRam_o.N, Sig_v'length), 1) + OutRam_o.NE;
                 elsif InpRam_i.Y = 0 then
                     if InpRam_i.Z > 0 then
@@ -1581,12 +1736,15 @@ begin
 
         end if;
 
+        -- The run of the band continues across rows (runtime configuration: in the image of the item)
+        RunRowsP_v := RunRows_c or (RuntimeConfig_g and InpProd_i.RunRows = '1');
+
         for c in 0 to NC_c - 1 loop
             Wb_v(c) := Wload_v;
             -- Continuation of the run of the band; a cycle without a sample (whose other fields are
             -- those of the previous item) passes the candidates on
             if Spec_c and (InpProd_i.Valid = '0' or
-                           (InpProd_i.Init = '0' and (RunRows_c or InpProd_i.X /= 0 or InpProd_i.First = '1'))) then
+                           (InpProd_i.Init = '0' and (RunRowsP_v or InpProd_i.X /= 0 or InpProd_i.First = '1'))) then
                 Wb_v(c) := r.CW(c);
             end if;
         end loop;
@@ -1964,9 +2122,10 @@ begin
     -- Read addresses of the memories: position of the item at the issue stage; weights of the item
     -- at stage 2, read for stage 5
     p_rdaddr : process (all) is
-        variable Xi_v : natural;
-        variable Y_v  : unsigned(YW_c - 1 downto 0);
-        variable Z_v  : unsigned(ZW_c - 1 downto 0);
+        variable Xi_v   : natural;
+        variable Y_v    : unsigned(YW_c - 1 downto 0);
+        variable Z_v    : unsigned(ZW_c - 1 downto 0);
+        variable XEnd_v : boolean;
     begin
         -- Position of the next sample: in stride order the current slot
         if Stride_c then
@@ -1979,8 +2138,13 @@ begin
             Z_v  := r.Z;
         end if;
         -- NE of the previous line; in row 0 the previous band at x - 1 (narrow local sums)
+        if RuntimeConfig_g then
+            XEnd_v := r.X = r.CurXMax;
+        else
+            XEnd_v := Xi_v >= XSize_g - 1;
+        end if;
         if Y_v > 0 then
-            if Xi_v < XSize_g - 1 then
+            if not XEnd_v then
                 SrRdAddr <= srAddr(Z_v, Y_v = 1, Xi_v + 1);
             else
                 SrRdAddr <= srAddr(Z_v, Y_v = 1, Xi_v);
@@ -2065,9 +2229,64 @@ begin
                 r.EccDed   <= '0';
                 r.AbsConst <= (others => '0');
                 r.RelConst <= (others => '0');
+                if RuntimeConfig_g then
+                    r.Hold    <= '0';
+                    r.SeqBusy <= '0';
+                    r.CurNx   <= to_unsigned(XSize_g, XW_c);
+                    r.CurXMax <= to_unsigned(XSize_g - 1, XW_c);
+                    r.CurYMax <= to_unsigned(YSize_g - 1, YW_c);
+                    r.CurZMax <= to_unsigned(ZSize_g - 1, ZW_c);
+                    r.CurM    <= to_unsigned(M_c, ZW_c);
+                    r.CurMm1  <= to_unsigned(M_c - 1, ZW_c);
+                    r.LFix    <= LfixMax_c;
+                    r.LCross  <= LcrossMax_c;
+                    r.RunRows <= toSl(RunRows_c);
+                end if;
             end if;
         end if;
     end process;
+
+    -----------------------------------------------------------------------------------------------
+    -- Image-start sequencer (runtime configuration)
+    -----------------------------------------------------------------------------------------------
+    Cfg_Take <= SeqStart;
+
+    g_start : if RuntimeConfig_g generate
+
+        i_start : entity work.ocp_image_start
+            generic map (
+                Bsq_g           => Bsq_c,
+                SubFrameDepth_g => SubFrameDepth_g,
+                PredBands_g     => P_c,
+                RepIsSample_g   => RepIsSample_c,
+                WUsed_g         => WUsed_c,
+                CrossRep_g      => CrossRep_c,
+                LWin_g          => LwinMem_c,
+                LRep_g          => Lrep_c,
+                LDw_g           => Ldw_c
+            )
+            port map (
+                Clk         => Clk,
+                Rst         => Rst,
+                Start       => SeqStart,
+                In_XSize    => Cfg_XSize,
+                In_YSize    => Cfg_YSize,
+                In_ZSize    => Cfg_ZSize,
+                Done        => SeqDone,
+                Out_M       => SeqM,
+                Out_Gap1    => open,
+                Out_RunRows => SeqRunRows,
+                Out_LFix    => SeqLFix,
+                Out_LCross  => SeqLCross
+            );
+
+    else generate
+        SeqDone    <= '0';
+        SeqM       <= (others => '0');
+        SeqRunRows <= '0';
+        SeqLFix    <= (others => '0');
+        SeqLCross  <= (others => '0');
+    end generate;
 
     -----------------------------------------------------------------------------------------------
     -- Memories

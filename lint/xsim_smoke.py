@@ -5,9 +5,9 @@
 """Smoke test of OpenCompact in the AMD Vivado simulator (xsim).
 
 Compiles Open Logic and OpenCompact with xvhdl (VHDL-2008) and elaborates the top levels of the synthesis check
-(lint/synth_check.py): ocp_core in every configuration of tools/ocp_configs.py, without and with the image framing
-(UseInLast_g), ocp_input_adapter and ocp_channel in the configurations of their testbenches, and one channel with the
-dimensions of a reference system. Every top level is simulated for 1 us: clock period 10 ns, reset for the first
+(lint/synth_check.py): ocp_core in every configuration of tools/ocp_configs.py and in the runtime configurations
+rc01 to rc05 (RuntimeConfig_g true), each without and with the image framing (UseInLast_g), ocp_input_adapter and
+ocp_channel in the configurations of their testbenches, and one channel with the dimensions of a reference system. Every top level is simulated for 1 us: clock period 10 ns, reset for the first
 100 ns, every other input '0' and every ready input '1'. A top level passes when it elaborates and the simulation
 reaches 1 us without an error.
 
@@ -124,6 +124,12 @@ def top_levels():
         width = synth_check.out_width(n)
         tops[n] = lambda c=config, w=width: ocp_wrapper.wrapper(c, out_width=w)
         tops[n + "_in_last"] = lambda c=config, w=width: ocp_wrapper.wrapper(c, out_width=w, use_in_last=True)
+    # Runtime configurations (the configuration inputs are driven like every other input)
+    for n in ocp_configs.RUNTIME:
+        config, width, extra = synth_check.RUNTIME[n]
+        tops[n] = lambda c=config, w=width, e=extra: ocp_wrapper.wrapper(c, out_width=w, extra=e)
+        tops[n + "_in_last"] = lambda c=config, w=width, e=extra: ocp_wrapper.wrapper(c, out_width=w,
+                                                                                     use_in_last=True, extra=e)
     for n, (w, d, u) in synth_check.ADAPTER.items():
         masks = {"last_mask": 0x3FC000, "last_value": 0x004000, "error_mask": 0x003000} if u == 22 else {}
         tops[n] = lambda w=w, d=d, u=u, m=masks: ocp_wrapper.adapter_wrapper(w, d, u, **m)

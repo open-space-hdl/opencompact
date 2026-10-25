@@ -4,7 +4,7 @@ The notable changes of OpenCompact. The versions follow semantic versioning: 0.y
 major version for an incompatible change of ports, stream formats, generics or register map, a minor version for a
 feature and a patch version for a fix.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-25
 
 ### Added
 
@@ -16,6 +16,7 @@ feature and a patch version for a fix.
   configuration has no loads.
 - LIMITS register: the band-independent error limit values (of the generics, or of the last image with the runtime
   configuration); GENERICS.RUNTIME_CONFIG.
+- `lint/xsim_smoke.py` also elaborates and simulates the runtime configurations (161 top levels).
 
 ### Fixed
 
@@ -28,7 +29,6 @@ feature and a patch version for a fix.
 
 - Verification: the test end compares the alert counters of every level itself and ends the simulation with a
   failure, whatever the stop limits of the test.
-
 - Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCompact changes.
 - Register map version 2 (ID 0x4F435002): the registers above are added, the existing ones keep their offsets and
   fields.

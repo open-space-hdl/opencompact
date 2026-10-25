@@ -2,11 +2,10 @@
 
 ## 1. Test results
 
-Run on 2026-10-23 with GHDL 6.0.0 (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with
-the AXI-Lite VVC, Open Logic 4.7.0-ft.9: `python run.py "*ocp_mib*"`. The tests of version 0.1.1 pass in QuestaSim
-(Questa Pro Microchip Edition 2024.3, time resolution 1 fs, 2026-10-19), with code coverage and in the optimised run
-without it; the code coverage of that version is in [coverage.md](../../../docs/coverage.md). The tests of the runtime
-configuration run in QuestaSim with the next release.
+Run on 2026-10-25 with GHDL 6.0.0 (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with
+the AXI-Lite VVC, Open Logic 4.7.0-ft.9: `python run.py "*ocp_mib*"`. The same tests pass in QuestaSim (Questa Pro
+Microchip Edition 2024.3, time resolution 1 fs, 2026-10-24 and 2026-10-25), with code coverage and in the optimised
+run without it; the code coverage is in [coverage.md](../../../docs/coverage.md).
 
 | Test | Configurations | Passed |
 | --- | --- | --- |
@@ -29,7 +28,9 @@ counters. The saturation at 2^32 - 1 is not reached in simulation (verification 
 With `RuntimeConfig_g` true (rc01 to rc05) NEXT_X to NEXT_LIMITS read back what is written; a valid COMMIT sets
 CFG_PENDING, which `Cfg_Taken` clears; for every field 0, 1, the maximum and the maximum + 1 are written, and every
 invalid value sets CFG_ERROR and leaves the configuration outputs unchanged; the error limit value of a method not in
-use is not checked; the active registers read the `Act_` inputs (TC-MB-05). In every clock cycle around a COMMIT the
+use is not checked; the active registers read the `Act_` inputs; writes of CONTROL and STATUS with byte lane 0
+disabled or with the bit '0', and writes to an unused address or to LIMITS, change nothing, and a write of a pending
+register with byte lanes disabled changes only the enabled bytes (TC-MB-05). In every clock cycle around a COMMIT the
 five configuration outputs carry either all previous or all new values, never a mix; a COMMIT one clock cycle before
 `Cfg_Taken` gives the new values to the image that starts, a COMMIT in the cycle of `Cfg_Taken` or one cycle after it
 leaves the previous values for that image and keeps CFG_PENDING set until the next `Cfg_Taken` (TC-MB-07). With the

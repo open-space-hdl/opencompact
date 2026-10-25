@@ -3,17 +3,16 @@
 ## 1. Test results
 
 Run on 2026-10-23 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
-4.7.0-ft.9: `python run.py "*predictor*" "*image_start*"`. The tests of version 0.1.1 pass in QuestaSim (Questa Pro
-Microchip Edition 2024.3, time resolution 1 fs, 2026-10-19), with code coverage and in the optimised run without it;
-the code coverage of that version is in [coverage.md](../../../docs/coverage.md). The tests of the runtime
-configuration run in QuestaSim with the next release. The tests of the CCSDS test data set ran in GHDL 6.0.0 on
-2026-10-18 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`), before the runtime configuration.
+4.7.0-ft.9: `python run.py "*predictor*" "*image_start*"`. The same tests pass in QuestaSim (Questa Pro Microchip
+Edition 2024.3, time resolution 1 fs, 2026-10-24 and 2026-10-25), with code coverage and in the optimised run without
+it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL
+6.0.0 on 2026-10-24 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
 | `ocp_predictor_tb` | 75 (62 configurations, 5 of them also with back pressure, 3 also with strong output stalls, 5 also without the speculative weight loop) | 75 |
 | `ocp_predictor_tb` `test_runtime` (TC-PR-41) | 10 (rc01 to rc05, sequences of 20 images, each also with back pressure) | 10 |
-| `ocp_image_start_tb` `test_sweep` (TC-PR-40) | 10 (the latencies and flags of rc01 to rc05 and of c03, c04, c05, c28 and c30, which cover the other combinations of order, sample representatives and local sums) | 10 |
+| `ocp_image_start_tb` `test_sweep` (TC-PR-40) | 11 (the latencies and flags of rc01 to rc05 and of c03, c04, c05, c28 and c30, which cover the other combinations of order, sample representatives and local sums, and of c03 without prediction bands) | 11 |
 | `ocp_predictor_tb` with the CCSDS test data set | 375 (300 test vectors, 75 of them also with back pressure) | 375 |
 
 ## 2. Summary
@@ -27,7 +26,8 @@ testbench (TC-CO-37).
 With the runtime configuration the entropy coder input sequence of every image of the sequences of rc01 to rc05 equals
 that of the reference model, and without back pressure the input cycles and the image-start cycles equal the throughput
 model with the dimensions of every image (TC-PR-41); rc02 runs without the stride order. For BI and BSQ order and every
-combination of NX from 1 to 64, M from 1 to the maximum NZ and NY of 1, 2, 3 and 64, and at nine further points up to
+combination of NX from 1 to 64, M from 1 to the maximum NZ and NY of 1, 2, 3 and 64, also without prediction bands
+(P = 0), and at nine further points up to
 65536 in every dimension (the maxima and the saturation of the factors), the image-start sequencer computes the same
 issue conditions as the elaboration function for constant generics and needs the same number of cycles for every input
 (TC-PR-40). Two mutations of the runtime path (NX not taken, issue distance 0) each make their test fail

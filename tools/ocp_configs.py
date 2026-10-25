@@ -543,6 +543,12 @@ RUNTIME_RANGE = ["rc04_bi_m4_sample_both", "rc05_bsq_column_hybrid"]
 # Images of a runtime sequence that the timing test (TC-CO-53) aborts with an early In_Last (the first is the largest
 # image of the sequence)
 RUNTIME_ABORT = [0, 6]
+# Runtime configurations of the queue test (TC-CO-58): one with the hybrid coder (its tail pointer) and one without
+RUNTIME_QUEUE = ["rc03_bsq_block_rel", "rc05_bsq_column_hybrid"]
+# Images of the queue test: smallest images first (more than the 16 entries of the configuration queue), then a few
+# larger ones
+QUEUE_SMALL = 24
+QUEUE_LARGE = 4
 
 
 def width_one_allowed(c):
@@ -595,6 +601,20 @@ def runtime_sequence(c, n=RUNTIME_IMAGES):
         seq.append((rng.randint(xmin, mx), rng.randint(1, my), rng.randint(1, mz), rng.randint(0, amax),
                     rng.randint(0, rmax)))
     return [runtime_limit(c, *img) for img in seq[:n]]
+
+
+def runtime_queue_sequence(c):
+    """Images of the queue test (TC-CO-58): QUEUE_SMALL images of the smallest size (1 or 2 x 1 x 1) with random error
+    limit values, then QUEUE_LARGE random images; each entry is (driven values, values taken by the core)."""
+    rng = random.Random(9000 + c["seed"])
+    fid = c["quantizer_fidelity_control_method"]
+    xmin = 1 if width_one_allowed(c) else 2
+    amax = (1 << c["large_d_large_a"]) - 1 if fid in (1, 3) else 0
+    rmax = (1 << c["large_d_large_r"]) - 1 if fid in (2, 3) else 0
+    seq = [(xmin, 1, 1, rng.randint(0, amax), rng.randint(0, rmax)) for _ in range(QUEUE_SMALL)]
+    seq += [(rng.randint(xmin, c["large_n_x"]), rng.randint(1, c["large_n_y"]), rng.randint(1, c["large_n_z"]),
+             rng.randint(0, amax), rng.randint(0, rmax)) for _ in range(QUEUE_LARGE)]
+    return [(d, runtime_limit(c, *d)) for d in seq]
 
 
 def runtime_range_sequence(c):

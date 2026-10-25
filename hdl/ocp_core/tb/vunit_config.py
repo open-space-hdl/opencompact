@@ -174,6 +174,12 @@ def configure(lib):
         gen = runtime_generics(name, ocp_configs.RUNTIME[name])
         lines = (ROOT / "tb" / "golden" / name / "range.txt").read_text().splitlines()
         add(rng, name, dict(gen, RtList_g="range", RtImages_g=len(lines)))
+    # Queue test (TC-CO-58): the configuration queue full while the output is held low
+    queue = tb.test("test_runtime_queue")
+    for name in ocp_configs.RUNTIME_QUEUE:
+        gen = runtime_generics(name, ocp_configs.RUNTIME[name])
+        lines = (ROOT / "tb" / "golden" / name / "queue.txt").read_text().splitlines()
+        add(queue, name, dict(gen, RtList_g="queue", RtImages_g=len(lines)))
 
     framing = tb.test("test_framing")
     for name, width, bp in FRAMING:

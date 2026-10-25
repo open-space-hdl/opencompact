@@ -2,11 +2,10 @@
 
 ## 1. Test results
 
-Run on 2026-10-23 with GHDL 6.0.0 (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with
-the AXI-Lite VVC, Open Logic 4.7.0-ft.9: `python run.py "*ocp_channel*"`. The tests of version 0.1.1 pass in QuestaSim
-(Questa Pro Microchip Edition 2024.3, time resolution 1 fs, 2026-10-19), with code coverage and in the optimised run
-without it; the code coverage of that version is in [coverage.md](../../../docs/coverage.md). The tests of the runtime
-configuration run in QuestaSim with the next release.
+Run on 2026-10-25 with GHDL 6.0.0 (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with
+the AXI-Lite VVC, Open Logic 4.7.0-ft.9: `python run.py "*ocp_channel*"`. The same tests pass in QuestaSim (Questa Pro
+Microchip Edition 2024.3, time resolution 1 fs, 2026-10-24), with code coverage and in the optimised run without it;
+the code coverage is in [coverage.md](../../../docs/coverage.md).
 
 | Test | Configurations | Passed |
 | --- | --- | --- |

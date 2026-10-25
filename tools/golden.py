@@ -349,25 +349,30 @@ def check_runtime_header(name, ci, data):
 def write_runtime(name, c):
     """Golden data of a runtime configuration (reference model; the model reproduces the CNES encoder for every
     complete image): the seeded image sequence of TC-CO-52 (runtime.txt, image_<k>.raw, compressed_<k>.bin,
-    delta_<k>.txt) and for the configurations of RUNTIME_RANGE the range test of TC-CO-57 (range.txt,
-    range_image_<k>.raw, range_<k>.bin). A line of runtime.txt and range.txt holds the values driven on the
+    delta_<k>.txt), for the configurations of RUNTIME_RANGE the range test of TC-CO-57 (range.txt,
+    range_image_<k>.raw, range_<k>.bin) and for those of RUNTIME_QUEUE the queue test of TC-CO-58 (queue.txt,
+    queue_image_<k>.raw, queue_<k>.bin). A line of runtime.txt, range.txt and queue.txt holds the values driven on the
     configuration inputs of the core (NX, NY, NZ, absolute and relative error limit value), then the values the core
     takes (CO-RC-07)."""
     out = GOLDEN / name
     out.mkdir(parents=True, exist_ok=True)
     for old in list(out.glob("image_*.raw")) + list(out.glob("compressed_*.bin")) + list(out.glob("delta_*.txt")) + \
-            list(out.glob("range*")) + list(out.glob("rtabort*")):
+            list(out.glob("range*")) + list(out.glob("queue*")) + list(out.glob("rtabort*")):
         old.unlink()
-    jobs = [("runtime", "image_{:02d}.raw", "compressed_{:02d}.bin", True,
+    # (list, raw file, compressed file, with the entropy coder input, seed base, images)
+    jobs = [("runtime", "image_{:02d}.raw", "compressed_{:02d}.bin", True, 0,
              [(d, d) for d in ocp_configs.runtime_sequence(c)])]
     if name in ocp_configs.RUNTIME_RANGE:
-        jobs.append(("range", "range_image_{:02d}.raw", "range_{:02d}.bin", False,
+        jobs.append(("range", "range_image_{:02d}.raw", "range_{:02d}.bin", False, 100,
                      ocp_configs.runtime_range_sequence(c)))
-    for list_name, raw_name, bin_name, with_delta, seq in jobs:
+    if name in ocp_configs.RUNTIME_QUEUE:
+        jobs.append(("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
+                     ocp_configs.runtime_queue_sequence(c)))
+    for list_name, raw_name, bin_name, with_delta, seed_base, seq in jobs:
         lines = []
         nbytes = 0
         for k, (driven, taken) in enumerate(seq):
-            ci = ocp_configs.runtime_image_cfg(c, *taken, index=k if with_delta else 100 + k)
+            ci = ocp_configs.runtime_image_cfg(c, *taken, index=seed_base + k)
             img = ocp_configs.make_image(ci)
             write_raw(ci, ocp_configs.input_order(ci, img), out / raw_name.format(k))
             data = ocp_model.compress(ci, img)

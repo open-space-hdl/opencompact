@@ -33,6 +33,9 @@
 --   image framing images aborted by an early In_Last and images with a missing In_Last
 -- * test_runtime_range: the images of range.txt, configuration inputs outside their ranges taken
 --   as the nearest valid values (CO-RC-07)
+-- * test_runtime_queue: the images of queue.txt (the smallest images first) with Out_Ready held low
+--   until the core holds back a sample for 1000 clock cycles (the configuration queue full), then
+--   released; every image is compared, at least 16 images were taken before the stall
 --
 -- With UseInLast_g the source sets In_Last on the last sample of every image; without it In_Last
 -- and In_Error are random (ignored by the core).
@@ -269,8 +272,8 @@ architecture sim of ocp_core_tb is
     begin
         if not RuntimeConfig_g then
             return GoldenDir_g & "/image.raw";
-        elsif RtList_g = "range" then
-            return GoldenDir_g & "/range_image_" & twoDigits(img - 1) & ".raw";
+        elsif RtList_g /= "runtime" then
+            return GoldenDir_g & "/" & RtList_g & "_image_" & twoDigits(img - 1) & ".raw";
         end if;
         return GoldenDir_g & "/image_" & twoDigits(img - 1) & ".raw";
     end function;
@@ -279,8 +282,8 @@ architecture sim of ocp_core_tb is
     begin
         if not RuntimeConfig_g then
             return GoldenDir_g & "/compressed.bin";
-        elsif RtList_g = "range" then
-            return GoldenDir_g & "/range_" & twoDigits(img - 1) & ".bin";
+        elsif RtList_g /= "runtime" then
+            return GoldenDir_g & "/" & RtList_g & "_" & twoDigits(img - 1) & ".bin";
         end if;
         return GoldenDir_g & "/compressed_" & twoDigits(img - 1) & ".bin";
     end function;
@@ -350,6 +353,15 @@ architecture sim of ocp_core_tb is
     -- configuration inputs around the take)
     signal Takes    : natural := 0;
     signal RtTiming : boolean := false;
+
+    -- Queue test: output held low (QueueTest) until the core holds back a sample for 1000 clock cycles
+    -- (QueueRelease); whether that sample was the first of an image (FirstOffer: the source offers the
+    -- first sample of an image) and the takes until then
+    signal QueueTest    : boolean := false;
+    signal QueueRelease : boolean := false;
+    signal QueueAtFirst : boolean := false;
+    signal QueueTakes   : natural := 0;
+    signal FirstOffer   : boolean := false;
 
     -- Jobs: JobStart counts the started jobs; source and sink report the number of the job they
     -- finished (or that a reset aborted)
@@ -775,6 +787,20 @@ begin
                 check_value(ErrCount, 0, ERROR, "no framing error");
                 checkIdle;
 
+            elsif run("test_runtime_queue") then
+                -- The output stays low until the core holds back a sample for 1000 cycles (p_queue)
+                reset;
+                QueueTest <= true;
+                job(RtImages_g, true);
+                checkTakes(RtImages_g);
+                check_value(QueueRelease, ERROR, "the core held back a sample while the output was low");
+                check_value(QueueAtFirst, ERROR, "the sample held back was the first sample of an image");
+                check_value(QueueTakes >= 16, ERROR, "at least 16 images taken before the stall (" &
+                            to_string(QueueTakes) & ")");
+                check_value(SecCount + DedCount, 0, ERROR, "no memory error");
+                check_value(ErrCount, 0, ERROR, "no framing error");
+                checkIdle;
+
             elsif run("test_runtime_timing") then
                 -- The configuration inputs change around the take (source, RtTiming); with the image
                 -- framing the images of rtabort.txt end early and two images miss In_Last
@@ -923,6 +949,7 @@ begin
 
                     drive(img - 1);
                 end if;
+                FirstOffer <= Idx_v = 0;
                 send(Smp_v(DynamicRange_g - 1 downto 0), Last_v, Err_v);
                 exit when Abort_v;
                 -- Runtime configuration: the core takes the configuration with the first sample only; then
@@ -968,6 +995,28 @@ begin
         end loop;
 
         SrcDone <= JobStart;
+    end process;
+
+    -- Queue test: a sample held back for 1000 clock cycles while the output is low releases the output; the
+    -- configuration queue is full when this sample is the first of an image. The limit is above every wait of
+    -- a sample for the samples it depends on (issue distances up to 255 cycles plus the image start)
+    p_queue : process is
+        constant Limit_c : positive := 1000;
+        variable Cnt_v   : natural  := 0;
+    begin
+        wait until rising_edge(Clk);
+        if QueueTest and not QueueRelease and In_Valid = '1' and In_Ready = '0' then
+            Cnt_v := Cnt_v + 1;
+        else
+            Cnt_v := 0;
+        end if;
+        if Cnt_v = Limit_c then
+            QueueAtFirst <= FirstOffer;
+            QueueTakes   <= Takes;
+            QueueRelease <= true;
+            log(ID_SEQUENCER, "queue test: output released after " & to_string(Takes) &
+                              " takes, sample held back is the first of an image: " & to_string(FirstOffer), "p_queue");
+        end if;
     end process;
 
     -- Throughput: cycle of the first and the last accepted sample of a job and of the first sample of the
@@ -1144,6 +1193,12 @@ begin
             readByte(Ref_f, Exp_v, Eof_v);
 
             loop
+
+                -- Queue test: no word is taken until the core holds back a sample
+                while QueueTest and not QueueRelease and Rst = '0' loop
+                    Out_Ready <= '0';
+                    wait until rising_edge(Clk);
+                end loop;
 
                 while random(0, 99) < OutStallPct_g and Rst = '0' loop
                     Out_Ready <= '0';

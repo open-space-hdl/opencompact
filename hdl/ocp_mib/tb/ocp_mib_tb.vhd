@@ -342,6 +342,15 @@ begin
             regWrite(AXILITE_VVCT, Axi_c, addr, data);
         end procedure;
 
+        -- Write with byte enables (a disabled byte lane is not written)
+        procedure wrStrb (addr : natural; data : std_logic_vector(31 downto 0); strb : std_logic_vector(3 downto 0)) is
+        begin
+            axilite_write(AXILITE_VVCT, Axi_c, to_unsigned(addr, AxiAddrBits_c), data, strb,
+                          "write 0x" & to_hstring(to_unsigned(addr, AxiAddrBits_c)) & " with byte enables " &
+                          to_string(strb));
+            await_completion(AXILITE_VVCT, Axi_c, 100 us);
+        end procedure;
+
         -- Count pulses on input sel, gap idle cycles between two pulses
         procedure pulses (sel : natural; count : natural; gap : natural) is
         begin
@@ -697,6 +706,28 @@ begin
                     chkStatus('0', '1', "relative limit not in use");
                     take;
                 end if;
+
+                -- Writes without effect: COMMIT and the clear of CFG_ERROR with byte lane 0 disabled or
+                -- with the bit 0
+                setNext(2, 1, 1, 0, 0);
+                commit;
+                take;
+                setNext(3, 1, 1, 0, 0);
+                wrStrb(RegControl_c, x"00000001", "1110");
+                chkStatus('0', '0', "COMMIT with byte lane 0 disabled");
+                chkOutputs(2, 1, 1, 0, 0, "COMMIT with byte lane 0 disabled");
+                wr(RegControl_c, x"00000000");
+                chkStatus('0', '0', "CONTROL written with COMMIT = 0");
+                chkOutputs(2, 1, 1, 0, 0, "CONTROL written with COMMIT = 0");
+                setNext(XSize_g, YSize_g, 0, 0, 0);
+                commit;
+                chkStatus('1', '0', "NZ = 0 (invalid)");
+                wrStrb(RegStatus_c, x"00000002", "1110");
+                chkStatus('1', '0', "clear of CFG_ERROR with byte lane 0 disabled");
+                wr(RegStatus_c, x"00000000");
+                chkStatus('1', '0', "STATUS written with CFG_ERROR = 0");
+                wr(RegStatus_c, x"00000002");
+                chkStatus('0', '0', "CFG_ERROR cleared");
 
             elsif run("test_runtime_commit") then
                 -- Write cycle of a COMMIT relative to the rise of AwValid (calibration); limits 1 so that the

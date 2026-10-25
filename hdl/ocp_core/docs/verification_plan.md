@@ -119,6 +119,7 @@ of the seeded sequence with `ocp_model`.
 | TC-CO-55 (regression and `lint/synth_check.py`, before and after the runtime configuration) | With `RuntimeConfig_g` false every existing test passes on the unchanged golden data, byte for byte, and the register bits and cells of the GHDL netlist of every configuration differ from those before the runtime configuration only by logic without loads (the fields of the runtime configuration in the registers of the predictor, the output `Cfg_Done` of the hybrid coder) and by refactorings with the same function, listed per configuration in the verification report; the utilisation after FPGA synthesis is compared in the out-of-context flow of Vivado (`lint/vivado_ooc.py` c01, before and after the runtime configuration) | CO-RC-06 |
 | TC-CO-56 (`lint/synth_check.py`) | rc01 to rc05 synthesize with `RuntimeConfig_g` true at their maxima, and with the maxima NX = 65536 and NZ = M = 65536; with `RuntimeConfig_g` true, periodic updating, band-dependent absolute and band-dependent relative limits, each header table whose length depends on NZ (weight initialisation, weight exponent offset, damping, offset and accumulator initialisation table) and supplementary information tables (CCSDS 5.3.2.3) stop the elaboration with their message | CO-CF-04 |
 | `test_runtime_range` rc04, rc05 (TC-CO-57) | Values outside their ranges on the configuration inputs at the image start, alone and together, between images with valid values: 0, the maximum + 1 and 2^17 - 1 for NX, NY and NZ, NX = 1 in rc04 (which needs NX >= 2), error limit values 2^DA, 2^DR and 2^16 - 1. Every image equals the compressed image of `ocp_model` for the limited values, its header carries them, the `Act_` outputs show them, and the next image with valid values is compressed normally | CO-RC-07 |
+| `test_runtime_queue` rc03, rc05 (TC-CO-58) | `RuntimeConfig_g` true, the configuration queue full: 24 images of the smallest size (1 or 2 x 1 x 1) and 4 larger ones back to back, `Out_Ready` held low until the core holds back the first sample of an image for 1000 clock cycles (more than any wait for the samples it depends on), then released. At least 16 images are taken before the stall; every image equals the compressed image of `ocp_model` for its values and the `Act_` outputs show them, so no image and no configuration is lost while the queue is full; rc05 covers the pointer of the hybrid coder tail. With the image framing the error flag queue of the framer (also 16 entries) holds back the input one image earlier, so the configuration queue full is reached without the framing | CO-RC-03 |
 
 ## 4. Requirement coverage
 
@@ -135,7 +136,7 @@ of the seeded sequence with `ocp_model`.
 | CO-FR-02 to CO-FR-09 | TC-CO-46, TC-CO-47 |
 | PR-FR-01, PR-FR-02 (predictor) | TC-CO-47 (exact aborted images in the input order and in the stride order) |
 | CO-RC-01, CO-RC-02, CO-RC-04, CO-HD-08 | TC-CO-52 |
-| CO-RC-03 | TC-CO-53, TC-CO-52 (`Cfg_Taken`, `Act_` outputs) |
+| CO-RC-03 | TC-CO-53, TC-CO-52 (`Cfg_Taken`, `Act_` outputs), TC-CO-58 (queue full) |
 | CO-RC-05 | TC-CO-54 |
 | CO-RC-06 | TC-CO-55 |
 | CO-RC-07 | TC-CO-57 |

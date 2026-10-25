@@ -115,6 +115,8 @@ def configure(lib):
         add_start(sweep, name, cfg)
     for name in START:
         add_start(sweep, name, ocp_configs.ALL[name])
+    # No prediction bands (P = 0): the distance of the local differences of the band before does not apply
+    add_start(sweep, "c03_lossless_bsq_narrow_p0", dict(ocp_configs.ALL["c03_lossless_bsq_narrow"], large_p=0))
 
     # Test vectors of the CCSDS test data set
     tv_dir = os.environ.get("OCP_TESTVECTORS")

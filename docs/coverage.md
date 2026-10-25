@@ -25,37 +25,39 @@ Closure rules:
 
 ## 2. Results
 
-Run on 2026-10-19 with Open Logic 4.7.0-ft.6: 499 tests (the testbenches of the predictor, the entropy coders, the
-bit packer and the core with all configurations of `tools/ocp_configs.py`, the core configurations also with the image
-framing and the aborted images at every abort position, and the testbenches of the input adapter, the MIB and the
-channel), all passed in QuestaSim as in GHDL, with code coverage and in the optimised run without it. The regression
-ran in nine parts by testbench; `vcover merge` combines the coverage databases of the parts. Numbers are
-covered/total bins per file; bold marks a metric with misses.
+Run on 2026-10-24 and 2026-10-25 with Open Logic 4.7.0-ft.9: 565 tests (the testbenches of the predictor and its
+image-start sequencer, the entropy coders, the bit packer and the core with all configurations of
+`tools/ocp_configs.py` and the runtime configurations, the core configurations also with the image framing and the
+aborted images at every abort position, and the testbenches of the input adapter, the MIB and the channel), all passed
+in QuestaSim as in GHDL, with code coverage and in the optimised run without it. The regression ran in ten parts by
+testbench; the tests added by the review of this coverage (section 3) ran again in both modes; `vcover merge` combines
+the coverage databases of all parts. Numbers are covered/total bins per file; bold marks a metric with misses.
 
 | File | Statements | Branches | Conditions | Expressions | FSM States | FSM Transitions |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ocp_pkg.vhd` | **30 / 41 (73.2 %)** | **27 / 32 (84.4 %)** | **1 / 2 (50.0 %)** | | | |
-| `ocp_predictor.vhd` | **688 / 691 (99.6 %)** | **327 / 328 (99.7 %)** | **84 / 104 (80.8 %)** | **61 / 65 (93.8 %)** | | |
+| `ocp_pkg.vhd` | **50 / 62 (80.6 %)** | **37 / 42 (88.1 %)** | **1 / 2 (50.0 %)** | 11 / 11 | | |
+| `ocp_predictor.vhd` | **753 / 756 (99.6 %)** | **357 / 358 (99.7 %)** | **85 / 108 (78.7 %)** | **70 / 75 (93.3 %)** | | |
 | `ocp_sample_adaptive_coder.vhd` | 97 / 97 | 30 / 30 | 9 / 9 | 14 / 14 | | |
-| `ocp_hybrid_coder.vhd` | **204 / 205 (99.5 %)** | **59 / 61 (96.7 %)** | **24 / 25 (96.0 %)** | 16 / 16 | 3 / 3 | 4 / 4 |
-| `ocp_block_adaptive_coder.vhd` | **210 / 211 (99.5 %)** | **96 / 97 (99.0 %)** | **17 / 20 (85.0 %)** | 5 / 5 | | |
+| `ocp_hybrid_coder.vhd` | **211 / 212 (99.5 %)** | **65 / 67 (97.0 %)** | **24 / 25 (96.0 %)** | 16 / 16 | 3 / 3 | 4 / 4 |
+| `ocp_block_adaptive_coder.vhd` | 211 / 211 | 97 / 97 | **17 / 20 (85.0 %)** | 5 / 5 | | |
 | `ocp_cw_buffer.vhd` | 33 / 33 | 13 / 13 | 9 / 9 | 6 / 6 | | |
-| `ocp_header.vhd` | 167 / 167 | 60 / 60 | 2 / 2 | | | |
+| `ocp_header.vhd` | 190 / 190 | 70 / 70 | 2 / 2 | | | |
 | `ocp_bit_packer.vhd` | 105 / 105 | 31 / 31 | 2 / 2 | | | |
-| `ocp_image_framer.vhd` | **44 / 45 (97.8 %)** | **27 / 28 (96.4 %)** | 7 / 7 | 5 / 5 | 2 / 2 | 2 / 2 |
-| `ocp_core.vhd` | 32 / 32 | 28 / 28 | 7 / 7 | 9 / 9 | | |
+| `ocp_image_framer.vhd` | **73 / 74 (98.6 %)** | **39 / 40 (97.5 %)** | 9 / 9 | 8 / 8 | 2 / 2 | 2 / 2 |
+| `ocp_core.vhd` | 88 / 88 | 62 / 62 | 15 / 15 | 9 / 9 | | |
 | `ocp_input_adapter.vhd` | **47 / 48 (97.9 %)** | **19 / 20 (95.0 %)** | 11 / 11 | 12 / 12 | 2 / 2 | 2 / 2 |
-| `ocp_mib.vhd` | 70 / 70 | 27 / 27 | **5 / 6 (83.3 %)** | | | |
+| `ocp_mib.vhd` | 131 / 131 | 70 / 70 | **15 / 16 (93.8 %)** | 16 / 16 | | |
 | `ocp_channel.vhd` | 14 / 14 | 5 / 5 | 3 / 3 | **8 / 10 (80.0 %)** | | |
-| Total | 1741 / 1759 (99.0 %) | 749 / 760 (98.6 %) | 181 / 207 (87.4 %) | 136 / 142 (95.8 %) | 7 / 7 (100.0 %) | 8 / 8 (100.0 %) |
+| `ocp_image_start.vhd` | **51 / 52 (98.1 %)** | **28 / 29 (96.6 %)** | | 11 / 11 | 3 / 3 | **3 / 4 (75.0 %)** |
+| Total | 2054 / 2073 (99.1 %) | 923 / 934 (98.8 %) | 202 / 231 (87.4 %) | 186 / 193 (96.4 %) | 10 / 10 (100.0 %) | 11 / 12 (91.7 %) |
 
 Every statement and branch that runs in simulation is covered except five items (the recovery branches of the state
-machines of the tail, the image framer and the input adapter, the wait of the flush words of the tail and the
-saturation of a second extension symbol), and every condition and expression term whose value can change in a
-simulation is covered (the saturation of a 32-bit counter of the MIB needs 2^32 - 1 events); section 4 lists all
-misses. The predictor and the sample-adaptive and block-adaptive coders are pipelines without state machines; the tail
-of the hybrid coder, the image framer and the input adapter are the state machines, and all their states and
-transitions are reached.
+machines of the tail, the image framer, the input adapter and the image-start sequencer, and the wait of the flush
+words of the tail), and every condition and expression term whose value can change in a simulation is covered (the
+saturation of a 32-bit counter of the MIB needs 2^32 - 1 events); section 4 lists all misses. The predictor and the
+sample-adaptive and block-adaptive coders are pipelines without state machines; the tail of the hybrid coder, the
+image framer, the input adapter and the image-start sequencer are the state machines, and all their states and
+transitions are reached except the recovery transition of the sequencer.
 
 ## 3. Gaps found and closed
 

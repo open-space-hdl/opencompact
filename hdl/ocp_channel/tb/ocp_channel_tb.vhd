@@ -622,7 +622,7 @@ begin
 
         while test_suite loop
             if run("test_golden") then
-                chk(RegId_c, 16#4F435002#, "ID");
+                chk(RegId_c, 16#4F435003#, "ID");
                 job(Images_g, (others => Normal_c));
                 check_value(ExpDone, Images_g, ERROR, "model: images done");
                 chkCounters("correct images");
@@ -859,7 +859,7 @@ begin
         variable Swallow_v : boolean;
         variable Resets_v  : natural := 0;
         variable N_v       : positive;
-        variable Rt_v      : integer_vector(0 to 9);
+        variable Rt_v      : RtLine_t;
     begin
         wait on JobStart;
         Abort_v   := false;

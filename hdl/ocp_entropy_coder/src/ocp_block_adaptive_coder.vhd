@@ -154,10 +154,10 @@ architecture rtl of ocp_block_adaptive_coder is
         Final    : std_logic;
         -- Runtime parameters: r of the block in collection and of the blocks in the selection stages (no bits
         -- without them)
-        CRef     : natural range 1 to 1 + (RefInterval_g - 1) * toInt(RuntimeParams_g);
-        S1Ref    : natural range 1 to 1 + (RefInterval_g - 1) * toInt(RuntimeParams_g);
-        S2Ref    : natural range 1 to 1 + (RefInterval_g - 1) * toInt(RuntimeParams_g);
-        S3Ref    : natural range 1 to 1 + (RefInterval_g - 1) * toInt(RuntimeParams_g);
+        CRef     : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
+        S1Ref    : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
+        S2Ref    : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
+        S3Ref    : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
         -- Selection of the shortest option (three stages)
         S1Valid  : std_logic;
         S1Bank   : natural range 0 to Banks_c - 1;

@@ -685,11 +685,14 @@ begin
             end if;
         end process;
 
-        HeadH    <= Queue(to_integer(QRdH(3 downto 0)));
-        HeadC    <= Queue(to_integer(QRdC(3 downto 0)));
-        CfgReady <= '0' when QWr - QRdH = QDepth_c or (Coder_c = CoderHybrid_c and QWr - QRdC = QDepth_c) or
-                             (RuntimeParams_g and Coder_c /= CoderHybrid_c and QWr - QRdE = QDepth_c) else
-                    '1';
+        HeadH <= Queue(to_integer(QRdH(3 downto 0)));
+        HeadC <= Queue(to_integer(QRdC(3 downto 0)));
+
+        -- Room in the queue for the next image (with the runtime parameters also behind the read pointer of the
+        -- sample-adaptive and the block-adaptive coder, g_params)
+        g_ready : if not RuntimeParams_g generate
+            CfgReady <= '0' when QWr - QRdH = QDepth_c or (Coder_c = CoderHybrid_c and QWr - QRdC = QDepth_c) else '1';
+        end generate;
 
         Cfg_Taken    <= Take;
         Act_XSize    <= std_logic_vector(Act.X);
@@ -793,7 +796,13 @@ begin
         HeadPH <= unpack(PQueue(to_integer(QRdH(3 downto 0))));
         HeadPC <= decode(unpack(PQueue(to_integer(QRdC(3 downto 0)))));
         HeadPE <= decode(unpack(PQueue(to_integer(QRdE(3 downto 0)))));
-        ActPar <= decode(unpack(ParAct));
+
+        -- Room in the queue: the read pointer of the header generator, of the hybrid coder (its tail) or of the other
+        -- coders, which can be one image behind the header generator
+        CfgReady <= '0' when QWr - QRdH = QDepth_c or (Coder_c = CoderHybrid_c and QWr - QRdC = QDepth_c) or
+                             (Coder_c /= CoderHybrid_c and QWr - QRdE = QDepth_c) else
+                    '1';
+        ActPar   <= decode(unpack(ParAct));
 
         Act_UserData       <= std_logic_vector(to_unsigned(ActPar.User, 8));
         Act_M              <= std_logic_vector(to_unsigned(ActPar.M, 17)) when UseM_c else (others => '0');

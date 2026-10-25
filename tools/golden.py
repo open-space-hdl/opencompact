@@ -368,6 +368,34 @@ def write_runtime(name, c):
     if name in ocp_configs.RUNTIME_QUEUE:
         jobs.append(("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
                      ocp_configs.runtime_queue_sequence(c)))
+    write_jobs(name, c, out, jobs)
+    # Images of the runtime sequence aborted by an early In_Last (TC-CO-53): rtabort.txt holds the image and the
+    # sample with the early In_Last (counted from 0), rtabort_<k>.bin the compressed image of the samples taken
+    lines = []
+    for k in ocp_configs.RUNTIME_ABORT:
+        nx, ny, nz, a, r = ocp_configs.runtime_sequence(c)[k]
+        ci = ocp_configs.runtime_image_cfg(c, nx, ny, nz, a, r, index=k)
+        pos = (nx * ny * nz) // 2
+        (out / "rtabort_{:02d}.bin".format(k)).write_bytes(
+            ocp_model.compress_aborted(ci, ocp_configs.make_image(ci), pos + 1))
+        lines.append("{} {}".format(k, pos))
+    (out / "rtabort.txt").write_text("\n".join(lines) + "\n", newline="\n")
+
+
+def write_queue_only(name, c):
+    """Golden data of a configuration of the queue test only (RUNTIME_QUEUE_ONLY, TC-CO-58): queue.txt,
+    queue_image_<k>.raw, queue_<k>.bin."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in out.glob("queue*"):
+        old.unlink()
+    write_jobs(name, c, out, [("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
+                                ocp_configs.runtime_queue_sequence(c, name in ocp_configs.QUEUE_LONG_TAIL))])
+
+
+def write_jobs(name, c, out, jobs):
+    """Image lists of a runtime configuration: test images, compressed images (reference model, header checked) and
+    with with_delta the entropy coder input sequences; a line of the list holds the driven and the taken values."""
     for list_name, raw_name, bin_name, with_delta, seed_base, seq in jobs:
         lines = []
         nbytes = 0
@@ -384,17 +412,6 @@ def write_runtime(name, c):
             nbytes += len(data)
         (out / (list_name + ".txt")).write_text("\n".join(lines) + "\n", newline="\n")
         print("{:28s} {:6s} {:3d} images, {:7d} bytes".format(name, list_name, len(seq), nbytes))
-    # Images of the runtime sequence aborted by an early In_Last (TC-CO-53): rtabort.txt holds the image and the
-    # sample with the early In_Last (counted from 0), rtabort_<k>.bin the compressed image of the samples taken
-    lines = []
-    for k in ocp_configs.RUNTIME_ABORT:
-        nx, ny, nz, a, r = ocp_configs.runtime_sequence(c)[k]
-        ci = ocp_configs.runtime_image_cfg(c, nx, ny, nz, a, r, index=k)
-        pos = (nx * ny * nz) // 2
-        (out / "rtabort_{:02d}.bin".format(k)).write_bytes(
-            ocp_model.compress_aborted(ci, ocp_configs.make_image(ci), pos + 1))
-        lines.append("{} {}".format(k, pos))
-    (out / "rtabort.txt").write_text("\n".join(lines) + "\n", newline="\n")
 
 
 def main():
@@ -410,8 +427,11 @@ def main():
             write_aborted(name, ocp_configs.ALL[name])
         return
     if args.runtime:
-        for name in args.configs or list(ocp_configs.RUNTIME):
-            write_runtime(name, ocp_configs.RUNTIME[name])
+        for name in args.configs or list(ocp_configs.RUNTIME) + list(ocp_configs.RUNTIME_QUEUE_ONLY):
+            if name in ocp_configs.RUNTIME_QUEUE_ONLY:
+                write_queue_only(name, ocp_configs.RUNTIME_QUEUE_ONLY[name])
+            else:
+                write_runtime(name, ocp_configs.RUNTIME[name])
         return
     if not args.cnes_bin:
         raise SystemExit("give the bin directory of the CNES reference software with --cnes-bin or OCP_CNES_BIN")

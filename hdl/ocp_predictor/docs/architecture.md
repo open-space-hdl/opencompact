@@ -165,3 +165,11 @@ line memories are addressed with the pitch of `XSize_g`. The conditions of the i
 derives from the dimensions (section 2) come from the image-start sequencer, which computes them in a fixed number of
 clock cycles before the first sample of the image is started; the history of issued bands has the length of the worst
 case over the allowed dimensions. The stride order (section 4) is not instantiated.
+
+With `RuntimeParams_g` (`ocp_core` architecture, section 6.3) the predictor also takes M (BI order) and the weight
+update parameters log2 t_inc, vmin and vmax at the image start. M replaces min(`SubFrameDepth_g`, NZ) at the input of
+the image-start sequencer and in the position counters of the sub-frames; the memories keep the sizes for
+`SubFrameDepth_g`. The weight update parameters travel with every item of the image (3 bits for log2 t_inc - 4 and
+5 bits each for vmin and vmax), like NX, so that the stage of the weight update scaling exponent (CCSDS 4.10.2:
+the shift by log2 t_inc and the limits vmin and vmax) uses the values of the image of its item; the shift becomes an
+eight-position shift instead of a constant one.

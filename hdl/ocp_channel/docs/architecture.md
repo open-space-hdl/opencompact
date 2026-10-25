@@ -49,6 +49,10 @@ inputs of the core; `Cfg_Taken` and the values the core took (`Act_XSize` to `Ac
 which shows them in its active registers and clears CFG_PENDING. The input adapter does not depend on the image
 dimensions: it forwards samples and end marks only.
 
+With `RuntimeParams_g` the channel passes the generic to the MIB and the core and connects the parameter outputs of
+the MIB (`Cfg_UserData` to `Cfg_RefInterval`) to the core and the `Act_` outputs of the core back to the MIB in the
+same way; the ports of the channel do not change.
+
 ## 4. Ports
 
 | Port | Direction | Width | Description |

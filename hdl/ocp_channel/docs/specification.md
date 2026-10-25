@@ -29,6 +29,7 @@ reports the configuration and counts the images, the faulty and discarded SDUs a
 | CH-TP-01 | With `OutStreamWidth_g` at least `OutWidth_g`, the output adapter shall take a word from the core in every clock cycle except one cycle per compressed image, so that the throughput of the channel is the throughput of the core (user guide, section 8) up to one clock cycle per SDU and per image. | none |
 | CH-RS-01 | A reset shall abort the image in progress (CO-RS-01), clear the adapters and clear the counters. | none |
 | CH-RC-01 | With `RuntimeConfig_g` true the channel shall compress every image with the configuration that software committed in `ocp_mib` before the first SDU of the image arrived at the core (MB-RC-02, CO-RC-03), and the active configuration registers shall show the configuration of the last image that started. | 5.3.2.2, 5.3.3.4 |
+| CH-RP-01 | With `RuntimeParams_g` true (only with `RuntimeConfig_g` true) the channel shall compress every image also with the runtime parameters that software committed in `ocp_mib` (MB-RP-02, CO-RP-01), and the parameter fields of the read-only registers shall show the parameters of the last image that started. | 5.3.2.2, 5.3.3.2, 5.3.4 |
 
 ### 2.3 Configuration checks
 

@@ -101,6 +101,15 @@ steps through the bands 0 to NZ - 1 of the image instead of the index modulo `ZS
 its end. A band without statistics in the image ends with its initial accumulator, which covers the single-pixel
 case NX = NY = 1 as well. The block-adaptive coder does not depend on the image dimensions.
 
+With `RuntimeParams_g` (`ocp_core` architecture, section 6.3) every coder takes the parameters of an image from the
+configuration queue of the core with the first item of the image and holds them up to its last item (the hybrid
+coder up to the end of its tail), decoded from the encoding of their header fields. The widths stay those of the
+maxima: the accumulators and counters of the sample-adaptive and the hybrid coder those of `RescaleCounterSize_g`,
+the codeword width that of the largest Umax (a constant of `ocp_pkg`), the reference sample counter of the
+block-adaptive coder that of `RefInterval_g`. What changes per image: the comparison with Umax and the length of the
+escape codeword, the initial counter value 2^gamma0, the rescaling threshold 2^gamma\* - 1, the initial accumulator
+from K, and the limit of the reference sample counter.
+
 ## 5. Interfaces
 
 | Port | Direction | Description |

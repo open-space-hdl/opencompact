@@ -83,6 +83,47 @@ set by the generics (section 2.6).
 | CO-CF-02 | With the block-adaptive coder the elaboration shall stop when `BlockSize_g` is not 8, 16, 32 or 64, or when `RestrictedCodes_g` is true with D above 4. | 5.3.4.4, 5.4.3.4.2.4, 5.4.3.4.2.6 |
 | CO-CF-03 | With the sample-adaptive or the hybrid coder the elaboration shall stop when `RescaleCounterSize_g` is below max(4, `InitialCountExp_g` + 1); with the sample-adaptive coder also when an accumulator initialisation value in use (`AccuInit_g`) is outside 0 to min(D - 2, 14). | 5.4.3.2.3.3, 5.4.3.2.3.4, 5.4.3.3.4.5 |
 | CO-CF-04 | With `RuntimeConfig_g` true the elaboration shall stop with periodic error limit updating, with band-dependent absolute or relative error limits, and with a header table whose length depends on NZ: the weight initialisation table, the weight exponent offset table, a band-varying damping or offset table and a band-varying accumulator initialisation table; and with supplementary information tables (their size can depend on the dimensions). | 4.8.2.4, 5.3.2.3, 5.3.3.3, 5.3.3.4, 5.3.3.5.2, 5.3.3.5.3, 5.3.4.2.2 |
+| CO-CF-05 | The elaboration shall stop when `RuntimeParams_g` is true and `RuntimeConfig_g` is false. | none |
+
+### 2.8 Runtime parameters
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| CO-RP-01 | With `RuntimeParams_g` true the core shall take, together with the configuration of CO-RC-03, the user-defined data (`Cfg_UserData`), in BI order the sub-frame interleaving depth M (`Cfg_M`), the weight update scaling exponent change interval as log2 t_inc (`Cfg_WeightInterval`), the initial and final weight update scaling exponent parameters vmin and vmax (`Cfg_WeightVmin`, `Cfg_WeightVmax`) and the parameters of the entropy coder of `EntropyCoder_g`: with the sample-adaptive and the hybrid coder the unary length limit Umax (`Cfg_UnaryLimit`), the initial count exponent gamma0 (`Cfg_InitCountExp`) and the rescaling counter size gamma\* (`Cfg_RescaleSize`), with the sample-adaptive coder and an accumulator initialisation constant also K (`Cfg_AccuInit`), with the block-adaptive coder the reference sample interval r (`Cfg_RefInterval`). The core shall use the values for the whole image and its header. Inputs of options not in use shall be ignored. | 4.10.2, 5.3.2.2, 5.3.3.2, 5.3.4.2.1, 5.3.4.3, 5.3.4.4, 5.4.2.2.1, 5.4.3.2.2.2, 5.4.3.2.3.2, 5.4.3.2.3.3, 5.4.3.2.3.4, 5.4.3.3.3.2.2, 5.4.3.3.4.2, 5.4.3.3.4.5, 5.4.3.4.2.5 |
+| CO-RP-02 | With `RuntimeParams_g` true the core shall take a parameter outside its range at the image start as the nearest valid value, the ranges being: Umax 8 to 32; gamma0 1 to min(8, `RescaleCounterSize_g` - 1); gamma\* max(4, gamma0 + 1) to `RescaleCounterSize_g`; K 0 to min(D - 2, 14); r 1 to `RefInterval_g`; log2 t_inc 4 to 11; vmin -6 to 9; vmax vmin to 9; M 1 to min(`SubFrameDepth_g`, NZ). A parameter whose range depends on another one shall be limited after that one, with the limited value: gamma\* after gamma0, vmax after vmin, M after NZ (CO-RC-07). The image shall be compressed with the values taken, and its header and the `Act_` outputs shall carry them. | 4.10.2, 5.4.2.2.1, 5.4.3.2.2.2, 5.4.3.2.3.2, 5.4.3.2.3.3, 5.4.3.2.3.4, 5.4.3.3.3.2.2, 5.4.3.3.4.2, 5.4.3.3.4.5, 5.4.3.4.2.5 |
+| CO-RP-03 | With `RuntimeParams_g` true the core shall output the parameters taken for the last image on `Act_UserData`, `Act_M`, `Act_WeightInterval`, `Act_WeightVmin`, `Act_WeightVmax`, `Act_UnaryLimit`, `Act_InitCountExp`, `Act_RescaleSize`, `Act_AccuInit` and `Act_RefInterval` from the clock cycle after the take until the next image start (after a reset the values of the generics; zero for a parameter not in use). | none |
+| CO-RP-04 | With `RuntimeParams_g` false the core shall take the parameters of CO-RP-01 from the generics and keep the `Act_` outputs of CO-RP-03 at zero; with `RuntimeConfig_g` true its compressed images and its resources shall be those of the runtime configuration without the runtime parameters. | none |
+| CO-RP-05 | The core shall hold the parameters of an image that has started but whose header or coder has not taken them yet in the encoding of their header fields (table 2), and the values that the predictor, the entropy coder and the header generator use shall equal the values taken, for every value of the range of each parameter. | 5.3.2.2, 5.3.3.2, 5.3.4 |
+
+Table 1: consumption of the runtime parameters. Every parameter is a header field, so each of them is held until the
+header of its image is output, up to 16 images after its image start (the depth of the configuration queue).
+
+| Parameter | Input (bits) | Used by | Taken |
+| --- | --- | --- | --- |
+| User-defined data | `Cfg_UserData` (8) | Header (essential subpart) | From the queue when the header of the image is output |
+| M (BI order) | `Cfg_M` (17) | Predictor (image-start sequencer, position counters), header (essential subpart) | Predictor at the image start; header from the queue |
+| log2 t_inc, vmin, vmax | `Cfg_WeightInterval` (4), `Cfg_WeightVmin`, `Cfg_WeightVmax` (5 each, two's complement) | Predictor (weight update scaling exponent, every sample), header (predictor metadata, primary) | Predictor at the image start, carried with every sample of the image through the pipeline; header from the queue |
+| Umax, gamma0, gamma\* | `Cfg_UnaryLimit` (6), `Cfg_InitCountExp` (4), `Cfg_RescaleSize` (4) | Sample-adaptive or hybrid coder, header (entropy coder metadata) | Coder with the first item of the image, held up to the end of the image (with the hybrid coder up to the end of its tail); header from the queue |
+| K | `Cfg_AccuInit` (4) | Sample-adaptive coder, header | Coder with the first item of the image; header from the queue |
+| r | `Cfg_RefInterval` (13) | Block-adaptive coder, header | Coder with the first item of the image; header from the queue |
+
+Table 2: queue entry of the runtime parameters, the fields of the options in use (fixed by `EntropyCoder_g` and
+`EncodingOrder_g`) in the encoding of their header fields, and the flip-flops of the 16 entries. Holding every
+parameter at the width of its input in every configuration would take 70 bits per entry (1120 flip-flops).
+
+| Field | Header encoding | Bits | Sample-adaptive | Hybrid | Block-adaptive |
+| --- | --- | --- | --- | --- | --- |
+| User-defined data | the value | 8 | 8 | 8 | 8 |
+| M | M mod 2^16 | 16 | BI only | BI only | BI only |
+| log2 t_inc | log2 t_inc - 4 | 4 | 4 | 4 | 4 |
+| vmin, vmax | v + 6 | 4 + 4 | 8 | 8 | 8 |
+| Umax | Umax mod 32 | 5 | 5 | 5 | |
+| gamma\* | gamma\* - 4 | 3 | 3 | 3 | |
+| gamma0 | gamma0 mod 8 | 3 | 3 | 3 | |
+| K | the value | 4 | 4 | | |
+| r | r mod 4096 | 12 | | | 12 |
+| Bits per entry (BI / BSQ) | | | 51 / 35 | 47 / 31 | 48 / 32 |
+| Flip-flops for 16 entries (BI / BSQ) | | | 816 / 560 | 752 / 496 | 768 / 512 |
 
 ## 3. Configuration parameters
 
@@ -103,11 +144,17 @@ predictor or the entropy coders use are described in their specifications. Gener
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (PR-TP-02); the stride order of the predictor (PR-TP-03) is always used where it applies |
 | `UseInLast_g` | false | | Image framing with `In_Last`, `Out_Error` and `Ev_ImageError` (CO-4) |
 | `RuntimeConfig_g` | false | | Image dimensions and band-independent error limit values from the configuration inputs (section 2.6); `XSize_g`, `YSize_g` and `ZSize_g` are then the maxima, for which the memories and counters are sized |
+| `RuntimeParams_g` | false | true only with `RuntimeConfig_g` true (CO-CF-05) | User-defined data, M, the weight update parameters and the entropy coder parameters from the configuration inputs (section 2.8); `SubFrameDepth_g`, `RescaleCounterSize_g` and `RefInterval_g` are then the maxima, the other parameter generics the values after a reset |
 
 Configuration inputs (used with `RuntimeConfig_g` true): `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize` (17 bits each, the value
 NX, NY, NZ from 1 to 65536) and `Cfg_AbsLimit`, `Cfg_RelLimit` (16 bits each, from 0 to 2^DA - 1 and 2^DR - 1).
 Configuration outputs: `Cfg_Taken` and the values taken for the last image, `Act_XSize`, `Act_YSize`, `Act_ZSize`
 (17 bits each) and `Act_AbsLimit`, `Act_RelLimit` (16 bits each).
+
+Runtime parameter inputs (used with `RuntimeParams_g` true) and their outputs of the values taken, with the widths of
+table 1 of section 2.8: `Cfg_UserData`, `Cfg_M`, `Cfg_WeightInterval`, `Cfg_WeightVmin`, `Cfg_WeightVmax`,
+`Cfg_UnaryLimit`, `Cfg_InitCountExp`, `Cfg_RescaleSize`, `Cfg_AccuInit`, `Cfg_RefInterval` and the `Act_` outputs of
+the same names.
 
 ## 4. Interpretation of the standard
 

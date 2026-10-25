@@ -43,6 +43,7 @@ Simulators: GHDL (regression, CI) and QuestaSim (code coverage); VUnit with UVVM
 | TC-CH-05 (`lint/synth_check.py`) | GHDL synthesis of the channel with every configuration of section 2; `OutStreamWidth_g` = 24 stops the elaboration with its message | CH-CF-01 |
 | TC-CH-06 (every test) | With `OutStreamWidth_g` at least `OutWidth_g`, the throughput of the core is kept: the channel takes part in the image period checks of `ocp_core` through the same core; the output adapter takes a word in every cycle while the sink is ready (no output stall in the configurations without back pressure, checked by the packet timing of the sink) | CH-TP-01 |
 | `test_runtime` rc04 (TC-CH-07) | `RuntimeConfig_g` true through the AXI4-Lite VVC: configuration A committed, its image sent as SDUs; configuration B committed while the image of A is compressed, applies to the next image; an invalid configuration C is rejected (CFG_ERROR), the next image uses B; every packet equals `ocp_model` for its configuration; after every image the active registers show its configuration, CFG_PENDING is set after the image of A (B waits) and clear after the others | CH-RC-01, CH-IF-04 |
+| TC-CH-08 (`test_runtime` of `ocp_channel_tb`, rp01) | `RuntimeParams_g` true: the sequence of TC-CH-07 with configurations that also differ in the runtime parameters (user-defined data, M, the weight update and the coder parameters), committed through the AXI4-Lite VVC; every packet equals `ocp_model` for the dimensions, limits and parameters of its image, and after every image the parameter fields of SAMPLES to ADAPTIVE show those of the image | CH-RP-01 |
 
 ## 4. Requirement coverage
 
@@ -57,3 +58,4 @@ Simulators: GHDL (regression, CI) and QuestaSim (code coverage); VUnit with UVVM
 | CH-RS-01 | TC-CH-04 |
 | CH-CF-01 | TC-CH-05 |
 | CH-RC-01 | TC-CH-07 |
+| CH-RP-01 | TC-CH-08 |

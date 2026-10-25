@@ -94,7 +94,8 @@ and explains how to run the tests.
   reference model `tools/ocp_model.py`, stored in `tb/golden/`. `tools/golden.py` regenerates them where the CNES
   reference software is installed; the regression only reads the stored files.
 - A test passes only when UVVM reports no unexpected alerts and every expected alert occurred
-  (`ocp_tb_pkg.ocpTestEnd`).
+  (`ocp_tb_pkg.ocpTestEnd` compares the alert counters of every level with the expected alerts and ends the
+  simulation with a failure otherwise).
 - Tests observe ports only, never internal signals.
 - GHDL is the default simulator; QuestaSim (`python run.py --questa`) is used for code coverage. Every test passes in
   both simulators.

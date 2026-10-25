@@ -13,28 +13,28 @@ the standard" of the module specifications.
 
 | CCSDS clause | Title | Owner | Requirements | Test cases | Status |
 | --- | --- | --- | --- | --- | --- |
-| 3.2 | Dimensions | PR-1 | PR-IF-01 | TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11, TC-PR-12, TC-PR-13, TC-PR-18, TC-PR-19, TC-PR-20, TC-PR-22, TC-PR-34 | Verified |
+| 3.2 | Dimensions | PR-1 | CO-RC-01, CO-RC-07, MB-RC-02, PR-IF-01, PR-RC-01 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11, TC-PR-12, TC-PR-13, TC-PR-18, TC-PR-19, TC-PR-20, TC-PR-22, TC-PR-34, TC-PR-41 | Verified |
 | 3.3 | Dynamic range | PR-1 | PR-IF-01 | TC-PR-01, TC-PR-05, TC-PR-08, TC-PR-11, TC-PR-12, TC-PR-13, TC-PR-18, TC-PR-19, TC-PR-20, TC-PR-22, TC-PR-34 | Verified |
 | 3.4 | Sample coordinate indices | PR-1 | PR-IF-03 | TC-PR-01, TC-PR-14, TC-PR-22, TC-PR-31, TC-PR-32, TC-PR-33, TC-PR-34, TC-PR-37 | Verified |
 | 3.5 | Supplementary information tables | CO-1 | CO-HD-03 | TC-CO-14, TC-CO-35, TC-CO-36, TC-CO-48 | Verified |
 | 4.2 | Number of bands for prediction | PR-2 | PR-LS-01 | TC-PR-01, TC-PR-02, TC-PR-07, TC-PR-11, TC-PR-13, TC-PR-24, TC-PR-34 | Verified |
-| 4.3 | Full and reduced prediction modes | PR-2 | PR-LS-02 | TC-PR-01, TC-PR-02, TC-PR-12, TC-PR-24, TC-PR-34 | Verified |
-| 4.4 | Local sum | PR-2 | PR-LS-03 | TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-12, TC-PR-34 | Verified |
+| 4.3 | Full and reduced prediction modes | PR-2 | CO-RC-07, MB-RC-02, PR-LS-02 | TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-02, TC-PR-12, TC-PR-24, TC-PR-34 | Verified |
+| 4.4 | Local sum | PR-2 | CO-RC-07, MB-RC-02, PR-LS-03, PR-RC-01 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-12, TC-PR-34, TC-PR-41 | Verified |
 | 4.5 | Local differences | PR-2 | PR-LS-04 | TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-12, TC-PR-34 | Verified |
 | 4.6 | Weights | PR-3 | PR-PD-01, PR-PD-02 | TC-PR-01, TC-PR-09, TC-PR-11, TC-PR-23, TC-PR-34, TC-PR-36 | Verified |
 | 4.7 | Prediction calculation | PR-3 | PR-PD-03 | TC-PR-01, TC-PR-02, TC-PR-11, TC-PR-15, TC-PR-17, TC-PR-18, TC-PR-20, TC-PR-24, TC-PR-34 | Verified |
 | 4.8.1 | Quantizer output | PR-4 | PR-QU-01 | TC-PR-01, TC-PR-04, TC-PR-16, TC-PR-34 | Verified |
-| 4.8.2.1, 4.8.2.2 | Controlling maximum error, allowed error limit values | PR-4 | PR-QU-02, PR-QU-03 | TC-PR-01, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-26, TC-PR-28, TC-PR-30, TC-PR-34, TC-PR-35, TC-PR-38 | Verified |
-| 4.8.2.3 | Error limit assignment methods | PR-1 | PR-QU-03 | TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-34, TC-PR-35, TC-PR-38 | Verified |
-| 4.8.2.4 | Periodic error limit updating | PR-1 | CH-IF-05, CO-FR-07, PR-IF-04 | TC-CH-01, TC-CH-03, TC-CO-47, TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-33, TC-PR-34, TC-PR-35, TC-PR-36, TC-PR-37, TC-PR-38 | Verified |
+| 4.8.2.1, 4.8.2.2 | Controlling maximum error, allowed error limit values | PR-4 | CO-RC-02, CO-RC-07, MB-RC-02, PR-QU-02, PR-QU-03, PR-RC-02 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-01, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-26, TC-PR-28, TC-PR-30, TC-PR-34, TC-PR-35, TC-PR-38, TC-PR-41 | Verified |
+| 4.8.2.3 | Error limit assignment methods | PR-1 | CO-RC-02, CO-RC-07, MB-RC-02, PR-QU-03, PR-RC-02 | TC-CO-52, TC-CO-57, TC-MB-05, TC-MB-07, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-10, TC-PR-16, TC-PR-19, TC-PR-21, TC-PR-34, TC-PR-35, TC-PR-38, TC-PR-41 | Verified |
+| 4.8.2.4 | Periodic error limit updating | PR-1 | CH-IF-05, CO-CF-04, CO-FR-07, CO-RC-02, CO-RC-03, PR-IF-04, PR-RC-02 | TC-CH-01, TC-CH-03, TC-CO-47, TC-CO-52, TC-CO-53, TC-CO-56, TC-CO-58, TC-PR-10, TC-PR-19, TC-PR-21, TC-PR-33, TC-PR-34, TC-PR-35, TC-PR-36, TC-PR-37, TC-PR-38, TC-PR-41 | Verified |
 | 4.9 | Sample representatives | PR-5 | PR-SR-01 | TC-PR-04, TC-PR-06, TC-PR-26, TC-PR-29, TC-PR-34 | Verified |
 | 4.10 | Weight update | PR-5 | PR-WU-01, PR-WU-02 | TC-PR-01, TC-PR-03, TC-PR-09, TC-PR-11, TC-PR-15, TC-PR-18, TC-PR-23, TC-PR-34, TC-PR-36, TC-PR-39 | Verified |
 | 4.11 | Mapped quantizer index | PR-6 | PR-MP-01 | TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-04, TC-PR-05, TC-PR-06, TC-PR-11, TC-PR-16, TC-PR-19, TC-PR-20, TC-PR-21, TC-PR-22, TC-PR-34 | Verified |
 | 5.2 | General: compressed image, output word size | CO-2 | CH-FN-01, CH-FN-02, CH-IF-02, CO-FR-03, CO-IF-02, CO-PK-01, CO-PK-02, CO-PK-03 | TC-CH-01, TC-CH-02, TC-CO-01, TC-CO-02, TC-CO-04, TC-CO-05, TC-CO-11, TC-CO-20, TC-CO-22, TC-CO-29, TC-CO-31, TC-CO-32, TC-CO-33, TC-CO-34, TC-CO-35, TC-CO-36, TC-CO-38, TC-CO-39, TC-CO-40, TC-CO-41, TC-CO-42, TC-CO-43, TC-CO-45, TC-CO-47, TC-CO-49, TC-CO-51 | Verified |
-| 5.3 | Header | CO-1 | CO-CF-02, CO-HD-01, CO-HD-02, CO-HD-03, CO-HD-04, CO-HD-05, CO-HD-06, CO-HD-07, MB-GN-01, PK-IF-02, PK-IF-03 | TC-CO-01, TC-CO-02, TC-CO-03, TC-CO-04, TC-CO-05, TC-CO-06, TC-CO-08, TC-CO-09, TC-CO-10, TC-CO-11, TC-CO-12, TC-CO-14, TC-CO-16, TC-CO-18, TC-CO-19, TC-CO-20, TC-CO-21, TC-CO-22, TC-CO-23, TC-CO-24, TC-CO-30, TC-CO-35, TC-CO-36, TC-CO-42, TC-CO-44, TC-CO-48, TC-CO-49, TC-MB-01 | Verified |
-| 5.4.2 | Input order | PR-1 | CH-IF-01, CO-CF-01, CO-FR-02, CO-IF-01, IA-FN-02, IA-IF-02, PR-FR-01, PR-FR-02, PR-IF-02, PR-IF-03, PR-IF-04, PR-TP-03 | TC-CH-01, TC-CO-01, TC-CO-10, TC-CO-19, TC-CO-21, TC-CO-31, TC-CO-34, TC-CO-35, TC-CO-36, TC-CO-42, TC-CO-43, TC-CO-44, TC-CO-46, TC-CO-47, TC-CO-49, TC-CO-50, TC-IA-01, TC-IA-02, TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-08, TC-PR-10, TC-PR-14, TC-PR-17, TC-PR-19, TC-PR-21, TC-PR-22, TC-PR-25, TC-PR-29, TC-PR-30, TC-PR-31, TC-PR-32, TC-PR-33, TC-PR-34, TC-PR-35, TC-PR-36, TC-PR-37, TC-PR-38 | Verified |
-| 5.4.3.2 | Sample-adaptive entropy coder | EC-1 | CO-CF-03, CO-PK-02, EC-IF-02, EC-SA-01, EC-SA-02, EC-SA-03 | TC-CO-01, TC-CO-02, TC-CO-03, TC-CO-04, TC-CO-05, TC-CO-09, TC-CO-10, TC-CO-11, TC-CO-12, TC-CO-13, TC-CO-14, TC-CO-15, TC-CO-16, TC-CO-20, TC-CO-21, TC-CO-22, TC-CO-23, TC-CO-25, TC-CO-26, TC-CO-28, TC-CO-29, TC-CO-30, TC-CO-31, TC-CO-32, TC-CO-34, TC-CO-35, TC-CO-36, TC-CO-39, TC-CO-40, TC-CO-41, TC-CO-42, TC-CO-45, TC-CO-47, TC-CO-48, TC-CO-49, TC-CO-51, TC-EC-01, TC-EC-02 | Verified |
-| 5.4.3.3 | Hybrid entropy coder | EC-2 | CO-CF-03, CO-FR-03, CO-PK-02, EC-HY-01, EC-HY-02, EC-HY-03, EC-HY-04, EC-IF-02, PK-LE-01, PK-LE-02 | TC-CH-02, TC-CO-01, TC-CO-02, TC-CO-04, TC-CO-05, TC-CO-10, TC-CO-11, TC-CO-13, TC-CO-16, TC-CO-20, TC-CO-21, TC-CO-22, TC-CO-26, TC-CO-30, TC-CO-32, TC-CO-34, TC-CO-35, TC-CO-36, TC-CO-39, TC-CO-40, TC-CO-41, TC-CO-42, TC-CO-45, TC-CO-47, TC-CO-49, TC-CO-51, TC-EC-01, TC-EC-02, TC-EC-05 | Verified |
+| 5.3 | Header | CO-1 | CH-RC-01, CO-CF-02, CO-CF-04, CO-HD-01, CO-HD-02, CO-HD-03, CO-HD-04, CO-HD-05, CO-HD-06, CO-HD-07, CO-HD-08, CO-RC-01, MB-GN-01, MB-RC-01, MB-RC-04, PK-IF-02, PK-IF-03 | TC-CH-07, TC-CO-01, TC-CO-02, TC-CO-03, TC-CO-04, TC-CO-05, TC-CO-06, TC-CO-08, TC-CO-09, TC-CO-10, TC-CO-11, TC-CO-12, TC-CO-14, TC-CO-16, TC-CO-18, TC-CO-19, TC-CO-20, TC-CO-21, TC-CO-22, TC-CO-23, TC-CO-24, TC-CO-30, TC-CO-35, TC-CO-36, TC-CO-42, TC-CO-44, TC-CO-48, TC-CO-49, TC-CO-52, TC-CO-56, TC-MB-01, TC-MB-05 | Verified |
+| 5.4.2 | Input order | PR-1 | CH-IF-01, CO-CF-01, CO-FR-02, CO-IF-01, CO-RC-01, IA-FN-02, IA-IF-02, PR-FR-01, PR-FR-02, PR-IF-02, PR-IF-03, PR-IF-04, PR-RC-01, PR-TP-03 | TC-CH-01, TC-CO-01, TC-CO-10, TC-CO-19, TC-CO-21, TC-CO-31, TC-CO-34, TC-CO-35, TC-CO-36, TC-CO-42, TC-CO-43, TC-CO-44, TC-CO-46, TC-CO-47, TC-CO-49, TC-CO-50, TC-CO-52, TC-IA-01, TC-IA-02, TC-PR-01, TC-PR-02, TC-PR-03, TC-PR-05, TC-PR-07, TC-PR-08, TC-PR-10, TC-PR-14, TC-PR-17, TC-PR-19, TC-PR-21, TC-PR-22, TC-PR-25, TC-PR-29, TC-PR-30, TC-PR-31, TC-PR-32, TC-PR-33, TC-PR-34, TC-PR-35, TC-PR-36, TC-PR-37, TC-PR-38, TC-PR-41 | Verified |
+| 5.4.3.2 | Sample-adaptive entropy coder | EC-1 | CO-CF-03, CO-PK-02, EC-IF-02, EC-RC-01, EC-SA-01, EC-SA-02, EC-SA-03 | TC-CO-01, TC-CO-02, TC-CO-03, TC-CO-04, TC-CO-05, TC-CO-09, TC-CO-10, TC-CO-11, TC-CO-12, TC-CO-13, TC-CO-14, TC-CO-15, TC-CO-16, TC-CO-20, TC-CO-21, TC-CO-22, TC-CO-23, TC-CO-25, TC-CO-26, TC-CO-28, TC-CO-29, TC-CO-30, TC-CO-31, TC-CO-32, TC-CO-34, TC-CO-35, TC-CO-36, TC-CO-39, TC-CO-40, TC-CO-41, TC-CO-42, TC-CO-45, TC-CO-47, TC-CO-48, TC-CO-49, TC-CO-51, TC-CO-52, TC-EC-01, TC-EC-02 | Verified |
+| 5.4.3.3 | Hybrid entropy coder | EC-2 | CO-CF-03, CO-FR-03, CO-PK-02, EC-HY-01, EC-HY-02, EC-HY-03, EC-HY-04, EC-IF-02, EC-RC-01, PK-LE-01, PK-LE-02 | TC-CH-02, TC-CO-01, TC-CO-02, TC-CO-04, TC-CO-05, TC-CO-10, TC-CO-11, TC-CO-13, TC-CO-16, TC-CO-20, TC-CO-21, TC-CO-22, TC-CO-26, TC-CO-30, TC-CO-32, TC-CO-34, TC-CO-35, TC-CO-36, TC-CO-39, TC-CO-40, TC-CO-41, TC-CO-42, TC-CO-45, TC-CO-47, TC-CO-49, TC-CO-51, TC-CO-52, TC-EC-01, TC-EC-02, TC-EC-05 | Verified |
 | 5.4.3.4 | Block-adaptive entropy coder | EC-3 | CO-CF-02, CO-FR-03, CO-PK-02, EC-BA-01, EC-BA-02, EC-BA-03 | TC-CH-02, TC-CO-01, TC-CO-02, TC-CO-04, TC-CO-05, TC-CO-06, TC-CO-07, TC-CO-08, TC-CO-11, TC-CO-17, TC-CO-18, TC-CO-19, TC-CO-20, TC-CO-22, TC-CO-24, TC-CO-27, TC-CO-33, TC-CO-35, TC-CO-36, TC-CO-39, TC-CO-40, TC-CO-41, TC-CO-42, TC-CO-44, TC-CO-45, TC-CO-47, TC-CO-49, TC-CO-51, TC-EC-03 | Verified |
 
 Clauses: 23; verified: 23; not traced: 0.
@@ -46,12 +46,12 @@ reference included).
 
 | Module | Requirements | Verified by a test case | Without a test case |
 | --- | --- | --- | --- |
-| `ocp_channel` | 11 | 11 | - |
-| `ocp_core` | 28 | 28 | - |
-| `ocp_entropy_coder` | 15 | 15 | - |
+| `ocp_channel` | 12 | 12 | - |
+| `ocp_core` | 37 | 37 | - |
+| `ocp_entropy_coder` | 16 | 16 | - |
 | `ocp_input_adapter` | 13 | 13 | - |
-| `ocp_mib` | 8 | 8 | - |
+| `ocp_mib` | 13 | 13 | - |
 | `ocp_pkg` | 5 | 5 | - |
-| `ocp_predictor` | 26 | 26 | - |
+| `ocp_predictor` | 30 | 30 | - |
 
-Requirements: 106; without a test case: 0; test cases of the plans not run by a testbench: 0.
+Requirements: 126; without a test case: 0; test cases of the plans not run by a testbench: 0.

@@ -16,7 +16,7 @@ reports the configuration and counts the images, the faulty and discarded SDUs a
 | CH-IF-01 | The channel shall take SDUs as specified for `ocp_input_adapter` (IA-IF-01, IA-FN-01, section 2.4 of its specification). | 5.4.2 |
 | CH-IF-02 | The channel shall output every compressed image as one packet of a valid / ready byte stream of `OutStreamWidth_g` bits (8, 16, 32, 64 or 128): byte n of a beat in bits 8n + 7 to 8n, the first byte of the compressed image in byte 0 of the first beat, all bytes valid (`Out_Keep`) except in the last beat, whose valid bytes are contiguous from byte 0, `Out_Last` on the last beat. | 5.2.1 |
 | CH-IF-03 | The channel shall set `Out_Error` with `Out_Last` of a compressed image with an error and keep it '0' otherwise. | none |
-| CH-IF-04 | The channel shall provide the status registers of `ocp_mib` on an AXI4-Lite slave. | none |
+| CH-IF-04 | The channel shall provide the status registers and, with `RuntimeConfig_g`, the configuration registers of `ocp_mib` on an AXI4-Lite slave. | none |
 | CH-IF-05 | The channel shall provide the error limit stream (`Lim_*`), the memory error pulses (`Ecc_Sec`, `Ecc_Ded`), the framing error pulse (`Ev_ImageError`) and the error injection inputs (`ErrInj_*`) of `ocp_core`. | 4.8.2.4 |
 
 ### 2.2 Function
@@ -28,6 +28,7 @@ reports the configuration and counts the images, the faulty and discarded SDUs a
 | CH-FN-03 | The counters of `ocp_mib` shall count: IMAGES_DONE and IMAGES_ABORTED the last words of compressed images without and with an error at the output of the core, SDU_ERRORS the faulty SDUs and SDUS_DISCARDED the discarded SDUs of the input adapter, ECC_CORRECTED and ECC_UNCORRECTABLE the memory error pulses of the core. | none |
 | CH-TP-01 | With `OutStreamWidth_g` at least `OutWidth_g`, the output adapter shall take a word from the core in every clock cycle except one cycle per compressed image, so that the throughput of the channel is the throughput of the core (user guide, section 8) up to one clock cycle per SDU and per image. | none |
 | CH-RS-01 | A reset shall abort the image in progress (CO-RS-01), clear the adapters and clear the counters. | none |
+| CH-RC-01 | With `RuntimeConfig_g` true the channel shall compress every image with the configuration that software committed in `ocp_mib` before the first SDU of the image arrived at the core (MB-RC-02, CO-RC-03), and the active configuration registers shall show the configuration of the last image that started. | 5.3.2.2, 5.3.3.4 |
 
 ### 2.3 Configuration checks
 
@@ -58,8 +59,9 @@ compressed normally. IMAGES_DONE + IMAGES_ABORTED is the number of compressed im
 
 ## 4. Configuration parameters
 
-All generics of `ocp_core` with their names, meanings, defaults and ranges, except `UseInLast_g` (always true inside
-the channel); `OutWidth_g` is the width of the words of the core, as in `ocp_core`. In addition:
+All generics of `ocp_core` with their names, meanings, defaults and ranges, among them `RuntimeConfig_g`, except
+`UseInLast_g` (always true inside the channel); `OutWidth_g` is the width of the words of the core, as in `ocp_core`. In
+addition:
 
 | Generic | Default | Range | Description |
 | --- | --- | --- | --- |

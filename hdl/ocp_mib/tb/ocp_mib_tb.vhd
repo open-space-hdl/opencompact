@@ -14,6 +14,17 @@
 -- * test_counters: event pulses on every input, in bursts and back to back, increment their
 --   counter only; a write clears one counter; an event in the cycle of the clearing write counts
 -- * test_reset: a reset clears every counter
+-- * test_config also checks the registers of the runtime configuration without it: NEXT_X to
+--   NEXT_LIMITS, CONTROL and STATUS read zero, writes change nothing, LIMITS reads the error limit
+--   values of the generics (ExpLimits_g)
+-- * test_runtime_config (RuntimeConfig_g): reset values and readback of NEXT_X to NEXT_LIMITS; a
+--   valid COMMIT passes the values to the configuration outputs and sets CFG_PENDING, which
+--   Cfg_Taken clears; IMAGE_X to LIMITS read the Act_ inputs; every field at 0, 1, its maximum and
+--   its maximum + 1 (and NX = 1 where width 1 is not allowed): an invalid COMMIT sets CFG_ERROR and
+--   leaves the outputs, a write of '1' clears CFG_ERROR
+-- * test_runtime_commit: the five configuration outputs change in the same clock cycle; COMMITs
+--   one clock cycle before, in and after a Cfg_Taken pulse: in the cycle of Cfg_Taken the outputs
+--   carry the previous values, after the COMMIT in that cycle CFG_PENDING stays set
 --
 -- Documentation: hdl/ocp_mib/docs/verification_plan.md
 
@@ -87,7 +98,16 @@ entity ocp_mib_tb is
         AccuInit_g             : string   := "3";
         BlockSize_g            : positive := 16;
         RestrictedCodes_g      : boolean  := false;
-        RefInterval_g          : positive := 4096
+        RefInterval_g          : positive := 4096;
+        AbsBandDependent_g     : boolean  := false;
+        AbsBitDepth_g          : positive := 1;
+        AbsErrorLimits_g       : string   := "0";
+        RelBandDependent_g     : boolean  := false;
+        RelBitDepth_g          : positive := 1;
+        RelErrorLimits_g       : string   := "0";
+        RuntimeConfig_g        : boolean  := false;
+        -- Expected LIMITS register (the error limit values of the generics)
+        ExpLimits_g            : integer  := 0
     );
 end entity;
 
@@ -136,9 +156,53 @@ architecture sim of ocp_mib_tb is
     signal MonSel   : natural := 0;
     signal MonCount : natural := 0;
 
+    -- Runtime configuration: outputs of the MIB, the take pulse and the values of the core (driven by
+    -- the testbench in place of the core)
+    signal Cfg_XSize    : std_logic_vector(16 downto 0);
+    signal Cfg_YSize    : std_logic_vector(16 downto 0);
+    signal Cfg_ZSize    : std_logic_vector(16 downto 0);
+    signal Cfg_AbsLimit : std_logic_vector(15 downto 0);
+    signal Cfg_RelLimit : std_logic_vector(15 downto 0);
+    signal Cfg_Taken    : std_logic;
+    -- Cfg_Taken pulses of the test sequencer and of the timed pulse of test_runtime_commit
+    signal TakeSeq      : std_logic                     := '0';
+    signal TakeTimed    : std_logic                     := '0';
+    signal Act_XSize    : std_logic_vector(16 downto 0) := (others => '0');
+    signal Act_YSize    : std_logic_vector(16 downto 0) := (others => '0');
+    signal Act_ZSize    : std_logic_vector(16 downto 0) := (others => '0');
+    signal Act_AbsLimit : std_logic_vector(15 downto 0) := (others => '0');
+    signal Act_RelLimit : std_logic_vector(15 downto 0) := (others => '0');
+
+    -- Cfg_Taken pulse TakeOfs cycles after the write cycle of the next write (TakeArm; negative: before
+    -- it, with the write cycle measured as WrDelay cycles after AwValid rises); the outputs in the cycle
+    -- of the pulse
+    signal TakeArm  : boolean := false;
+    signal TakeOfs  : integer := 0;
+    signal WrDelay  : natural := 0;
+    signal TakeCnt  : natural := 0;
+    signal TakeSeen : std_logic_vector(82 downto 0);
+
+    -- Atomicity (while AtomicOn, every COMMIT changes every field): number of clock cycles in which only some of
+    -- the configuration outputs changed
+    signal AtomicOn : boolean := false;
+    signal Partial  : natural := 0;
+
+    -- The five configuration outputs as one vector (X, Y, Z, absolute and relative limit)
+    function cfgVec (
+        x : std_logic_vector;
+        y : std_logic_vector;
+        z : std_logic_vector;
+        a : std_logic_vector;
+        r : std_logic_vector) return std_logic_vector is
+    begin
+        return x & y & z & a & r;
+    end function;
+
 begin
 
     i_ti_uvvm_engine : entity uvvm_vvc_framework.ti_uvvm_engine;
+
+    Cfg_Taken <= TakeSeq or TakeTimed;
 
     Clk <= not Clk after ClkPeriod_c / 2;
 
@@ -181,7 +245,14 @@ begin
             AccuInit_g             => parseIntVec(AccuInit_g),
             BlockSize_g            => BlockSize_g,
             RestrictedCodes_g      => RestrictedCodes_g,
-            RefInterval_g          => RefInterval_g
+            RefInterval_g          => RefInterval_g,
+            AbsBandDependent_g     => AbsBandDependent_g,
+            AbsBitDepth_g          => AbsBitDepth_g,
+            AbsErrorLimits_g       => parseIntVec(AbsErrorLimits_g),
+            RelBandDependent_g     => RelBandDependent_g,
+            RelBitDepth_g          => RelBitDepth_g,
+            RelErrorLimits_g       => parseIntVec(RelErrorLimits_g),
+            RuntimeConfig_g        => RuntimeConfig_g
         )
         port map (
             Clk               => Clk,
@@ -208,7 +279,18 @@ begin
             Ev_SduError       => Ev(2),
             Ev_SduDiscarded   => Ev(3),
             Ecc_Sec           => Ev(4),
-            Ecc_Ded           => Ev(5)
+            Ecc_Ded           => Ev(5),
+            Cfg_XSize         => Cfg_XSize,
+            Cfg_YSize         => Cfg_YSize,
+            Cfg_ZSize         => Cfg_ZSize,
+            Cfg_AbsLimit      => Cfg_AbsLimit,
+            Cfg_RelLimit      => Cfg_RelLimit,
+            Cfg_Taken         => Cfg_Taken,
+            Act_XSize         => Act_XSize,
+            Act_YSize         => Act_YSize,
+            Act_ZSize         => Act_ZSize,
+            Act_AbsLimit      => Act_AbsLimit,
+            Act_RelLimit      => Act_RelLimit
         );
 
     i_axi : entity work.ocp_tb_axilite_master
@@ -260,6 +342,15 @@ begin
             regWrite(AXILITE_VVCT, Axi_c, addr, data);
         end procedure;
 
+        -- Write with byte enables (a disabled byte lane is not written)
+        procedure wrStrb (addr : natural; data : std_logic_vector(31 downto 0); strb : std_logic_vector(3 downto 0)) is
+        begin
+            axilite_write(AXILITE_VVCT, Axi_c, to_unsigned(addr, AxiAddrBits_c), data, strb,
+                          "write 0x" & to_hstring(to_unsigned(addr, AxiAddrBits_c)) & " with byte enables " &
+                          to_string(strb));
+            await_completion(AXILITE_VVCT, Axi_c, 100 us);
+        end procedure;
+
         -- Count pulses on input sel, gap idle cycles between two pulses
         procedure pulses (sel : natural; count : natural; gap : natural) is
         begin
@@ -295,6 +386,105 @@ begin
             return std_logic_vector(to_signed(Words_v(i), 32));
         end function;
 
+        -- Runtime configuration: limits and fields
+        constant Fid_c    : natural := fidelityCode(Fidelity_g);
+        constant UseAbs_c : boolean := Fid_c = FidAbsolute_c or Fid_c = FidBoth_c;
+        constant UseRel_c : boolean := Fid_c = FidRelative_c or Fid_c = FidBoth_c;
+        constant Wide_c   : boolean := fullPrediction(PredictionMode_g) or
+                                       localSumCode(LocalSum_g) = SumWideNeighbor_c or
+                                       localSumCode(LocalSum_g) = SumNarrowNeighbor_c;
+        constant AbsMax_c : natural := 2 ** AbsBitDepth_g - 1;
+        constant RelMax_c : natural := 2 ** RelBitDepth_g - 1;
+
+        function w32 (v : natural) return std_logic_vector is
+        begin
+            return std_logic_vector(to_unsigned(v, 32));
+        end function;
+
+        function limits (a : natural; r : natural) return std_logic_vector is
+        begin
+            return std_logic_vector(to_unsigned(r, 16)) & std_logic_vector(to_unsigned(a, 16));
+        end function;
+
+        -- Pending values and COMMIT; the configuration outputs afterwards
+        procedure setNext (x : natural; y : natural; z : natural; a : natural; r : natural) is
+        begin
+            wr(RegNextX_c, w32(x));
+            wr(RegNextY_c, w32(y));
+            wr(RegNextZ_c, w32(z));
+            wr(RegNextLimits_c, limits(a, r));
+        end procedure;
+
+        procedure commit is
+        begin
+            wr(RegControl_c, x"00000001");
+        end procedure;
+
+        procedure chkOutputs (x : natural; y : natural; z : natural; a : natural; r : natural; msg : string) is
+        begin
+            await_completion(AXILITE_VVCT, Axi_c, 10 us, "outputs");
+            syncClk;
+            check_value(to_integer(unsigned(Cfg_XSize)), x, ERROR, msg & ": Cfg_XSize");
+            check_value(to_integer(unsigned(Cfg_YSize)), y, ERROR, msg & ": Cfg_YSize");
+            check_value(to_integer(unsigned(Cfg_ZSize)), z, ERROR, msg & ": Cfg_ZSize");
+            check_value(to_integer(unsigned(Cfg_AbsLimit)), a, ERROR, msg & ": Cfg_AbsLimit");
+            check_value(to_integer(unsigned(Cfg_RelLimit)), r, ERROR, msg & ": Cfg_RelLimit");
+        end procedure;
+
+        -- STATUS: CFG_ERROR (bit 1), CFG_PENDING (bit 0)
+        procedure chkStatus (err : std_logic; pend : std_logic; msg : string) is
+        begin
+            chk(RegStatus_c, (31 downto 2 => '0') & err & pend, msg & ": STATUS");
+        end procedure;
+
+        -- Cfg_Taken pulse (the core takes the configuration outputs)
+        procedure take is
+        begin
+            await_completion(AXILITE_VVCT, Axi_c, 10 us, "take");
+            TakeSeq <= '1';
+            syncClk;
+            TakeSeq <= '0';
+        end procedure;
+
+        -- One invalid COMMIT: CFG_ERROR, outputs unchanged, then cleared
+        procedure invalid (x : natural; y : natural; z : natural; a : natural; r : natural; msg : string) is
+        begin
+            setNext(x, y, z, a, r);
+            commit;
+            chkStatus('1', '0', msg & " (invalid)");
+            chkOutputs(XSize_g, YSize_g, ZSize_g, 1, 1, msg & " (invalid)");
+            wr(RegStatus_c, x"00000002");
+            chkStatus('0', '0', msg & " (cleared)");
+        end procedure;
+
+        -- A COMMIT whose write cycle is ofs clock cycles before (negative) or after a Cfg_Taken pulse
+        procedure commitAt (ofs : integer; x : natural; msg : string) is
+            variable Cnt_v : natural;
+        begin
+            setNext(x, x, x, x mod 2, x mod 2);
+            await_completion(AXILITE_VVCT, Axi_c, 10 us, "pending values");
+            Cnt_v   := TakeCnt;
+            TakeOfs <= -ofs;
+            TakeArm <= true;
+            syncClk;
+            TakeArm <= false;
+            commit;
+            await_completion(AXILITE_VVCT, Axi_c, 10 us, msg);
+
+            while TakeCnt = Cnt_v loop
+                syncClk;
+            end loop;
+
+            syncClk;
+        end procedure;
+
+        variable Prev_v : std_logic_vector(82 downto 0);
+        variable Sfd_v  : natural;
+        variable Cnt_v  : natural;
+        variable Lim_v  : std_logic_vector(31 downto 0);
+        variable LimA_v : natural;
+        variable LimR_v : natural;
+
     -- Test sequence
     begin
         test_runner_setup(runner, runner_cfg);
@@ -321,7 +511,9 @@ begin
                 end loop;
 
                 for a in RegEccUncorrectable_c / 4 + 1 to 63 loop
-                    chk(4 * a, x"00000000", "unused address 0x" & to_hstring(to_unsigned(4 * a, 8)));
+                    if a /= RegLimits_c / 4 then
+                        chk(4 * a, x"00000000", "unused address 0x" & to_hstring(to_unsigned(4 * a, 8)));
+                    end if;
                 end loop;
 
                 -- Writes to read-only registers and unused addresses change nothing
@@ -339,6 +531,19 @@ begin
                 chk(16#30#, x"00000000", "unused address after a write");
                 Exp_v := (others => 0);
                 chkCounters("counters after the writes to the other registers");
+
+                -- Runtime configuration without it (MB-RC-05): zero registers, writes without effect, the
+                -- error limit values of the generics in LIMITS, zero configuration outputs
+                for a in RegControl_c / 4 to RegNextLimits_c / 4 loop
+                    wr(4 * a, x"FFFFFFFF");
+                    chk(4 * a, x"00000000", "runtime register 0x" & to_hstring(to_unsigned(4 * a, 8)) &
+                        " without the runtime configuration");
+                end loop;
+
+                chk(RegLimits_c, std_logic_vector(to_signed(ExpLimits_g, 32)), "LIMITS: values of the generics");
+                wr(RegLimits_c, x"FFFFFFFF");
+                chk(RegLimits_c, std_logic_vector(to_signed(ExpLimits_g, 32)), "LIMITS after a write");
+                chkOutputs(0, 0, 0, 0, 0, "configuration outputs without the runtime configuration");
 
             elsif run("test_counters") then
                 Exp_v := (others => 0);
@@ -390,6 +595,201 @@ begin
                 Exp_v := (others => 0);
                 chkCounters("all cleared");
 
+            elsif run("test_runtime_config") then
+                Words_v := parseIntVec(ExpWords_g);
+                Lim_v   := std_logic_vector(to_signed(ExpLimits_g, 32));
+                LimA_v  := to_integer(unsigned(Lim_v(15 downto 0)));
+                LimR_v  := to_integer(unsigned(Lim_v(31 downto 16)));
+                -- The core has taken the maxima (the reset values of the core)
+                Act_XSize    <= std_logic_vector(to_unsigned(XSize_g, 17));
+                Act_YSize    <= std_logic_vector(to_unsigned(YSize_g, 17));
+                Act_ZSize    <= std_logic_vector(to_unsigned(ZSize_g, 17));
+                Act_AbsLimit <= Lim_v(15 downto 0);
+                Act_RelLimit <= Lim_v(31 downto 16);
+
+                -- ID to BLOCK as in the file (GENERICS.RUNTIME_CONFIG = '1'); reset values of the pending
+                -- registers and of the outputs (MB-RC-01)
+                for i in 0 to 11 loop
+                    chk(4 * i, word(i), "register at 0x" & to_hstring(to_unsigned(4 * i, 8)));
+                end loop;
+
+                chk(RegNextX_c, w32(XSize_g), "NEXT_X after the reset");
+                chk(RegNextY_c, w32(YSize_g), "NEXT_Y after the reset");
+                chk(RegNextZ_c, w32(ZSize_g), "NEXT_Z after the reset");
+                chk(RegNextLimits_c, std_logic_vector(to_signed(ExpLimits_g, 32)), "NEXT_LIMITS after the reset");
+                chk(RegLimits_c, std_logic_vector(to_signed(ExpLimits_g, 32)), "LIMITS after the reset");
+                chkStatus('0', '0', "after the reset");
+                chkOutputs(XSize_g, YSize_g, ZSize_g, LimA_v, LimR_v, "after the reset");
+
+                -- Readback of the pending registers
+                setNext(XSize_g - 1, 1, ZSize_g, 1, 1);
+                chk(RegNextX_c, w32(XSize_g - 1), "NEXT_X readback");
+                chk(RegNextY_c, w32(1), "NEXT_Y readback");
+                chk(RegNextZ_c, w32(ZSize_g), "NEXT_Z readback");
+                chk(RegNextLimits_c, limits(1, 1), "NEXT_LIMITS readback");
+
+                -- A valid COMMIT: outputs and CFG_PENDING; Cfg_Taken clears CFG_PENDING
+                setNext(XSize_g, YSize_g, ZSize_g, 1, 1);
+                commit;
+                chkStatus('0', '1', "valid COMMIT");
+                chkOutputs(XSize_g, YSize_g, ZSize_g, 1, 1, "valid COMMIT");
+                take;
+                chkStatus('0', '0', "after Cfg_Taken");
+
+                -- The active registers read the values of the core (MB-RC-04)
+                Act_XSize    <= std_logic_vector(to_unsigned(maximum(XSize_g - 1, 1), 17));
+                Act_YSize    <= std_logic_vector(to_unsigned(1, 17));
+                Act_ZSize    <= std_logic_vector(to_unsigned(1, 17));
+                Act_AbsLimit <= std_logic_vector(to_unsigned(toInt(UseAbs_c) * AbsMax_c, 16));
+                Act_RelLimit <= std_logic_vector(to_unsigned(toInt(UseRel_c) * RelMax_c, 16));
+                chk(RegImageX_c, w32(maximum(XSize_g - 1, 1)), "IMAGE_X: value of the core");
+                chk(RegImageY_c, w32(1), "IMAGE_Y: value of the core");
+                chk(RegImageZ_c, w32(1), "IMAGE_Z: value of the core");
+                chk(RegLimits_c, limits(toInt(UseAbs_c) * AbsMax_c, toInt(UseRel_c) * RelMax_c),
+                    "LIMITS: values of the core");
+                Sfd_v        := 0;
+                if EncodingOrder_g = "BI" then
+                    Sfd_v := 1;
+                end if;
+                chk(RegOrder_c, w32(Sfd_v * 256 + toInt(EncodingOrder_g = "BSQ")), "ORDER: M of the core (NZ = 1)");
+                Act_ZSize <= std_logic_vector(to_unsigned(ZSize_g, 17));
+                if EncodingOrder_g = "BI" then
+                    Sfd_v := minimum(SubFrameDepth_g, ZSize_g);
+                end if;
+                chk(RegOrder_c, w32(Sfd_v * 256 + toInt(EncodingOrder_g = "BSQ")), "ORDER: M of the core");
+
+                -- Every field at its bounds (MB-RC-02): valid 1 and the maximum, invalid 0 and the maximum + 1
+                setNext(XSize_g, YSize_g, ZSize_g, 1, 1);
+                commit;
+                take;
+                invalid(0, YSize_g, ZSize_g, 1, 1, "NX = 0");
+                invalid(XSize_g + 1, YSize_g, ZSize_g, 1, 1, "NX above the maximum");
+                invalid(XSize_g, 0, ZSize_g, 1, 1, "NY = 0");
+                invalid(XSize_g, YSize_g + 1, ZSize_g, 1, 1, "NY above the maximum");
+                invalid(XSize_g, YSize_g, 0, 1, 1, "NZ = 0");
+                invalid(XSize_g, YSize_g, ZSize_g + 1, 1, 1, "NZ above the maximum");
+                if UseAbs_c then
+                    invalid(XSize_g, YSize_g, ZSize_g, AbsMax_c + 1, 1, "absolute limit above 2^DA - 1");
+                end if;
+                if UseRel_c then
+                    invalid(XSize_g, YSize_g, ZSize_g, 1, RelMax_c + 1, "relative limit above 2^DR - 1");
+                end if;
+                if Wide_c then
+                    invalid(1, YSize_g, ZSize_g, 1, 1, "NX = 1 with full prediction or neighbor-oriented sums");
+                else
+                    setNext(1, 1, 1, 0, 0);
+                    commit;
+                    chkStatus('0', '1', "NX = NY = NZ = 1");
+                    chkOutputs(1, 1, 1, 0, 0, "NX = NY = NZ = 1");
+                    take;
+                end if;
+                setNext(XSize_g, YSize_g, ZSize_g, toInt(UseAbs_c) * AbsMax_c, toInt(UseRel_c) * RelMax_c);
+                commit;
+                chkStatus('0', '1', "maxima");
+                chkOutputs(XSize_g, YSize_g, ZSize_g, toInt(UseAbs_c) * AbsMax_c, toInt(UseRel_c) * RelMax_c,
+                           "maxima");
+                take;
+                setNext(2, 1, 1, 0, 0);
+                commit;
+                chkOutputs(2, 1, 1, 0, 0, "minima");
+                take;
+                -- Values of a method not in use are not checked
+                if not UseAbs_c then
+                    setNext(2, 1, 1, 65535, 0);
+                    commit;
+                    chkStatus('0', '1', "absolute limit not in use");
+                    take;
+                end if;
+                if not UseRel_c then
+                    setNext(2, 1, 1, 0, 65535);
+                    commit;
+                    chkStatus('0', '1', "relative limit not in use");
+                    take;
+                end if;
+
+                -- Writes to an unused address and to a read-only register leave the pending values and STATUS;
+                -- a write of a pending register with byte lanes disabled changes only the enabled bytes
+                setNext(5, 2, 3, 0, 0);
+                wr(16#30#, x"FFFFFFFF");
+                wr(RegLimits_c, x"FFFFFFFF");
+                chk(RegNextX_c, w32(5), "NEXT_X after writes to other addresses");
+                chk(RegNextY_c, w32(2), "NEXT_Y after writes to other addresses");
+                chk(RegNextZ_c, w32(3), "NEXT_Z after writes to other addresses");
+                chkStatus('0', '0', "writes to other addresses");
+                wrStrb(RegNextX_c, x"0000FF06", "0001");
+                chk(RegNextX_c, w32(6), "NEXT_X written with byte lane 0 only");
+                wrStrb(RegNextY_c, x"00000107", "0010");
+                chk(RegNextY_c, w32(16#102#), "NEXT_Y written with byte lane 1 only");
+
+                -- Writes without effect: COMMIT and the clear of CFG_ERROR with byte lane 0 disabled or
+                -- with the bit 0
+                setNext(2, 1, 1, 0, 0);
+                commit;
+                take;
+                setNext(3, 1, 1, 0, 0);
+                wrStrb(RegControl_c, x"00000001", "1110");
+                chkStatus('0', '0', "COMMIT with byte lane 0 disabled");
+                chkOutputs(2, 1, 1, 0, 0, "COMMIT with byte lane 0 disabled");
+                wr(RegControl_c, x"00000000");
+                chkStatus('0', '0', "CONTROL written with COMMIT = 0");
+                chkOutputs(2, 1, 1, 0, 0, "CONTROL written with COMMIT = 0");
+                setNext(XSize_g, YSize_g, 0, 0, 0);
+                commit;
+                chkStatus('1', '0', "NZ = 0 (invalid)");
+                wrStrb(RegStatus_c, x"00000002", "1110");
+                chkStatus('1', '0', "clear of CFG_ERROR with byte lane 0 disabled");
+                wr(RegStatus_c, x"00000000");
+                chkStatus('1', '0', "STATUS written with CFG_ERROR = 0");
+                wr(RegStatus_c, x"00000002");
+                chkStatus('0', '0', "CFG_ERROR cleared");
+
+            elsif run("test_runtime_commit") then
+                -- Write cycle of a COMMIT relative to the rise of AwValid (calibration); limits 1 so that the
+                -- first COMMIT below (limits 0) changes every field
+                setNext(XSize_g, YSize_g, ZSize_g, 1, 1);
+                await_completion(AXILITE_VVCT, Axi_c, 10 us, "pending values");
+                Cnt_v   := TakeCnt;
+                TakeArm <= true;
+                syncClk;
+                TakeArm <= false;
+                commit;
+                await_completion(AXILITE_VVCT, Axi_c, 10 us, "calibration");
+
+                while TakeCnt = Cnt_v loop
+                    syncClk;
+                end loop;
+
+                take;
+                check_value(WrDelay > 1, ERROR, "write cycle measured");
+                AtomicOn <= true;
+
+                -- COMMIT one cycle before, in and one cycle after the cycle of Cfg_Taken
+                for ofs in -1 to 1 loop
+                    Prev_v := cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit);
+                    commitAt(ofs, 2 + ofs + 1, "COMMIT " & to_string(ofs) & " cycles from Cfg_Taken");
+                    if ofs < 0 then
+                        -- The write before the take: the core takes the new values, CFG_PENDING is cleared
+                        check_value(TakeSeen = cfgVec(std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
+                                                      std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
+                                                      std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
+                                                      std_logic_vector(to_unsigned((2 + ofs + 1) mod 2, 16)),
+                                                      std_logic_vector(to_unsigned((2 + ofs + 1) mod 2, 16))), ERROR,
+                                    "COMMIT before Cfg_Taken: the new values are taken");
+                        chkStatus('0', '0', "COMMIT before Cfg_Taken");
+                    else
+                        -- In or after the cycle of the take: the previous values are taken, CFG_PENDING stays
+                        -- set until the next take
+                        check_value(TakeSeen = Prev_v, ERROR, "COMMIT in or after the cycle of Cfg_Taken: the " &
+                                    "previous values are taken");
+                        chkStatus('0', '1', "COMMIT in or after the cycle of Cfg_Taken");
+                        take;
+                        chkStatus('0', '0', "next Cfg_Taken");
+                    end if;
+                end loop;
+
+                AtomicOn <= false;
+                check_value(Partial, 0, ERROR, "configuration outputs change together");
+
             elsif run("test_reset") then
                 Exp_v := (others => 0);
 
@@ -406,6 +806,57 @@ begin
         end loop;
 
         ocpTestEnd(runner);
+    end process;
+
+    -- Runtime configuration: write cycle of the next write (the cycle in which BValid rises) relative to the
+    -- rise of AwValid; Cfg_Taken pulse TakeOfs cycles from it
+    p_take : process is
+        variable Cyc_v : natural;
+    begin
+        wait until rising_edge(Clk) and TakeArm;
+        wait until rising_edge(Clk) and AwValid = '1';
+        Cyc_v := 0;
+        if WrDelay = 0 then
+
+            -- Calibration on the first armed write: cycles from the rise of AwValid to the write cycle
+            loop
+                wait until rising_edge(Clk);
+                Cyc_v := Cyc_v + 1;
+                exit when BValid = '1';
+            end loop;
+
+            WrDelay <= Cyc_v;
+        else
+
+            -- After the edge at the end of the first cycle with AwValid: the pulse in the cycle WrDelay + TakeOfs
+            -- cycles after it
+            for i in 1 to WrDelay + TakeOfs - 1 loop
+                wait until rising_edge(Clk);
+            end loop;
+
+            TakeTimed <= '1';
+            wait until rising_edge(Clk);
+            TakeSeen  <= cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit);
+            TakeTimed <= '0';
+        end if;
+        TakeCnt <= TakeCnt + 1;
+    end process;
+
+    -- Atomicity of the configuration outputs: a clock cycle in which some but not all of them change
+    p_atomic : process is
+        variable Prev_v : std_logic_vector(82 downto 0) := (others => '0');
+        variable Cur_v  : std_logic_vector(82 downto 0);
+        variable Same_v : natural;
+    begin
+        wait until rising_edge(Clk);
+        Cur_v  := cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit);
+        Same_v := toInt(Cur_v(82 downto 66) = Prev_v(82 downto 66)) + toInt(Cur_v(65 downto 49) = Prev_v(65 downto 49)) +
+                  toInt(Cur_v(48 downto 32) = Prev_v(48 downto 32)) + toInt(Cur_v(31 downto 16) = Prev_v(31 downto 16)) +
+                  toInt(Cur_v(15 downto 0) = Prev_v(15 downto 0));
+        if Rst = '0' and Same_v > 0 and Same_v < 5 and AtomicOn then
+            Partial <= Partial + 1;
+        end if;
+        Prev_v := Cur_v;
     end process;
 
     -- Pulses since the last write of the slave

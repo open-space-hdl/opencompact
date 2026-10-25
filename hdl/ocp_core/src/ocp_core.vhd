@@ -21,6 +21,7 @@ library ieee;
 
 library olo;
     use olo.olo_base_pkg_math.all;
+    use olo.olo_base_pkg_attribute.all;
 
 library work;
     use work.ocp_pkg.all;
@@ -93,6 +94,9 @@ entity ocp_core is
         -- Image framing: In_Last marks the last sample of every image (In_Error with it: the image ends
         -- with an error), errors are flagged on Out_Error
         UseInLast_g            : boolean                   := false;
+        -- Runtime configuration: NX, NY, NZ (1 to the maxima XSize_g, YSize_g, ZSize_g) and the
+        -- band-independent error limit values of every image from the configuration inputs
+        RuntimeConfig_g        : boolean                   := false;
         -- Implementation: width of the compressed image interface in bits (8, 16, 32 or 64), speculative
         -- weight loop of the predictor, memory style
         OutWidth_g             : positive                  := 8;
@@ -132,7 +136,21 @@ entity ocp_core is
         -- (corrected) or a double (detected) bit error
         ErrInj_Channel : in    std_logic_vector(3 downto 0)  := (others => '0');
         ErrInj_Double  : in    std_logic                     := '0';
-        ErrInj_Valid   : in    std_logic                     := '0'
+        ErrInj_Valid   : in    std_logic                     := '0';
+        -- Runtime configuration (RuntimeConfig_g): NX, NY, NZ and the error limit values of the next
+        -- image, taken when its first sample is accepted (Cfg_Taken, a pulse in that clock cycle); the
+        -- values taken for the last image, after the range limitation (CO-RC-07)
+        Cfg_XSize      : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_YSize      : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_ZSize      : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_AbsLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_RelLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_Taken      : out   std_logic;
+        Act_XSize      : out   std_logic_vector(16 downto 0);
+        Act_YSize      : out   std_logic_vector(16 downto 0);
+        Act_ZSize      : out   std_logic_vector(16 downto 0);
+        Act_AbsLimit   : out   std_logic_vector(15 downto 0);
+        Act_RelLimit   : out   std_logic_vector(15 downto 0)
     );
 end entity;
 
@@ -146,6 +164,46 @@ architecture rtl of ocp_core is
     constant AccuCount_c : positive := choose(AccuInitBandVarying_g, ZSize_g, 1);
     constant ItemW_c     : positive := maximum(DynamicRange_g, 16);
     constant ZW_c        : positive := log2ceil(ZSize_g + 1);
+    constant Fid_c       : natural  := fidelityCode(Fidelity_g);
+    constant UseAbs_c    : boolean  := Fid_c = FidAbsolute_c or Fid_c = FidBoth_c;
+    constant UseRel_c    : boolean  := Fid_c = FidRelative_c or Fid_c = FidBoth_c;
+    -- Images of width 1 need reduced prediction and column-oriented local sums (CCSDS 4.3.1, 4.4.1)
+    constant Wide_c      : boolean := fullPrediction(PredictionMode_g) or
+                                       localSumCode(LocalSum_g) = SumWideNeighbor_c or
+                                       localSumCode(LocalSum_g) = SumNarrowNeighbor_c;
+
+    -- Runtime configuration: configuration of an image (NX, NY, NZ, absolute and relative error limit value)
+    type Cfg_r is record
+        X    : unsigned(16 downto 0);
+        Y    : unsigned(16 downto 0);
+        Z    : unsigned(16 downto 0);
+        AbsL : unsigned(15 downto 0);
+        RelL : unsigned(15 downto 0);
+    end record;
+
+    -- After a reset: the maxima and the first error limit values of the generics (zero for a method not in use)
+    function cfgReset return Cfg_r is
+        variable C_v : Cfg_r;
+    begin
+        C_v.X    := to_unsigned(XSize_g, 17);
+        C_v.Y    := to_unsigned(YSize_g, 17);
+        C_v.Z    := to_unsigned(ZSize_g, 17);
+        C_v.AbsL := (others => '0');
+        C_v.RelL := (others => '0');
+        if UseAbs_c then
+            C_v.AbsL := to_unsigned(vecElem(AbsErrorLimits_g, 0), 16);
+        end if;
+        if UseRel_c then
+            C_v.RelL := to_unsigned(vecElem(RelErrorLimits_g, 0), 16);
+        end if;
+        return C_v;
+    end function;
+
+    -- Configurations of the images taken at the input and not yet used by the header generator (and the
+    -- hybrid coder); registers, like the error flags of the image framer
+    constant QDepth_c : positive := 16;
+
+    type CfgQueue_t is array (0 to QDepth_c - 1) of Cfg_r;
 
     -- Entropy coder input sequence
     signal Item_Valid : std_logic;
@@ -199,13 +257,32 @@ architecture rtl of ocp_core is
     signal InBody    : std_logic;
     signal StartPend : std_logic;
     signal ImgStart  : std_logic;
-    signal Waiting   : natural range 0 to 15;
+    signal Waiting   : natural range 0 to 15 + toInt(RuntimeConfig_g);
     signal PredSec   : std_logic;
     signal PredDed   : std_logic;
     signal CoderSec  : std_logic;
     signal CoderDed  : std_logic;
     signal InjStats  : std_logic;
     signal InjBuffer : std_logic;
+
+    -- Runtime configuration: inputs after the range limitation, configuration taken (first sample of an
+    -- image accepted), active configuration, queue (write pointer, read pointers of the header generator and
+    -- of the hybrid coder), room in the queue, end of the tail of the hybrid coder
+    signal Lim      : Cfg_r;
+    signal Take     : std_logic;
+    signal Act      : Cfg_r;
+    signal Queue    : CfgQueue_t;
+    signal QWr      : unsigned(4 downto 0);
+    signal QRdH     : unsigned(4 downto 0);
+    signal QRdC     : unsigned(4 downto 0);
+    signal HeadH    : Cfg_r;
+    signal HeadC    : Cfg_r;
+    signal CfgReady : std_logic;
+    signal HybDone  : std_logic;
+
+    attribute ram_style of Queue    : signal is "registers";
+    attribute ramstyle of Queue     : signal is "logic";
+    attribute syn_ramstyle of Queue : signal is "registers";
 
 begin
 
@@ -230,6 +307,28 @@ begin
     assert Coder_c = CoderBlock_c or RescaleCounterSize_g >= maximum(4, InitialCountExp_g + 1)
         report "ocp_core: RescaleCounterSize_g must be max(4, InitialCountExp_g + 1) to 11 (CCSDS 5.4.3.2.3.4, " &
                "5.4.3.3.4.5)"
+        severity failure;
+
+    -- Runtime configuration (CO-CF-04): configurations whose header or quantizer cannot follow dimensions and error
+    -- limit values that change from image to image stop the elaboration
+    assert not (RuntimeConfig_g and PeriodicUpdate_g and Fid_c /= FidLossless_c)
+        report "ocp_core: RuntimeConfig_g excludes periodic error limit updating (CO-CF-04)"
+        severity failure;
+
+    assert not (RuntimeConfig_g and ((UseAbs_c and AbsBandDependent_g) or (UseRel_c and RelBandDependent_g)))
+        report "ocp_core: RuntimeConfig_g excludes band-dependent error limits (CO-CF-04)"
+        severity failure;
+
+    assert not (RuntimeConfig_g and ((CustomWeights_g and WeightInitTable_g) or
+                                     (WeightExpOffsetsUsed_g and WeightExpOffsetTable_g) or
+                                     (SampleRepResolution_g > 0 and DampingBandVarying_g and DampingTable_g) or
+                                     (SampleRepResolution_g > 0 and OffsetBandVarying_g and OffsetTable_g) or
+                                     (Coder_c = CoderSample_c and AccuInitBandVarying_g and AccuInitTable_g)))
+        report "ocp_core: RuntimeConfig_g excludes header tables whose length depends on NZ (CO-CF-04)"
+        severity failure;
+
+    assert not (RuntimeConfig_g and SupTableCount_g > 0)
+        report "ocp_core: RuntimeConfig_g excludes supplementary information tables (CO-CF-04)"
         severity failure;
 
     g_accu_init : for i in 0 to AccuCount_c - 1 generate
@@ -286,15 +385,133 @@ begin
     PkEnd     <= Pk_Valid and Pk_Ready and Pk_Last;
 
     -----------------------------------------------------------------------------------------------
+    -- Runtime configuration
+    -----------------------------------------------------------------------------------------------
+    g_runtime : if RuntimeConfig_g generate
+
+        -- Range limitation (CO-RC-07): an input outside its range is taken as the nearest valid value, so that no
+        -- unit addresses outside its memories or counts an image without a bounded end
+        p_limit : process (all) is
+            variable V_v : Cfg_r;
+        begin
+            V_v.X := unsigned(Cfg_XSize);
+            if V_v.X = 0 then
+                V_v.X := to_unsigned(1, 17);
+            elsif V_v.X > XSize_g then
+                V_v.X := to_unsigned(XSize_g, 17);
+            end if;
+            if Wide_c and V_v.X = 1 then
+                V_v.X := to_unsigned(2, 17);
+            end if;
+            V_v.Y := unsigned(Cfg_YSize);
+            if V_v.Y = 0 then
+                V_v.Y := to_unsigned(1, 17);
+            elsif V_v.Y > YSize_g then
+                V_v.Y := to_unsigned(YSize_g, 17);
+            end if;
+            V_v.Z := unsigned(Cfg_ZSize);
+            if V_v.Z = 0 then
+                V_v.Z := to_unsigned(1, 17);
+            elsif V_v.Z > ZSize_g then
+                V_v.Z := to_unsigned(ZSize_g, 17);
+            end if;
+            V_v.AbsL := (others => '0');
+            if UseAbs_c then
+                V_v.AbsL := unsigned(Cfg_AbsLimit);
+                if V_v.AbsL > 2 ** AbsBitDepth_g - 1 then
+                    V_v.AbsL := to_unsigned(2 ** AbsBitDepth_g - 1, 16);
+                end if;
+            end if;
+            V_v.RelL := (others => '0');
+            if UseRel_c then
+                V_v.RelL := unsigned(Cfg_RelLimit);
+                if V_v.RelL > 2 ** RelBitDepth_g - 1 then
+                    V_v.RelL := to_unsigned(2 ** RelBitDepth_g - 1, 16);
+                end if;
+            end if;
+            Lim <= V_v;
+        end process;
+
+        -- Active configuration (the values taken for the last image) and the configuration queue
+        p_cfg : process (Clk) is
+        begin
+            if rising_edge(Clk) then
+                if Take = '1' then
+                    Act                                <= Lim;
+                    Queue(to_integer(QWr(3 downto 0))) <= Lim;
+                    QWr                                <= QWr + 1;
+                end if;
+                if Hdr_Valid = '1' and Hdr_Ready = '1' and Hdr_Last = '1' then
+                    QRdH <= QRdH + 1;
+                end if;
+                if HybDone = '1' then
+                    QRdC <= QRdC + 1;
+                end if;
+                if Rst = '1' then
+                    Act  <= cfgReset;
+                    QWr  <= (others => '0');
+                    QRdH <= (others => '0');
+                    QRdC <= (others => '0');
+                end if;
+            end if;
+        end process;
+
+        HeadH    <= Queue(to_integer(QRdH(3 downto 0)));
+        HeadC    <= Queue(to_integer(QRdC(3 downto 0)));
+        CfgReady <= '0' when QWr - QRdH = QDepth_c or (Coder_c = CoderHybrid_c and QWr - QRdC = QDepth_c) else '1';
+
+        Cfg_Taken    <= Take;
+        Act_XSize    <= std_logic_vector(Act.X);
+        Act_YSize    <= std_logic_vector(Act.Y);
+        Act_ZSize    <= std_logic_vector(Act.Z);
+        Act_AbsLimit <= std_logic_vector(Act.AbsL);
+        Act_RelLimit <= std_logic_vector(Act.RelL);
+
+        -- synthesis translate_off
+        p_check : process (Clk) is
+        begin
+            if rising_edge(Clk) then
+                if Take = '1' and Rst = '0' then
+                    assert unsigned(Cfg_XSize) = Lim.X and unsigned(Cfg_YSize) = Lim.Y and
+                           unsigned(Cfg_ZSize) = Lim.Z and
+                           (not UseAbs_c or unsigned(Cfg_AbsLimit) = Lim.AbsL) and
+                           (not UseRel_c or unsigned(Cfg_RelLimit) = Lim.RelL)
+                        report "ocp_core: configuration input out of range, taken as the nearest valid value " &
+                               "(CO-RC-07)"
+                        severity warning;
+                end if;
+            end if;
+        end process;
+
+        -- synthesis translate_on
+
+    end generate;
+
+    g_constant : if not RuntimeConfig_g generate
+        Lim          <= cfgReset;
+        Act          <= cfgReset;
+        HeadH        <= cfgReset;
+        HeadC        <= cfgReset;
+        CfgReady     <= '1';
+        Cfg_Taken    <= '0';
+        Act_XSize    <= (others => '0');
+        Act_YSize    <= (others => '0');
+        Act_ZSize    <= (others => '0');
+        Act_AbsLimit <= (others => '0');
+        Act_RelLimit <= (others => '0');
+    end generate;
+
+    -----------------------------------------------------------------------------------------------
     -- Image framing
     -----------------------------------------------------------------------------------------------
     g_framer : if UseInLast_g generate
 
         i_framer : entity work.ocp_image_framer
             generic map (
-                XSize_g => XSize_g,
-                YSize_g => YSize_g,
-                ZSize_g => ZSize_g
+                XSize_g         => XSize_g,
+                YSize_g         => YSize_g,
+                ZSize_g         => ZSize_g,
+                RuntimeConfig_g => RuntimeConfig_g
             )
             port map (
                 Clk           => Clk,
@@ -314,7 +531,11 @@ begin
                 Out_Ready     => Out_Ready,
                 Out_Last      => OutLast,
                 Out_Error     => Out_Error,
-                Ev_ImageError => Ev_ImageError
+                Ev_ImageError => Ev_ImageError,
+                Cfg_Take      => Take,
+                Cfg_XSize     => std_logic_vector(Lim.X),
+                Cfg_YSize     => std_logic_vector(Lim.Y),
+                Cfg_ZSize     => std_logic_vector(Lim.Z)
             );
 
     end generate;
@@ -385,17 +606,23 @@ begin
             AccuInit_g             => AccuInit_g,
             BlockSize_g            => BlockSize_g,
             RestrictedCodes_g      => RestrictedCodes_g,
-            RefInterval_g          => RefInterval_g
+            RefInterval_g          => RefInterval_g,
+            RuntimeConfig_g        => RuntimeConfig_g
         )
         port map (
-            Clk        => Clk,
-            Rst        => Rst,
-            Start      => Hdr_Start,
-            Out_Valid  => Hdr_Valid,
-            Out_Ready  => Hdr_Ready,
-            Out_Data   => Hdr_Data,
-            Out_Length => Hdr_Length,
-            Out_Last   => Hdr_Last
+            Clk          => Clk,
+            Rst          => Rst,
+            Start        => Hdr_Start,
+            Out_Valid    => Hdr_Valid,
+            Out_Ready    => Hdr_Ready,
+            Out_Data     => Hdr_Data,
+            Out_Length   => Hdr_Length,
+            Out_Last     => Hdr_Last,
+            Cfg_XSize    => std_logic_vector(HeadH.X),
+            Cfg_YSize    => std_logic_vector(HeadH.Y),
+            Cfg_ZSize    => std_logic_vector(HeadH.Z),
+            Cfg_AbsLimit => std_logic_vector(HeadH.AbsL),
+            Cfg_RelLimit => std_logic_vector(HeadH.RelL)
         );
 
     -----------------------------------------------------------------------------------------------
@@ -434,7 +661,8 @@ begin
             Damping_g              => Damping_g,
             Offset_g               => Offset_g,
             Speculation_g          => Speculation_g,
-            RamStyle_g             => RamStyle_g
+            RamStyle_g             => RamStyle_g,
+            RuntimeConfig_g        => RuntimeConfig_g
         )
         port map (
             Clk            => Clk,
@@ -446,6 +674,13 @@ begin
             Lim_Valid      => ValValid,
             Lim_Ready      => ValReady,
             Lim_Data       => Lim_Data,
+            Cfg_Ready      => CfgReady,
+            Cfg_XSize      => std_logic_vector(Lim.X),
+            Cfg_YSize      => std_logic_vector(Lim.Y),
+            Cfg_ZSize      => std_logic_vector(Lim.Z),
+            Cfg_AbsLimit   => std_logic_vector(Lim.AbsL),
+            Cfg_RelLimit   => std_logic_vector(Lim.RelL),
+            Cfg_Take       => Take,
             Img_Start      => ImgStart,
             Out_Valid      => Item_Valid,
             Out_Ready      => Item_Ready,
@@ -505,6 +740,10 @@ begin
 
     end generate;
 
+    g_no_hybrid : if Coder_c /= CoderHybrid_c generate
+        HybDone <= '0';
+    end generate;
+
     g_hybrid : if Coder_c = CoderHybrid_c generate
 
         i_coder : entity work.ocp_hybrid_coder
@@ -520,7 +759,8 @@ begin
                 HybridAccuInitHigh_g => HybridAccuInitHigh_g,
                 AbsBitDepth_g        => AbsBitDepth_g,
                 RelBitDepth_g        => RelBitDepth_g,
-                RamStyle_g           => RamStyle_g
+                RamStyle_g           => RamStyle_g,
+                RuntimeConfig_g      => RuntimeConfig_g
             )
             port map (
                 Clk           => Clk,
@@ -542,7 +782,9 @@ begin
                 Ecc_Ded       => CoderDed,
                 ErrInj_Stats  => InjStats,
                 ErrInj_Buffer => InjBuffer,
-                ErrInj_Double => ErrInj_Double
+                ErrInj_Double => ErrInj_Double,
+                Cfg_ZSize     => std_logic_vector(HeadC.Z),
+                Cfg_Done      => HybDone
             );
 
     end generate;

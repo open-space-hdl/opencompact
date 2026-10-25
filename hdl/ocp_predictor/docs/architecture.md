@@ -141,8 +141,27 @@ q (2 m + 1) = sgn(residual) (|residual| + m - remainder).
 | `In_Valid`, `In_Ready`, `In_Data`, `In_End` | in | Samples (D bits) in the input order; `In_End` with a sample that ends its image early (PR-FR-01, PR-FR-02) |
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in | 16-bit error limit values (periodic updating) |
 | `Img_Start` | out | Pulse: the first item of an image is accepted |
+| `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize`, `Cfg_AbsLimit`, `Cfg_RelLimit` | in | With `RuntimeConfig_g`: NX, NY, NZ (17 bits, 1 to the maxima) and the error limit values (16 bits) of the next image |
+| `Cfg_Ready` | in | With `RuntimeConfig_g`: '0' holds the first sample of an image back (configuration queue of the core full) |
+| `Cfg_Take` | out | With `RuntimeConfig_g`: pulse in the clock cycle in which the first sample of an image and its configuration are taken |
 | `Out_Valid`, `Out_Ready`, `Out_Data` | out | Item value, max(D, 16) bits |
 | `Out_Kind` | out | `ItemSample_c`, `ItemAbsLimit_c` or `ItemRelLimit_c` |
 | `Out_Band`, `Out_First`, `Out_Init`, `Out_Last` | out | Band, t = 0, t = 1, last sample of the image |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events |
 | `ErrInj_Channel`, `ErrInj_Double`, `ErrInj_Valid` | in | Error injection into the next write of a memory: channel n is the memory whose error flags are bit n of the internal error vector (0 line, 1 window, 2 previous representative, 3 first representative of the line, 4 local differences, 5 weights, 6 and 7 error limits, 8 output FIFO, 9 to 11 stride buffers) |
+
+## 8. Runtime configuration
+
+With `RuntimeConfig_g` (`ocp_core` architecture, section 6) the predictor takes the dimensions and the band-independent
+error limit values of an image from the configuration inputs when it accepts the first sample of the image
+(`Cfg_Take`); the sample waits in a hold register while the image-start sequencer (`ocp_image_start`) runs, and the
+issue stage starts it once the sequencer is done, imageStartCycles + 1 clock cycles after the take (7 to 9 cycles
+of the sequencer: the factors of the gaps are saturated just above the largest latency and multiplied by one adder
+in a fixed number of steps). While `Cfg_Ready` is '0' (the configuration queue of the core is full) no first
+sample is taken. The items in the pipeline carry NX, the last column flag and the run of the band across rows, so
+the images in flight keep their own values. The position counters of the input order
+compare with NX, NY, NZ and M of the image; the memories keep the sizes of `XSize_g`, `YSize_g` and `ZSize_g`, and the
+line memories are addressed with the pitch of `XSize_g`. The conditions of the issue stage that the elaboration
+derives from the dimensions (section 2) come from the image-start sequencer, which computes them in a fixed number of
+clock cycles before the first sample of the image is started; the history of issued bands has the length of the worst
+case over the allowed dimensions. The stride order (section 4) is not instantiated.

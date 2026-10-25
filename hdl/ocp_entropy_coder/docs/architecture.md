@@ -92,6 +92,15 @@ two and three positions ahead), so that the decision between one and two codewor
 and not from the buffer. The block buffers are registers: synthesis attributes keep the tools from inferring memories
 without ECC from them.
 
+## 4a. Runtime configuration
+
+With `RuntimeConfig_g` (`ocp_core` architecture, section 6) the statistics memories keep `ZSize_g` entries; the
+sample-adaptive coder takes the band of every item from the predictor and needs no dimensions. The hybrid coder
+takes the NZ of the image whose tail comes next (`Cfg_ZSize`, from the configuration queue of the core): the tail
+steps through the bands 0 to NZ - 1 of the image instead of the index modulo `ZSize_g`, and `Cfg_Done` pulses at
+its end. A band without statistics in the image ends with its initial accumulator, which covers the single-pixel
+case NX = NY = 1 as well. The block-adaptive coder does not depend on the image dimensions.
+
 ## 5. Interfaces
 
 | Port | Direction | Description |
@@ -100,3 +109,5 @@ without ECC from them.
 | `Cw_Valid`, `Cw_Ready`, `Cw_Data`, `Cw_Length`, `Cw_Last` | out | Codewords of up to `CwWidth_c` bits |
 | `Ecc_Sec`, `Ecc_Ded` | out | Memory error events (statistics memories, codeword buffer) |
 | `ErrInj_Stats`, `ErrInj_Buffer`, `ErrInj_Double` | in | Error injection into the next write of the statistics memory or of the codeword buffer (the block-adaptive coder has no statistics memory) |
+| `Cfg_ZSize` | in | Hybrid coder with `RuntimeConfig_g`: NZ of the image whose tail comes next (17 bits) |
+| `Cfg_Done` | out | Hybrid coder with `RuntimeConfig_g`: pulse at the end of the tail of an image |

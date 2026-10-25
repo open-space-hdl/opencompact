@@ -331,15 +331,107 @@ def write_aborted(name, c):
     print("{:28s} aborted at {}".format(name, ", ".join(str(p) for p in abort_positions(name, c))))
 
 
+def check_runtime_header(name, ci, data):
+    """The header of a compressed image of a runtime sequence, decoded by the header parser of the model, carries
+    the dimensions, the sub-frame interleaving depth and the error limit values of the image (CO-HD-08)."""
+    hdr, _ = ocp_model.parse_header(data)
+    fields = ["large_n_x", "large_n_y", "large_n_z", "large_m"]
+    fid = ci["quantizer_fidelity_control_method"]
+    if fid in (1, 3):
+        fields.append("a_vector")
+    if fid in (2, 3):
+        fields.append("r_vector")
+    for f in fields:
+        if hdr[f] != ci[f]:
+            raise RuntimeError("{}: header field {} is {}, the image has {}".format(name, f, hdr[f], ci[f]))
+
+
+def write_runtime(name, c):
+    """Golden data of a runtime configuration (reference model; the model reproduces the CNES encoder for every
+    complete image): the seeded image sequence of TC-CO-52 (runtime.txt, image_<k>.raw, compressed_<k>.bin,
+    delta_<k>.txt), for the configurations of RUNTIME_RANGE the range test of TC-CO-57 (range.txt,
+    range_image_<k>.raw, range_<k>.bin) and for those of RUNTIME_QUEUE the queue test of TC-CO-58 (queue.txt,
+    queue_image_<k>.raw, queue_<k>.bin). A line of runtime.txt, range.txt and queue.txt holds the values driven on the
+    configuration inputs of the core (NX, NY, NZ, absolute and relative error limit value), then the values the core
+    takes (CO-RC-07)."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in list(out.glob("image_*.raw")) + list(out.glob("compressed_*.bin")) + list(out.glob("delta_*.txt")) + \
+            list(out.glob("range*")) + list(out.glob("queue*")) + list(out.glob("rtabort*")):
+        old.unlink()
+    # (list, raw file, compressed file, with the entropy coder input, seed base, images)
+    jobs = [("runtime", "image_{:02d}.raw", "compressed_{:02d}.bin", True, 0,
+             [(d, d) for d in ocp_configs.runtime_sequence(c)])]
+    if name in ocp_configs.RUNTIME_RANGE:
+        jobs.append(("range", "range_image_{:02d}.raw", "range_{:02d}.bin", False, 100,
+                     ocp_configs.runtime_range_sequence(c)))
+    if name in ocp_configs.RUNTIME_QUEUE:
+        jobs.append(("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
+                     ocp_configs.runtime_queue_sequence(c)))
+    write_jobs(name, c, out, jobs)
+    # Images of the runtime sequence aborted by an early In_Last (TC-CO-53): rtabort.txt holds the image and the
+    # sample with the early In_Last (counted from 0), rtabort_<k>.bin the compressed image of the samples taken
+    lines = []
+    for k in ocp_configs.RUNTIME_ABORT:
+        nx, ny, nz, a, r = ocp_configs.runtime_sequence(c)[k]
+        ci = ocp_configs.runtime_image_cfg(c, nx, ny, nz, a, r, index=k)
+        pos = (nx * ny * nz) // 2
+        (out / "rtabort_{:02d}.bin".format(k)).write_bytes(
+            ocp_model.compress_aborted(ci, ocp_configs.make_image(ci), pos + 1))
+        lines.append("{} {}".format(k, pos))
+    (out / "rtabort.txt").write_text("\n".join(lines) + "\n", newline="\n")
+
+
+def write_queue_only(name, c):
+    """Golden data of a configuration of the queue test only (RUNTIME_QUEUE_ONLY, TC-CO-58): queue.txt,
+    queue_image_<k>.raw, queue_<k>.bin."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in out.glob("queue*"):
+        old.unlink()
+    write_jobs(name, c, out, [("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
+                                ocp_configs.runtime_queue_sequence(c, name in ocp_configs.QUEUE_LONG_TAIL))])
+
+
+def write_jobs(name, c, out, jobs):
+    """Image lists of a runtime configuration: test images, compressed images (reference model, header checked) and
+    with with_delta the entropy coder input sequences; a line of the list holds the driven and the taken values."""
+    for list_name, raw_name, bin_name, with_delta, seed_base, seq in jobs:
+        lines = []
+        nbytes = 0
+        for k, (driven, taken) in enumerate(seq):
+            ci = ocp_configs.runtime_image_cfg(c, *taken, index=seed_base + k)
+            img = ocp_configs.make_image(ci)
+            write_raw(ci, ocp_configs.input_order(ci, img), out / raw_name.format(k))
+            data = ocp_model.compress(ci, img)
+            check_runtime_header(name, ci, data)
+            (out / bin_name.format(k)).write_bytes(data)
+            if with_delta:
+                (out / "delta_{:02d}.txt".format(k)).write_text(delta_text(ci, img, []), newline="\n")
+            lines.append(" ".join(str(v) for v in tuple(driven) + tuple(taken)))
+            nbytes += len(data)
+        (out / (list_name + ".txt")).write_text("\n".join(lines) + "\n", newline="\n")
+        print("{:28s} {:6s} {:3d} images, {:7d} bytes".format(name, list_name, len(seq), nbytes))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cnes-bin", default=os.environ.get("OCP_CNES_BIN"))
     ap.add_argument("--aborted", action="store_true", help="write only the aborted images (reference model)")
+    ap.add_argument("--runtime", action="store_true",
+                    help="write only the image sequences of the runtime configurations (reference model)")
     ap.add_argument("configs", nargs="*")
     args = ap.parse_args()
     if args.aborted:
         for name in args.configs or ABORTED:
             write_aborted(name, ocp_configs.ALL[name])
+        return
+    if args.runtime:
+        for name in args.configs or list(ocp_configs.RUNTIME) + list(ocp_configs.RUNTIME_QUEUE_ONLY):
+            if name in ocp_configs.RUNTIME_QUEUE_ONLY:
+                write_queue_only(name, ocp_configs.RUNTIME_QUEUE_ONLY[name])
+            else:
+                write_runtime(name, ocp_configs.RUNTIME[name])
         return
     if not args.cnes_bin:
         raise SystemExit("give the bin directory of the CNES reference software with --cnes-bin or OCP_CNES_BIN")

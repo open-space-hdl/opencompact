@@ -84,19 +84,29 @@ entity ocp_header is
         -- Block-adaptive entropy coder
         BlockSize_g            : positive                  := 16;
         RestrictedCodes_g      : boolean                   := false;
-        RefInterval_g          : positive range 1 to 4096  := 4096
+        RefInterval_g          : positive range 1 to 4096  := 4096;
+        -- Runtime configuration: X, Y and Z Size, the sub-frame interleaving depth and the
+        -- band-independent error limit values of every image from the configuration inputs
+        RuntimeConfig_g        : boolean                   := false
     );
     port (
-        Clk        : in    std_logic;
-        Rst        : in    std_logic;
-        Start      : in    std_logic;
-        Out_Valid  : out   std_logic;
-        Out_Ready  : in    std_logic;
+        Clk          : in    std_logic;
+        Rst          : in    std_logic;
+        Start        : in    std_logic;
+        Out_Valid    : out   std_logic;
+        Out_Ready    : in    std_logic;
         -- Parts of the header: the Out_Length least significant bits of Out_Data, first bit in the
         -- most significant of them
-        Out_Data   : out   std_logic_vector(63 downto 0);
-        Out_Length : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Out_Last   : out   std_logic
+        Out_Data     : out   std_logic_vector(63 downto 0);
+        Out_Length   : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Out_Last     : out   std_logic;
+        -- Runtime configuration: NX, NY, NZ and the error limit values of the image whose header is
+        -- output (stable from Start to the last part)
+        Cfg_XSize    : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_YSize    : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_ZSize    : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_AbsLimit : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_RelLimit : in    std_logic_vector(15 downto 0) := (others => '0')
     );
 end entity;
 
@@ -151,14 +161,23 @@ architecture rtl of ocp_header is
 
     end procedure;
 
+    -- Bit positions of the header fields of the runtime configuration (X, Y, Z Size: bits 8, 24, 40)
+    type FieldPos_r is record
+        M      : natural;
+        AbsLim : natural;
+        RelLim : natural;
+    end record;
+
     procedure build (
         buf : inout Buf_t;
-        pos : inout natural) is
+        pos : inout natural;
+        fld : inout FieldPos_r) is
         variable Idx_v : natural;
         variable Pz_v  : natural;
     begin
         buf := (others => '0');
         pos := 0;
+        fld := (others => 0);
         -- Image metadata, essential subpart (CCSDS table 5-3)
         put(buf, pos, UserData_g, 8);
         put(buf, pos, XSize_g mod 65536, 16);
@@ -169,6 +188,7 @@ architecture rtl of ocp_header is
         put(buf, pos, toInt(DynamicRange_g > 16), 1);
         put(buf, pos, DynamicRange_g mod 16, 4);
         put(buf, pos, Order_c, 1);
+        fld.M := pos;
         if Order_c = OrderBi_c then
             put(buf, pos, SubFrameDepth_g mod 65536, 16);
         else
@@ -266,6 +286,7 @@ architecture rtl of ocp_header is
                         end loop;
 
                     else
+                        fld.AbsLim := pos;
                         put(buf, pos, vecElem(AbsErrorLimits_g, 0), AbsBitDepth_g);
                     end if;
                     align(buf, pos);
@@ -284,6 +305,7 @@ architecture rtl of ocp_header is
                         end loop;
 
                     else
+                        fld.RelLim := pos;
                         put(buf, pos, vecElem(RelErrorLimits_g, 0), RelBitDepth_g);
                     end if;
                     align(buf, pos);
@@ -370,17 +392,28 @@ architecture rtl of ocp_header is
     function headerBits return Buf_t is
         variable Buf_v : Buf_t;
         variable Pos_v : natural;
+        variable Fld_v : FieldPos_r;
     begin
-        build(Buf_v, Pos_v);
+        build(Buf_v, Pos_v, Fld_v);
         return Buf_v;
     end function;
 
     function headerBytes return positive is
         variable Buf_v : Buf_t;
         variable Pos_v : natural;
+        variable Fld_v : FieldPos_r;
     begin
-        build(Buf_v, Pos_v);
+        build(Buf_v, Pos_v, Fld_v);
         return Pos_v / 8;
+    end function;
+
+    function fieldPos return FieldPos_r is
+        variable Buf_v : Buf_t;
+        variable Pos_v : natural;
+        variable Fld_v : FieldPos_r;
+    begin
+        build(Buf_v, Pos_v, Fld_v);
+        return Fld_v;
     end function;
 
     constant Header_c      : Buf_t    := headerBits;
@@ -410,6 +443,66 @@ architecture rtl of ocp_header is
     constant PartRom_c : PartArr_t := parts;
     constant LastLen_c : positive  := 8 * HeaderBytes_c - 64 * (Parts_c - 1);
 
+    -- Runtime configuration: the header bits of the runtime fields replace the bits of the ROM part that holds
+    -- them (CO-HD-08); the fields have fixed positions and widths, so the length of the header is constant
+    constant Fld_c : FieldPos_r := fieldPos;
+
+    -- Places the width least significant bits of value at header bit pos into part index (most significant
+    -- bit first, as the procedure put)
+    procedure place (
+        part  : inout std_logic_vector(63 downto 0);
+        index : in    natural;
+        pos   : in    natural;
+        width : in    natural;
+        value : in    unsigned) is
+        variable P_v   : natural;
+        variable Len_v : natural;
+    begin
+
+        for b in 0 to width - 1 loop
+            P_v := pos + b;
+            if P_v / 64 = index then
+                Len_v                          := minimum(64, 8 * HeaderBytes_c - 64 * index);
+                part(Len_v - 1 - (P_v mod 64)) := value(width - 1 - b);
+            end if;
+        end loop;
+
+    end procedure;
+
+    -- Part index of the header with the fields of the image
+    function runtimePart (
+        index : natural;
+        nx    : unsigned(16 downto 0);
+        ny    : unsigned(16 downto 0);
+        nz    : unsigned(16 downto 0);
+        a     : unsigned(15 downto 0);
+        r     : unsigned(15 downto 0)) return std_logic_vector is
+        variable P_v : std_logic_vector(63 downto 0);
+        variable M_v : unsigned(16 downto 0);
+    begin
+        P_v := PartRom_c(index);
+        -- X, Y and Z Size: the dimensions modulo 2^16 (CCSDS 5.3.2.2)
+        place(P_v, index, 8, 16, nx(15 downto 0));
+        place(P_v, index, 24, 16, ny(15 downto 0));
+        place(P_v, index, 40, 16, nz(15 downto 0));
+        -- Sub-frame interleaving depth min(M, NZ) in BI order
+        if Order_c = OrderBi_c then
+            M_v := to_unsigned(SubFrameDepth_g, 17);
+            if nz < SubFrameDepth_g then
+                M_v := nz;
+            end if;
+            place(P_v, index, Fld_c.M, 16, M_v(15 downto 0));
+        end if;
+        -- Band-independent absolute and relative error limit values (CCSDS 5.3.3.4)
+        if UseAbs_c then
+            place(P_v, index, Fld_c.AbsLim, AbsBitDepth_g, a(AbsBitDepth_g - 1 downto 0));
+        end if;
+        if UseRel_c then
+            place(P_v, index, Fld_c.RelLim, RelBitDepth_g, r(RelBitDepth_g - 1 downto 0));
+        end if;
+        return P_v;
+    end function;
+
     type TwoProcess_r is record
         Active : std_logic;
         Index  : natural range 0 to Parts_c - 1;
@@ -438,8 +531,17 @@ begin
         r_next <= v;
     end process;
 
-    Out_Valid  <= r.Active;
-    Out_Data   <= PartRom_c(r.Index);
+    Out_Valid <= r.Active;
+
+    g_const : if not RuntimeConfig_g generate
+        Out_Data <= PartRom_c(r.Index);
+    end generate;
+
+    g_runtime : if RuntimeConfig_g generate
+        Out_Data <= runtimePart(r.Index, unsigned(Cfg_XSize), unsigned(Cfg_YSize), unsigned(Cfg_ZSize),
+                                unsigned(Cfg_AbsLimit), unsigned(Cfg_RelLimit));
+    end generate;
+
     Out_Length <= std_logic_vector(to_unsigned(LastLen_c, CwLenWidth_c)) when r.Index = Parts_c - 1 else
                   std_logic_vector(to_unsigned(64, CwLenWidth_c));
     Out_Last   <= toSl(r.Index = Parts_c - 1);

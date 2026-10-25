@@ -80,6 +80,41 @@ FRAMING = [("c22_single_pixel_hybrid", 8, 30), ("c31_small_bi_periodic_abs", 8, 
 
 IMAGES = 2
 
+# Sequences of images of the hybrid coder without back pressure (number of images): the tail of every image can hold
+# back the next image through the output FIFO of the predictor; the first sample of every image is accepted in the
+# cycle of the throughput model (TC-CO-50, CO-TP-01). Single-pixel images, small images at 1.33 cycles per sample and
+# images at one sample per cycle
+RATE = {"c22_single_pixel_hybrid": 20, "c20_hybrid_d28": 6, "c26_tp_bil_near_abs": 8}
+
+# Runtime configurations of the timing test (TC-CO-53)
+RUNTIME_TIMING = ["rc01_bi_m1_sample", "rc04_bi_m4_sample_both"]
+
+
+def runtime_generics(name, cfg, rt_list="runtime"):
+    """Generics of a runtime configuration: the maxima, the image list <rt_list>.txt, 64-bit words (the output does
+    not limit the input)."""
+    gen = ocp_generics.generics(cfg)
+    golden = ROOT / "tb" / "golden" / name
+    gen.update(GoldenDir_g=golden.as_posix(), RuntimeConfig_g=True, OutWidth_g=64,
+               RtImages_g=len((golden / (rt_list + ".txt")).read_text().splitlines()),
+               MaxBytes_g=ocp_model.max_image_bytes(cfg), HeaderBytes_g=len(ocp_model.header(cfg)))
+    if rt_list != "runtime":
+        gen["RtList_g"] = rt_list
+    return gen
+
+
+def runtime_starts(name, gen):
+    """Acceptance cycles of the first sample of every image of runtime.txt relative to the first (throughput
+    model)."""
+    seq = [line.split() for line in (ROOT / "tb" / "golden" / name / "runtime.txt").read_text().splitlines()]
+    dims = [tuple(int(v) for v in values[5:8]) for values in seq]
+    cycles = ocp_throughput.runtime_accept_cycles(gen, dims)
+    starts, k = [], 0
+    for nx, ny, nz in dims:
+        starts.append(cycles[k] - cycles[0])
+        k += nx * ny * nz
+    return ",".join(str(v) for v in starts)
+
 
 def add(test, name, generics):
     """A configuration without and with the image framing (suffix _last)."""
@@ -108,6 +143,12 @@ def configure(lib):
             add(golden, name, dict(gen, ExpCycles_g=exp, ExpPeriod_g=period))
         if name in BACK_PRESSURE:
             add(golden, name + "_bp", dict(gen, InGapPct_g=30, OutStallPct_g=60))
+        if name in RATE:
+            n_img = RATE[name]
+            n = gen["XSize_g"] * gen["YSize_g"] * gen["ZSize_g"]
+            cycles = ocp_throughput.issue_cycles(gen, images=n_img)
+            starts = ",".join(str(cycles[k * n] - cycles[0]) for k in range(n_img))
+            add(golden, name + "_rate", dict(gen, Images_g=n_img, OutWidth_g=64, ExpStarts_g=starts))
         if name in SEQUENCE:
             add(golden, name + "_seq", dict(gen, Images_g=SEQUENCE[name], InGapPct_g=20, OutStallPct_g=70))
         if name in ECC:
@@ -118,6 +159,27 @@ def configure(lib):
             add(reset, name, dict(gen, InGapPct_g=10, OutStallPct_g=20))
     missing = set(ocp_throughput.ECC_CHANNELS) - channels
     assert not missing, "error injection: no configuration with the memories {}".format(sorted(missing))
+
+    # Runtime configurations: the image sequences (TC-CO-52, TC-CO-54), every second configuration also with input
+    # gaps and output stalls; the timing test (TC-CO-53); the range test (TC-CO-57)
+    runtime = tb.test("test_runtime")
+    for n, (name, cfg) in enumerate(ocp_configs.RUNTIME.items()):
+        gen = runtime_generics(name, cfg)
+        add(runtime, name, dict(gen, ExpStarts_g=runtime_starts(name, gen)))
+        if n % 2 == 1:
+            add(runtime, name + "_bp", dict(gen, InGapPct_g=30, OutStallPct_g=60))
+    timing = tb.test("test_runtime_timing")
+    for name in RUNTIME_TIMING:
+        add(timing, name, runtime_generics(name, ocp_configs.RUNTIME[name]))
+    rng = tb.test("test_runtime_range")
+    for name in ocp_configs.RUNTIME_RANGE:
+        gen = runtime_generics(name, ocp_configs.RUNTIME[name])
+        lines = (ROOT / "tb" / "golden" / name / "range.txt").read_text().splitlines()
+        add(rng, name, dict(gen, RtList_g="range", RtImages_g=len(lines)))
+    # Queue test (TC-CO-58): the configuration queue full while the output is held low
+    queue = tb.test("test_runtime_queue")
+    for name, cfg in ocp_configs.queue_configs().items():
+        add(queue, name, runtime_generics(name, cfg, "queue"))
 
     framing = tb.test("test_framing")
     for name, width, bp in FRAMING:

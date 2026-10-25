@@ -15,6 +15,7 @@ stride order, between the first and the last output item, and compares them with
 | Testbench | DUT and environment |
 | --- | --- |
 | `ocp_predictor_tb` | `ocp_predictor` at 100 MHz with the generics of a configuration of `tools/ocp_configs.py`; file-based source of the samples and of the error limits, sink with optional random gaps and stalls |
+| `ocp_image_start_tb` | The image-start sequencer of the predictor with the dimensions and M as inputs; the reference is the function from which the elaboration computes the conditions of the dependency checks for constant generics |
 
 Every configuration is a VUnit configuration of the test `test_golden`; three configurations also run with 30 % input
 gaps and 40 % output stalls (suffix `_bp`). Simulator: GHDL.
@@ -62,6 +63,8 @@ gaps and 40 % output stalls (suffix `_bp`). Simulator: GHDL.
 | `test_golden` c29_tp_bip_near_stride_stall, c30_tp_bip_both_stride_stall, c35_small_bil_periodic_spec_stall (TC-PR-37) | 80 % output stalls: the output buffer and the output FIFO of the stride order fill and stop the issue of samples; the output FIFO is full when the error limit values of an update period are due | PR-IF-03, PR-IF-04, PR-TP-03 |
 | `test_golden` c38_header_bounds (TC-PR-38) | BI order with M = 2, periodic updating every 2^9 frames of band-dependent absolute and relative error limits with DA = DR = 16 (D = 20) | PR-IF-04, PR-QU-02, PR-QU-03 |
 | `test_golden` c13_single_band_hybrid_nospec, c25_tp_bsq_lossless_nospec, c26_tp_bil_near_abs_nospec, c28_tp_bsq_near_abs_nospec, c35_small_bil_periodic_spec_nospec (TC-PR-39) | The configurations of the speculative weight loop with `Speculation_g` = false: the same mapped quantizer indices, and the samples are accepted in the cycles of the throughput model without the loop | PR-TP-01, PR-TP-02, PR-WU-02 |
+| `test_sweep` of `ocp_image_start_tb` (TC-PR-40) | For BI and BSQ order and every combination of NX from 1 to 64, every M from 1 to the maximum NZ and NY in {1, 2, 3, 64}, and in addition the maxima of rc01 to rc05, also without prediction bands (P = 0): the conditions computed by the sequencer equal the elaboration function for the same values, and the sequencer needs the same number of cycles for every input | PR-RC-03 |
+| `test_runtime` rc01 to rc05 of `ocp_predictor_tb` (TC-PR-41) | The entropy coder input sequence of every image of the seeded sequence of TC-CO-52 equals `ocp_model`, and the cycles of the input and the image-start cycles equal the throughput model with the runtime dimensions; rc02 runs without stride order | PR-RC-01, PR-RC-02, PR-RC-03, PR-RC-04 |
 
 Every test also checks that no memory error is signalled (PR-FT-01, no error injection) and that no item follows the
 last one.
@@ -85,3 +88,6 @@ last one.
 | PR-TP-02 | TC-PR-13, TC-PR-25, TC-PR-26, TC-PR-28; without the loop (`Speculation_g` false) TC-PR-39 |
 | PR-TP-03 | TC-PR-04, TC-PR-06, TC-PR-16, TC-PR-29, TC-PR-30 (cycles of the output against the throughput model) |
 | PR-FT-01, PR-FT-02 | TC-CO-37 of `ocp_core` (error injection into every memory); no error in all other test cases |
+| PR-RC-01, PR-RC-02 | TC-PR-41; in the core TC-CO-52 |
+| PR-RC-03 | TC-PR-40, TC-PR-41; in the core TC-CO-54 |
+| PR-RC-04 | TC-PR-41; in the core TC-CO-52 |

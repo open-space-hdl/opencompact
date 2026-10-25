@@ -30,9 +30,12 @@ library olo;
 ---------------------------------------------------------------------------------------------------
 entity ocp_image_framer is
     generic (
-        XSize_g : positive range 1 to 65536 := 8;
-        YSize_g : positive range 1 to 65536 := 8;
-        ZSize_g : positive range 1 to 65536 := 4
+        XSize_g         : positive range 1 to 65536 := 8;
+        YSize_g         : positive range 1 to 65536 := 8;
+        ZSize_g         : positive range 1 to 65536 := 4;
+        -- Runtime configuration: the dimensions of every image from the configuration inputs (the
+        -- generics are the maxima)
+        RuntimeConfig_g : boolean                   := false
     );
     port (
         Clk           : in    std_logic;
@@ -59,7 +62,13 @@ entity ocp_image_framer is
         Out_Last      : in    std_logic;
         Out_Error     : out   std_logic;
         -- Framing error (pulse)
-        Ev_ImageError : out   std_logic
+        Ev_ImageError : out   std_logic;
+        -- Runtime configuration: dimensions of the next image (1 to the maxima), taken with its first
+        -- sample (Cfg_Take of the predictor marks the first sample of an image)
+        Cfg_Take      : in    std_logic                     := '0';
+        Cfg_XSize     : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_YSize     : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_ZSize     : in    std_logic_vector(16 downto 0) := (others => '0')
     );
 end entity;
 
@@ -79,6 +88,12 @@ architecture rtl of ocp_image_framer is
     end function;
 
     constant Last_c : unsigned(CntW_c - 1 downto 0) := lastIndex;
+
+    -- Runtime configuration: position of the sample in a mixed-radix count (x fastest, then y, then z),
+    -- whatever the input order; the image ends with the sample at the last index of all three
+    constant XW_c : positive := log2ceil(XSize_g + 1);
+    constant YW_c : positive := log2ceil(YSize_g + 1);
+    constant ZW_c : positive := log2ceil(ZSize_g + 1);
 
     -- Error flags of the images whose input ended and whose compressed image is not yet output; the
     -- pointers have one bit more than the index, so their difference is the number of flags
@@ -100,6 +115,13 @@ architecture rtl of ocp_image_framer is
         WrPtr  : unsigned(PtrW_c downto 0);
         RdPtr  : unsigned(PtrW_c downto 0);
         Ev     : std_logic;
+        -- Runtime configuration: position of the next sample and last index of every dimension
+        Cx     : unsigned(XW_c - 1 downto 0);
+        Cy     : unsigned(YW_c - 1 downto 0);
+        Cz     : unsigned(ZW_c - 1 downto 0);
+        XMax   : unsigned(XW_c - 1 downto 0);
+        YMax   : unsigned(YW_c - 1 downto 0);
+        ZMax   : unsigned(ZW_c - 1 downto 0);
     end record;
 
     signal r, r_next : TwoProcess_r;
@@ -115,9 +137,38 @@ begin
         variable v       : TwoProcess_r;
         variable Push_v  : boolean;
         variable PushE_v : std_logic;
+        variable Last_v  : boolean;
+        variable Cx_v    : unsigned(XW_c - 1 downto 0);
+        variable Cy_v    : unsigned(YW_c - 1 downto 0);
+        variable Cz_v    : unsigned(ZW_c - 1 downto 0);
+        variable XMax_v  : unsigned(XW_c - 1 downto 0);
+        variable YMax_v  : unsigned(YW_c - 1 downto 0);
+        variable ZMax_v  : unsigned(ZW_c - 1 downto 0);
     begin
         v    := r;
         v.Ev := '0';
+        -- Last sample of the image: the count of the generics, or the position in the dimensions of the
+        -- image (the first sample of an image starts at position 0 with the dimensions taken with it)
+        if RuntimeConfig_g then
+            if Cfg_Take = '1' then
+                Cx_v   := (others => '0');
+                Cy_v   := (others => '0');
+                Cz_v   := (others => '0');
+                XMax_v := resize(unsigned(Cfg_XSize) - 1, XW_c);
+                YMax_v := resize(unsigned(Cfg_YSize) - 1, YW_c);
+                ZMax_v := resize(unsigned(Cfg_ZSize) - 1, ZW_c);
+            else
+                Cx_v   := r.Cx;
+                Cy_v   := r.Cy;
+                Cz_v   := r.Cz;
+                XMax_v := r.XMax;
+                YMax_v := r.YMax;
+                ZMax_v := r.ZMax;
+            end if;
+            Last_v := Cx_v = XMax_v and Cy_v = YMax_v and Cz_v = ZMax_v;
+        else
+            Last_v := r.Remain = 0;
+        end if;
         if r.Hold > 0 then
             v.Hold := r.Hold - 1;
         end if;
@@ -137,7 +188,26 @@ begin
                     In_Ready  <= Smp_Ready;
                     Smp_Valid <= In_Valid;
                     if In_Valid = '1' and Smp_Ready = '1' then
-                        if r.Remain = 0 then
+                        if RuntimeConfig_g then
+                            v.XMax := XMax_v;
+                            v.YMax := YMax_v;
+                            v.ZMax := ZMax_v;
+                            if Last_v or In_Last = '1' then
+                                v.Cx := (others => '0');
+                                v.Cy := (others => '0');
+                                v.Cz := (others => '0');
+                            elsif Cx_v /= XMax_v then
+                                v.Cx := Cx_v + 1;
+                            elsif Cy_v /= YMax_v then
+                                v.Cx := (others => '0');
+                                v.Cy := Cy_v + 1;
+                            else
+                                v.Cx := (others => '0');
+                                v.Cy := (others => '0');
+                                v.Cz := Cz_v + 1;
+                            end if;
+                        end if;
+                        if Last_v then
                             -- Last sample of the image: without In_Last the image end was lost; with
                             -- In_Last and In_Error the complete image ends with an error (CO-FR-08)
                             Push_v   := true;
@@ -189,11 +259,12 @@ begin
 
         Out_Error <= Out_Valid and Out_Last and r.Err(to_integer(r.RdPtr(PtrW_c - 1 downto 0)));
 
+        -- Early end of an image: a sample with In_Last before the last sample of the image
+        Smp_End <= In_Last when not Last_v else '0';
+
         r_next <= v;
     end process;
 
-    -- Early end of an image: a sample with In_Last before the last sample of the image
-    Smp_End       <= In_Last when r.Remain /= 0 else '0';
     Ev_ImageError <= r.Ev;
 
     p_seq : process (Clk) is
@@ -207,6 +278,11 @@ begin
                 r.WrPtr  <= (others => '0');
                 r.RdPtr  <= (others => '0');
                 r.Ev     <= '0';
+                if RuntimeConfig_g then
+                    r.Cx <= (others => '0');
+                    r.Cy <= (others => '0');
+                    r.Cz <= (others => '0');
+                end if;
             end if;
         end if;
     end process;

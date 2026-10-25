@@ -88,6 +88,43 @@ NEGATIVE = {
                          "periodic error limit updating is not allowed with BSQ order"),
 }
 
+# Runtime configuration (TC-CO-56): the runtime configurations at their maxima, the bounds of the image dimensions
+# with the runtime configuration, and the configurations that it excludes (CO-CF-04)
+_RT = {"RuntimeConfig_g": True}
+RUNTIME = {name: (c, 32, _RT) for name, c in ocp_configs.RUNTIME.items()}
+RUNTIME.update({
+    "b07_runtime_x_65536": (BOUNDS["b01_x_65536"][0], 8, _RT),
+    "b08_runtime_z_m_65536": (BOUNDS["b03_z_m_65536"][0], 64, _RT),
+})
+_RT01 = ocp_configs.RUNTIME["rc01_bi_m1_sample"]
+_RT02 = ocp_configs.RUNTIME["rc02_bi_mnz_hybrid_abs"]
+_RT04 = ocp_configs.RUNTIME["rc04_bi_m4_sample_both"]
+NEGATIVE.update({
+    "n15_runtime_periodic": (dict(_RT04, periodic_updating_flag=1, u=1), 32, _RT,
+                             "RuntimeConfig_g excludes periodic error limit updating"),
+    "n16_runtime_abs_bands": (dict(_RT04, absolute_error_limit_assignment_method=1, a_vector=[1, 2, 3]), 32, _RT,
+                              "RuntimeConfig_g excludes band-dependent error limits"),
+    "n17_runtime_rel_bands": (dict(_RT04, relative_error_limit_assignment_method=1, r_vector=[5, 6, 7]), 32, _RT,
+                              "RuntimeConfig_g excludes band-dependent error limits"),
+    "n18_runtime_weight_table": (dict(_RT01, weight_initialization_method=1, weight_initialization_table_flag=1,
+                                      large_q=8, large_lambda_vector=ocp_configs.lambda_table(8, 3, True)), 32, _RT,
+                                 "RuntimeConfig_g excludes header tables whose length depends on NZ"),
+    "n19_runtime_offset_table": (dict(_RT01, weight_exponent_offset_flag=1, weight_exponent_offset_table_flag=1,
+                                      zeta_vector=ocp_configs.zeta_table(8, 3, True, 19)), 32, _RT,
+                                 "RuntimeConfig_g excludes header tables whose length depends on NZ"),
+    "n20_runtime_damping_table": (dict(_RT02, band_varying_damping_flag=1, damping_table_flag=1,
+                                       phi_vector=[1, 2, 3, 0]), 32, _RT,
+                                  "RuntimeConfig_g excludes header tables whose length depends on NZ"),
+    "n21_runtime_rep_offset_table": (dict(_RT02, band_varying_offset_flag=1, offset_table_flag=1,
+                                          psi_vector=[0, 1, 2, 3]), 32, _RT,
+                                     "RuntimeConfig_g excludes header tables whose length depends on NZ"),
+    "n22_runtime_accu_table": (dict(_RT01, band_varying_k_flag=1, accumulator_initialization_table_flag=1,
+                                    k_prime_prime_vector=[2, 3, 4]), 32, _RT,
+                               "RuntimeConfig_g excludes header tables whose length depends on NZ"),
+    "n23_runtime_sup_tables": (_RT01, 32, dict(_RT, SupTableCount_g=1, SupTableData_g="0000"),
+                               "RuntimeConfig_g excludes supplementary information tables"),
+})
+
 # ocp_input_adapter and ocp_channel outside their ranges: wrapper text and the message that stops the elaboration
 NEGATIVE_TOP = {
     "n12_adapter_width_24": (lambda: ocp_wrapper.adapter_wrapper(24, 16, 22),
@@ -143,15 +180,16 @@ def main():
         raise SystemExit("compiled libraries not found, run: python run.py --compile")
     args = sys.argv[1:]
     in_last = "--in-last" in args
-    names = [a for a in args if a != "--in-last"] or (list(ocp_configs.ALL) + list(BOUNDS) + list(NEGATIVE) +
-                                                      list(ADAPTER) + list(CHANNEL) + list(NEGATIVE_TOP))
+    names = [a for a in args if a != "--in-last"] or (list(ocp_configs.ALL) + list(BOUNDS) + list(RUNTIME) +
+                                                      list(NEGATIVE) + list(ADAPTER) + list(CHANNEL) +
+                                                      list(NEGATIVE_TOP))
     results = []
     with tempfile.TemporaryDirectory(dir=LIBS.parent.parent) as tmp:
         for n in names:
             if n in ocp_configs.ALL:
                 results.append(synth(n, ocp_configs.ALL[n], out_width(n), {}, Path(tmp), in_last))
-            elif n in BOUNDS:
-                config, width, extra = BOUNDS[n]
+            elif n in BOUNDS or n in RUNTIME:
+                config, width, extra = BOUNDS[n] if n in BOUNDS else RUNTIME[n]
                 results.append(synth(n, config, width, extra, Path(tmp), in_last))
             elif n in NEGATIVE and not in_last:
                 config, width, extra, message = NEGATIVE[n]

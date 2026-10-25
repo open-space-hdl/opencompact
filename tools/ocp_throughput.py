@@ -152,8 +152,50 @@ def rep_equals_sample(g):
     return g["Fidelity_g"] == "LOSSLESS" and (g["SampleRepResolution_g"] == 0 or not any(damping))
 
 
-def latencies(g, speculation=True):
-    """Pipeline stages and required issue distances (cycles) for the generics g of a configuration."""
+def issue_dist(bsq, sfd, nx, ny, nz, p, rep_is_sample, w_used, cross_rep, l_win, l_rep, l_dw):
+    """Issue conditions that depend on the image dimensions (function issueDist of ocp_pkg)."""
+    m = min(sfd, nz)
+    gap1 = bsq or m == 1
+    run_rows = bsq or nz == 1
+    if bsq:
+        row_gap, diff_gap = nx - 1, nx * ny
+    else:
+        row_gap = (nx - 1) * m
+        diff_gap = row_gap + 1
+    same_rep = not rep_is_sample and (w_used or row_gap < l_rep)
+    cross_dw = p > 0 and (bsq or m < nz) and diff_gap < l_dw
+    l_fix = max(0 if gap1 else l_win, l_rep if same_rep else 0)
+    l_cross = max(l_rep if cross_rep else 0, l_dw if cross_dw else 0)
+    return {"m": m, "gap1": gap1, "run_rows": run_rows, "l_fix": l_fix, "l_cross": l_cross}
+
+
+def start_params(g):
+    """Flags and latencies of the predictor of a configuration that the image-start sequencer (ocp_image_start)
+    uses."""
+    lat = latencies(g)
+    p = g["PredictionBands_g"]
+    narrow = g["LocalSum_g"] in ("NARROW_NEIGHBOR", "NARROW_COLUMN")
+    rep_is_sample = rep_equals_sample(g)
+    return {"bsq": g["EncodingOrder_g"] == "BSQ", "sfd": g["SubFrameDepth_g"], "p": p,
+            "rep_is_sample": rep_is_sample, "w_used": g["PredictionMode_g"] == "FULL" or not narrow,
+            "cross_rep": not rep_is_sample and (p > 0 or narrow),
+            "l_win": lat["stages"]["ram"] + 2, "l_rep": lat["stages"]["rep_sum"] + 2,
+            "l_dw": lat["stages"]["dz"] + 2}
+
+
+def image_start_cycles(g):
+    """Clock cycles of the image-start sequencer from Start to Done (imageStartCycles of ocp_pkg)."""
+    s = start_params(g)
+    w = 1
+    while 2 ** w <= max(s["l_rep"], s["l_dw"]):
+        w += 1
+    return w + 3
+
+
+def latencies(g, speculation=True, dims=None):
+    """Pipeline stages and required issue distances (cycles) for the generics g of a configuration. With dims =
+    (nx, ny, nz) the generics are the maxima of a runtime configuration: the structure (speculation, memories) follows
+    the maxima, the issue distances the dimensions of the image."""
     d = g["DynamicRange_g"]
     nx, ny, nz = g["XSize_g"], g["YSize_g"], g["ZSize_g"]
     bsq = g["EncodingOrder_g"] == "BSQ"
@@ -199,6 +241,10 @@ def latencies(g, speculation=True):
     cross_rep = not rep_is_sample and (p > 0 or narrow)
     cross_dw = diff_ram and diff_gap < l_dw
     l_cross = max(l_rep if cross_rep else 0, l_dw if cross_dw else 0)
+    if dims is not None:
+        rt = issue_dist(bsq, g["SubFrameDepth_g"], *dims, p, rep_is_sample, w_used, cross_rep, st["ram"] + 2, l_rep,
+                        l_dw)
+        run_rows, l_fix, l_cross = rt["run_rows"], rt["l_fix"], rt["l_cross"]
     return {"stages": st, "depth": st["out"] + 1, "spec": spec, "run_rows": run_rows, "c": c, "narrow": narrow,
             "l_w": l_w, "l_fix": l_fix, "l_cross": l_cross}
 
@@ -268,9 +314,150 @@ def items(g):
                     yield ("S", z, y, x)
 
 
+# Tail of the hybrid coder (ocp_hybrid_coder): after the last item of an image, accepted in cycle a, the coder takes
+# no item in the cycles a + 1 to a + HYBRID_TAIL + NZ: its pipeline of 8 stages empties (a + 9), it outputs the 8 flush
+# words (a + 10 to a + 17), then reads the final accumulators of the NZ bands with a latency of 2 (a + 18 on) and ends
+# the image with the last of them (a + 19 + NZ)
+HYBRID_TAIL = 19
+
+
+def output_fifo_depth(lat):
+    """Depth of the output FIFO of the predictor: room for every item in flight (ocp_predictor, FifoDepth_c)."""
+    depth = 1
+    while depth < lat["depth"] + 8:
+        depth *= 2
+    return depth
+
+
+def coder_cycles(g, speculation=True, images=1, dims=None, start=None, tail=True):
+    """Issue cycle of every sample of consecutive images, with the output of the predictor modelled cycle by cycle
+    from the RTL (CO-TP-01):
+
+    - the issue stage takes the next item once the samples it depends on have left the feedback loops (as
+      issue_cycles) and while Inflight + level + 2 does not exceed the depth of the output FIFO (ocp_predictor);
+    - an item reaches the output FIFO `depth` cycles after its issue; the FIFO (olo_ft_fifo_sync) counts a write in
+      its level from the next cycle, offers the item two cycles after the write and lowers the level two cycles
+      after the read;
+    - the register stage behind the FIFO (olo_base_pl_stage) holds a main and a shadow item, its ready is registered;
+    - the hybrid coder takes no item during the tail of an image (HYBRID_TAIL + NZ cycles after its last item), the
+      other coders take one item per cycle.
+
+    The codewords leave the coder without back pressure (the bit packer keeps up, CO-TP-01).
+
+    With dims ((nx, ny, nz) of every image; g holds the maxima) the images have their own dimensions (runtime
+    configuration): the first sample of an image is accepted with the configuration in the cycle after the last
+    sample of the previous image was issued (the output FIFO does not hold it back) and issued once the image-start
+    sequencer is done, start + 1 cycles later; its acceptance cycle is returned for it.
+
+    With tail false the output takes one item per cycle whatever the coder (the predictor alone, as in its
+    testbench)."""
+    lat0 = latencies(g, speculation)
+    depth = lat0["depth"]
+    fdepth = output_fifo_depth(lat0)
+    hybrid = tail and g["EntropyCoder_g"] == "HYBRID"
+    if dims is None:
+        dims = [(g["XSize_g"], g["YSize_g"], g["ZSize_g"])] * images
+        runtime = False
+    else:
+        runtime = True
+    seq = []
+    for nx, ny, nz in dims:
+        gi = dict(g, XSize_g=nx, YSize_g=ny, ZSize_g=nz)
+        lat = latencies(g, speculation, dims=(nx, ny, nz)) if runtime else lat0
+        image = list(items(gi))
+        seq += [(item, k == len(image) - 1, k == 0, HYBRID_TAIL + nz, lat, nx) for k, item in enumerate(image)]
+    issue = 0
+    last_band = {}
+    last_pixel = {}
+    prev = -1
+    take = None
+    writes = {}
+    inflight = 0
+    fifo = []
+    wr_level = rd_level = 0
+    rd_up = wr_down = False
+    main = shadow = None
+    in_ready = True
+    ending_until = -1
+    taken = 0
+    cycles = []
+    t = 0
+    while taken < len(seq):
+        # Combinational signals of the cycle
+        coder_ready = not (hybrid and t <= ending_until)
+        written = writes.pop(t, None)
+        fifo_read = rd_level > 0 and in_ready
+        issued = False
+        if issue < len(seq):
+            (kind, z, y, x), _, first, _, lat, nx = seq[issue]
+            earliest = prev + 1
+            if runtime and first:
+                # The first sample of the image is accepted with the configuration, then held for the image start
+                if take is None:
+                    take = prev + 1
+                earliest = take + start + 1
+            if kind == "S":
+                need_w = (lat["c"] > 0 and y * nx + x > 1 and
+                          (not lat["spec"] or (not lat["run_rows"] and x == 0)))
+                l_same = max(lat["l_fix"], lat["l_w"] if need_w else 0)
+                if z in last_band:
+                    earliest = max(earliest, last_band[z] + l_same)
+                if lat["l_cross"]:
+                    if (z - 1, x) in last_pixel:
+                        earliest = max(earliest, last_pixel[(z - 1, x)] + lat["l_cross"])
+                    if lat["narrow"] and y == 0 and x > 0 and (z - 1, x - 1) in last_pixel:
+                        earliest = max(earliest, last_pixel[(z - 1, x - 1)] + lat["l_cross"])
+            if t >= earliest and inflight + wr_level + 2 <= fdepth:
+                issued = True
+                prev = t
+                if kind == "S":
+                    last_band[z] = t
+                    last_pixel[(z, x)] = t
+                    cycles.append(take if runtime and first else t)
+                take = None
+                writes[t + depth] = issue
+                issue += 1
+        # Registers at the end of the cycle: items in flight, FIFO, register stage, coder
+        inflight += int(issued) - int(written is not None)
+        new_rd_up = written is not None
+        new_wr_level = wr_level
+        if written is not None:
+            fifo.append(written)
+            new_wr_level += 0 if wr_down else 1
+        elif wr_down:
+            new_wr_level -= 1
+        new_wr_down = fifo_read
+        new_rd_level = rd_level
+        read = None
+        if fifo_read:
+            read = fifo.pop(0)
+            new_rd_level -= 0 if rd_up else 1
+        elif rd_up:
+            new_rd_level += 1
+        stuck = main is not None and not coder_ready and (rd_level > 0 or shadow is not None)
+        if main is not None and coder_ready:
+            if seq[main][1] and hybrid:
+                ending_until = t + seq[main][3]
+            taken += 1
+            main, shadow = shadow, None
+        if fifo_read:
+            if stuck:
+                shadow = read
+            else:
+                main = read
+        in_ready = not stuck
+        wr_level, rd_level, rd_up, wr_down = new_wr_level, new_rd_level, new_rd_up, new_wr_down
+        t += 1
+    return cycles
+
+
 def issue_cycles(g, speculation=True, images=1):
     """Issue cycle of every sample of images consecutive images (without back pressure at the input and the
-    output)."""
+    output). With the hybrid coder and more than one image the tail of an image can hold back the next image through
+    the output FIFO of the predictor (coder_cycles); within one image the coder takes one item per cycle. In stride
+    order the samples enter an input buffer (stride_cycles)."""
+    if images > 1 and g["EntropyCoder_g"] == "HYBRID" and stride_params(g, latencies(g, speculation)) is None:
+        return coder_cycles(g, speculation, images)
     lat = latencies(g, speculation)
     nx = g["XSize_g"]
     last_band = {}
@@ -297,6 +484,16 @@ def issue_cycles(g, speculation=True, images=1):
         last_pixel[(z, x)] = cyc
         cycles.append(cyc)
     return cycles
+
+
+def runtime_accept_cycles(g, dims, speculation=True, tail=True):
+    """Acceptance cycle of every sample at the input of the predictor for consecutive images of a runtime
+    configuration (g: the generics with the maxima; dims: (nx, ny, nz) of every image), without back pressure. The
+    first sample of an image is accepted with the configuration (CO-RC-03) in the cycle after the last sample of the
+    previous image was issued, and issued image_start_cycles(g) + 1 cycles later, once the image-start sequencer is
+    done (CO-RC-05); with the hybrid coder the tail of an image can hold back the next image (coder_cycles). With
+    tail false the output takes one item per cycle (the predictor without an entropy coder)."""
+    return coder_cycles(g, speculation, dims=dims, start=image_start_cycles(g), tail=tail)
 
 
 def issue_span(g, speculation=True, images=1):

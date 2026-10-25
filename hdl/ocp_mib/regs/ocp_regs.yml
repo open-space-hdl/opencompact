@@ -8,11 +8,14 @@
 #
 # Byte addresses of 32-bit registers on the AXI4-Lite port (8-bit address). Access per field:
 #   RO   read only
+#   RW   read and write
+#   W1   write one: command, reads as zero
+#   W1C  sticky flag, write one to clear
 #   RC   read only, any write to the register clears it (counters)
 # A reset value written as text depends on generics; status fields have none. Counters are 32 bits
 # wide and saturate. Codes of enumerations are the values of the header fields (CCSDS 5.3).
 
-id: 0x4F435001
+id: 0x4F435002
 addr_bits: 8
 
 registers:
@@ -20,7 +23,7 @@ registers:
     offset: 0x000
     description: Identification of the core and version of the register map
     fields:
-      - {name: ID, bits: "31:0", access: RO, reset: 0x4F435001, description: "Bits 31:8 the prefix of the core in ASCII (0x4F4350, OCP), as in the other Open Space HDL cores; bits 7:0 the version of the register map (1)"}
+      - {name: ID, bits: "31:0", access: RO, reset: 0x4F435002, description: "Bits 31:8 the prefix of the core in ASCII (0x4F4350, OCP), as in the other Open Space HDL cores; bits 7:0 the version of the register map (2)"}
 
   - name: GENERICS
     offset: 0x004
@@ -30,23 +33,24 @@ registers:
       - {name: OUT_STREAM_BYTES, bits: "9:5", access: RO, reset: OutStreamWidth_g / 8, description: Bytes per beat of the compressed image stream}
       - {name: OUT_BYTES, bits: "13:10", access: RO, reset: OutWidth_g / 8, description: Bytes per word at the output of ocp_core}
       - {name: SAMPLE_BYTES, bits: "16:14", access: RO, reset: ceil(DynamicRange_g / 8), description: Bytes per sample container in the SDUs}
+      - {name: RUNTIME_CONFIG, bits: "18", access: RO, reset: RuntimeConfig_g, description: "Runtime configuration of the image dimensions and error limit values (NEXT_X to NEXT_LIMITS, CONTROL, STATUS)"}
       - {name: SPECULATION, bits: "17", access: RO, reset: Speculation_g, description: Speculative weight loop of the predictor}
 
   - name: IMAGE_X
     offset: 0x008
-    description: "Image width NX (CCSDS 5.3.2.2)"
+    description: "Image width NX (CCSDS 5.3.2.2); with the runtime configuration the width of the last image that started"
     fields:
       - {name: SIZE, bits: "16:0", access: RO, reset: XSize_g, description: "Samples per row, 1 to 65536"}
 
   - name: IMAGE_Y
     offset: 0x00C
-    description: Image height NY
+    description: "Image height NY; with the runtime configuration the height of the last image that started"
     fields:
       - {name: SIZE, bits: "16:0", access: RO, reset: YSize_g, description: "Rows, 1 to 65536"}
 
   - name: IMAGE_Z
     offset: 0x010
-    description: Number of bands NZ
+    description: "Number of bands NZ; with the runtime configuration the bands of the last image that started"
     fields:
       - {name: SIZE, bits: "16:0", access: RO, reset: ZSize_g, description: "Bands, 1 to 65536"}
 
@@ -62,7 +66,7 @@ registers:
     offset: 0x018
     description: "Sample encoding order (CCSDS 5.4.2)"
     fields:
-      - {name: SUB_FRAME_DEPTH, bits: "24:8", access: RO, reset: SubFrameDepth_g, description: "Sub-frame interleaving depth M, 1 to 65536 in BI order; 0 in BSQ order"}
+      - {name: SUB_FRAME_DEPTH, bits: "24:8", access: RO, reset: SubFrameDepth_g, description: "Sub-frame interleaving depth M, 1 to 65536 in BI order (with the runtime configuration min(SubFrameDepth_g, NZ) of the last image that started); 0 in BSQ order"}
       - {name: ENCODING, bits: "0", access: RO, reset: EncodingOrder_g, description: "Sample encoding order: '0' BI, '1' BSQ"}
 
   - name: CODER
@@ -150,3 +154,48 @@ registers:
     description: "Detected double bit errors in the memories of the compressor (clock cycles with at least one)"
     fields:
       - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Errors}
+
+  - name: CONTROL
+    offset: 0x060
+    description: "Runtime configuration: commands (zero without the runtime configuration)"
+    fields:
+      - {name: COMMIT, bits: "0", access: W1, reset: 0, description: "Checks NEXT_X to NEXT_LIMITS and, when every value is in range, passes them to the core for the next image start"}
+
+  - name: STATUS
+    offset: 0x064
+    description: "Runtime configuration: state (zero without the runtime configuration)"
+    fields:
+      - {name: CFG_ERROR, bits: "1", access: W1C, reset: 0, description: "A COMMIT found a value out of range and passed nothing to the core"}
+      - {name: CFG_PENDING, bits: "0", access: RO, reset: 0, description: "A committed configuration waits for the next image start of the core"}
+
+  - name: NEXT_X
+    offset: 0x068
+    description: "Runtime configuration: image width NX of the next images (zero without the runtime configuration)"
+    fields:
+      - {name: SIZE, bits: "16:0", access: RW, reset: XSize_g, description: "Samples per row, 1 to XSize_g (2 to XSize_g with full prediction or neighbor-oriented local sums)"}
+
+  - name: NEXT_Y
+    offset: 0x06C
+    description: "Runtime configuration: image height NY of the next images (zero without the runtime configuration)"
+    fields:
+      - {name: SIZE, bits: "16:0", access: RW, reset: YSize_g, description: "Rows, 1 to YSize_g"}
+
+  - name: NEXT_Z
+    offset: 0x070
+    description: "Runtime configuration: number of bands NZ of the next images (zero without the runtime configuration)"
+    fields:
+      - {name: SIZE, bits: "16:0", access: RW, reset: ZSize_g, description: "Bands, 1 to ZSize_g"}
+
+  - name: NEXT_LIMITS
+    offset: 0x074
+    description: "Runtime configuration: band-independent error limit values of the next images (zero without the runtime configuration)"
+    fields:
+      - {name: REL, bits: "31:16", access: RW, reset: RelErrorLimits_g, description: "Relative error limit value, 0 to 2^DR - 1 (first value of the generic; zero without relative error limits)"}
+      - {name: ABS, bits: "15:0", access: RW, reset: AbsErrorLimits_g, description: "Absolute error limit value, 0 to 2^DA - 1 (first value of the generic; zero without absolute error limits)"}
+
+  - name: LIMITS
+    offset: 0x078
+    description: "Band-independent error limit values: of the generics, with the runtime configuration of the last image that started (zero for a method not in use or with band-dependent limits)"
+    fields:
+      - {name: REL, bits: "31:16", access: RO, reset: RelErrorLimits_g, description: Relative error limit value}
+      - {name: ABS, bits: "15:0", access: RO, reset: AbsErrorLimits_g, description: Absolute error limit value}

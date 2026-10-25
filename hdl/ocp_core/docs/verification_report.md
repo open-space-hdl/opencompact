@@ -2,12 +2,11 @@
 
 ## 1. Test results
 
-Run on 2026-10-23 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
-4.7.0-ft.9: `python run.py "*ocp_core*" "*ocp_bit_packer*"`. The tests of version 0.1.1 pass in QuestaSim (Questa Pro
-Microchip Edition 2024.3, time resolution 1 fs, 2026-10-19), with code coverage and in the optimised run without it;
-the code coverage of that version is in [coverage.md](../../../docs/coverage.md). The tests of the runtime
-configuration run in QuestaSim with the next release. The tests of the CCSDS test data set ran in GHDL 6.0.0 on
-2026-10-18 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`), before the runtime configuration.
+Run on 2026-10-25 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
+4.7.0-ft.9: `python run.py "*ocp_core*" "*ocp_bit_packer*"`. The same tests pass in QuestaSim (Questa Pro Microchip
+Edition 2024.3, time resolution 1 fs, 2026-10-24 and 2026-10-25), with code coverage and in the optimised run without
+it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL
+6.0.0 on 2026-10-24 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
@@ -18,6 +17,7 @@ configuration run in QuestaSim with the next release. The tests of the CCSDS tes
 | `ocp_core_tb` `test_runtime` (TC-CO-52, TC-CO-54) | 7 (rc01 to rc05, sequences of 20 images; rc02 and rc04 also with back pressure), each also with `UseInLast_g` | 14 |
 | `ocp_core_tb` `test_runtime_timing` (TC-CO-53) | 2 (rc01, rc04), each also with `UseInLast_g` | 4 |
 | `ocp_core_tb` `test_runtime_range` (TC-CO-57) | 2 (rc04, rc05), each also with `UseInLast_g` | 4 |
+| `ocp_core_tb` `test_runtime_queue` (TC-CO-58) | 3 (rc03, rc05 and rq06, rc05 with 128 bands, a configuration of this test only), each also with `UseInLast_g` | 6 |
 | `ocp_bit_packer_tb` `test_random` | 30 | 30 |
 | `ocp_bit_packer_tb` `test_byte_order` | 5 | 5 |
 | `ocp_core_tb` `test_golden` with the CCSDS test data set | 300 (75 of them with back pressure), each also with `UseInLast_g` | 600 |
@@ -62,8 +62,10 @@ five configurations). With configuration values that change two cycles before, i
 of the first sample of an image and in the middle of an image, every image uses the values of the cycle in which its
 first sample is accepted; aborted images and discarded samples keep their configuration, and the next image takes the
 new values (TC-CO-53). Values outside their ranges are taken as the nearest valid values, and the next valid image is
-compressed normally (TC-CO-57). With `RuntimeConfig_g` false every existing test passes on the unchanged golden data
-(TC-CO-55; resources in section 5).
+compressed normally (TC-CO-57). With the output held, the core holds back the first sample of the next image while 16
+configurations wait, behind the header pointer (rc03, rc05) or behind the pointer of the hybrid coder tail (rq06,
+whose first image has a tail longer than the codeword buffers), and no image or configuration is lost (TC-CO-58). With
+`RuntimeConfig_g` false every existing test passes on the unchanged golden data (TC-CO-55; resources in section 5).
 
 In the 12 configurations of TC-CO-50 (every coder without and with the stride order, from one sample per cycle to
 25 cycles per sample, periodic error limit updating) the first sample of the second image is accepted exactly

@@ -90,14 +90,16 @@ RATE = {"c22_single_pixel_hybrid": 20, "c20_hybrid_d28": 6, "c26_tp_bil_near_abs
 RUNTIME_TIMING = ["rc01_bi_m1_sample", "rc04_bi_m4_sample_both"]
 
 
-def runtime_generics(name, cfg):
-    """Generics of a runtime configuration: the maxima, the image list runtime.txt, 64-bit words (the output does
+def runtime_generics(name, cfg, rt_list="runtime"):
+    """Generics of a runtime configuration: the maxima, the image list <rt_list>.txt, 64-bit words (the output does
     not limit the input)."""
     gen = ocp_generics.generics(cfg)
     golden = ROOT / "tb" / "golden" / name
     gen.update(GoldenDir_g=golden.as_posix(), RuntimeConfig_g=True, OutWidth_g=64,
-               RtImages_g=len((golden / "runtime.txt").read_text().splitlines()),
+               RtImages_g=len((golden / (rt_list + ".txt")).read_text().splitlines()),
                MaxBytes_g=ocp_model.max_image_bytes(cfg), HeaderBytes_g=len(ocp_model.header(cfg)))
+    if rt_list != "runtime":
+        gen["RtList_g"] = rt_list
     return gen
 
 
@@ -176,10 +178,8 @@ def configure(lib):
         add(rng, name, dict(gen, RtList_g="range", RtImages_g=len(lines)))
     # Queue test (TC-CO-58): the configuration queue full while the output is held low
     queue = tb.test("test_runtime_queue")
-    for name in ocp_configs.RUNTIME_QUEUE:
-        gen = runtime_generics(name, ocp_configs.RUNTIME[name])
-        lines = (ROOT / "tb" / "golden" / name / "queue.txt").read_text().splitlines()
-        add(queue, name, dict(gen, RtList_g="queue", RtImages_g=len(lines)))
+    for name, cfg in ocp_configs.queue_configs().items():
+        add(queue, name, runtime_generics(name, cfg, "queue"))
 
     framing = tb.test("test_framing")
     for name, width, bp in FRAMING:

@@ -545,6 +545,22 @@ RUNTIME_RANGE = ["rc04_bi_m4_sample_both", "rc05_bsq_column_hybrid"]
 RUNTIME_ABORT = [0, 6]
 # Runtime configurations of the queue test (TC-CO-58): one with the hybrid coder (its tail pointer) and one without
 RUNTIME_QUEUE = ["rc03_bsq_block_rel", "rc05_bsq_column_hybrid"]
+# Runtime configuration of the queue test only (not in RUNTIME): the hybrid coder with 128 bands and flat images, so
+# that the short body of an image fits into the codeword buffers but its tail (one accumulator per band) does not, and
+# the queue fills behind the tail pointer while the header pointer has room (TC-CO-58)
+RUNTIME_QUEUE_ONLY = {
+    "rq06_bsq_column_hybrid_nz128": dict(RUNTIME["rc05_bsq_column_hybrid"], large_n_z=128, seed=106, image="flat",
+                                         hybrid_initial_accumulator=[20 + 10 * (z % 64) for z in range(128)]),
+}
+# Queue configurations whose first image has the maximum number of bands (a long tail of the hybrid coder)
+QUEUE_LONG_TAIL = ["rq06_bsq_column_hybrid_nz128"]
+
+
+def queue_configs():
+    """Name and configuration of every runtime configuration of the queue test."""
+    out = {name: RUNTIME[name] for name in RUNTIME_QUEUE}
+    out.update(RUNTIME_QUEUE_ONLY)
+    return out
 # Images of the queue test: smallest images first (more than the 16 entries of the configuration queue), then a few
 # larger ones
 QUEUE_SMALL = 24
@@ -603,15 +619,17 @@ def runtime_sequence(c, n=RUNTIME_IMAGES):
     return [runtime_limit(c, *img) for img in seq[:n]]
 
 
-def runtime_queue_sequence(c):
+def runtime_queue_sequence(c, long_tail=False):
     """Images of the queue test (TC-CO-58): QUEUE_SMALL images of the smallest size (1 or 2 x 1 x 1) with random error
-    limit values, then QUEUE_LARGE random images; each entry is (driven values, values taken by the core)."""
+    limit values, then QUEUE_LARGE random images; with long_tail one image of the smallest width with all bands
+    first. Each entry is (driven values, values taken by the core)."""
     rng = random.Random(9000 + c["seed"])
     fid = c["quantizer_fidelity_control_method"]
     xmin = 1 if width_one_allowed(c) else 2
     amax = (1 << c["large_d_large_a"]) - 1 if fid in (1, 3) else 0
     rmax = (1 << c["large_d_large_r"]) - 1 if fid in (2, 3) else 0
-    seq = [(xmin, 1, 1, rng.randint(0, amax), rng.randint(0, rmax)) for _ in range(QUEUE_SMALL)]
+    seq = [(xmin, 1, c["large_n_z"], amax, rmax)] if long_tail else []
+    seq += [(xmin, 1, 1, rng.randint(0, amax), rng.randint(0, rmax)) for _ in range(QUEUE_SMALL)]
     seq += [(rng.randint(xmin, c["large_n_x"]), rng.randint(1, c["large_n_y"]), rng.randint(1, c["large_n_z"]),
              rng.randint(0, amax), rng.randint(0, rmax)) for _ in range(QUEUE_LARGE)]
     return [(d, runtime_limit(c, *d)) for d in seq]
@@ -666,6 +684,10 @@ def make_image(c):
                     if rng.random() < 0.002:
                         img[z][y][x] = rng.randint(lo, hi)
         return img
+    if kind == "flat":
+        # Every sample at the mid value: zero prediction residuals, the shortest codewords
+        mid = lo + (span + 1) // 2
+        return [[[mid] * nx for _ in range(ny)] for _ in range(nz)]
     if kind == "midnoise":
         # Uncorrelated noise of 1/64 of the range around the mid value
         mid = lo + (span + 1) // 2

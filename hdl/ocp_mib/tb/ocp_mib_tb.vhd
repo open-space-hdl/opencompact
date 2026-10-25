@@ -707,6 +707,20 @@ begin
                     take;
                 end if;
 
+                -- Writes to an unused address and to a read-only register leave the pending values and STATUS;
+                -- a write of a pending register with byte lanes disabled changes only the enabled bytes
+                setNext(5, 2, 3, 0, 0);
+                wr(16#30#, x"FFFFFFFF");
+                wr(RegLimits_c, x"FFFFFFFF");
+                chk(RegNextX_c, w32(5), "NEXT_X after writes to other addresses");
+                chk(RegNextY_c, w32(2), "NEXT_Y after writes to other addresses");
+                chk(RegNextZ_c, w32(3), "NEXT_Z after writes to other addresses");
+                chkStatus('0', '0', "writes to other addresses");
+                wrStrb(RegNextX_c, x"0000FF06", "0001");
+                chk(RegNextX_c, w32(6), "NEXT_X written with byte lane 0 only");
+                wrStrb(RegNextY_c, x"00000107", "0010");
+                chk(RegNextY_c, w32(16#102#), "NEXT_Y written with byte lane 1 only");
+
                 -- Writes without effect: COMMIT and the clear of CFG_ERROR with byte lane 0 disabled or
                 -- with the bit 0
                 setNext(2, 1, 1, 0, 0);

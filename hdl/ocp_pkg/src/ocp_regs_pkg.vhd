@@ -25,7 +25,7 @@ package ocp_regs_pkg is
     -----------------------------------------------------------------------------------------------
     -- Identification
     -----------------------------------------------------------------------------------------------
-    constant RegMapId_c : std_logic_vector(31 downto 0) := x"4F435002";
+    constant RegMapId_c : std_logic_vector(31 downto 0) := x"4F435003";
 
     -----------------------------------------------------------------------------------------------
     -- Register addresses (byte addresses)
@@ -55,6 +55,11 @@ package ocp_regs_pkg is
     constant RegNextZ_c            : natural := 16#070#;
     constant RegNextLimits_c       : natural := 16#074#;
     constant RegLimits_c           : natural := 16#078#;
+    constant RegNextSamples_c      : natural := 16#07C#;
+    constant RegNextOrder_c        : natural := 16#080#;
+    constant RegNextWeights_c      : natural := 16#084#;
+    constant RegNextAdaptive_c     : natural := 16#088#;
+    constant RegNextBlock_c        : natural := 16#08C#;
 
     -----------------------------------------------------------------------------------------------
     -- Fields: bit of a one-bit field, lowest and highest bit of a wider field
@@ -71,6 +76,7 @@ package ocp_regs_pkg is
     constant GenericsOutBytesHi_c       : natural := 13;
     constant GenericsSampleBytesLo_c    : natural := 14;
     constant GenericsSampleBytesHi_c    : natural := 16;
+    constant GenericsRuntimeParams_c    : natural := 19;
     constant GenericsRuntimeConfig_c    : natural := 18;
     constant GenericsSpeculation_c      : natural := 17;
 
@@ -184,6 +190,31 @@ package ocp_regs_pkg is
     constant LimitsRelHi_c : natural := 31;
     constant LimitsAbsLo_c : natural := 0;
     constant LimitsAbsHi_c : natural := 15;
+
+    constant NextSamplesUserDataLo_c : natural := 8;
+    constant NextSamplesUserDataHi_c : natural := 15;
+
+    constant NextOrderSubFrameDepthLo_c : natural := 8;
+    constant NextOrderSubFrameDepthHi_c : natural := 24;
+
+    constant NextWeightsVmaxLo_c           : natural := 17;
+    constant NextWeightsVmaxHi_c           : natural := 21;
+    constant NextWeightsVminLo_c           : natural := 12;
+    constant NextWeightsVminHi_c           : natural := 16;
+    constant NextWeightsUpdateIntervalLo_c : natural := 8;
+    constant NextWeightsUpdateIntervalHi_c : natural := 11;
+
+    constant NextAdaptiveAccuInitLo_c     : natural := 16;
+    constant NextAdaptiveAccuInitHi_c     : natural := 19;
+    constant NextAdaptiveInitialCountLo_c : natural := 12;
+    constant NextAdaptiveInitialCountHi_c : natural := 15;
+    constant NextAdaptiveRescaleSizeLo_c  : natural := 8;
+    constant NextAdaptiveRescaleSizeHi_c  : natural := 11;
+    constant NextAdaptiveUnaryLimitLo_c   : natural := 0;
+    constant NextAdaptiveUnaryLimitHi_c   : natural := 5;
+
+    constant NextBlockRefIntervalLo_c : natural := 8;
+    constant NextBlockRefIntervalHi_c : natural := 20;
 
     -----------------------------------------------------------------------------------------------
     -- Reset values of the registers whose fields all have a fixed reset value

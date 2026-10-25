@@ -96,6 +96,18 @@ RUNTIME.update({
     "b07_runtime_x_65536": (BOUNDS["b01_x_65536"][0], 8, _RT),
     "b08_runtime_z_m_65536": (BOUNDS["b03_z_m_65536"][0], 64, _RT),
 })
+# Runtime parameters (TC-CO-64): the runtime parameter configurations; RuntimeParams_g without RuntimeConfig_g and a
+# hybrid configuration without a valid gamma0 stop the elaboration (CO-CF-05, CO-RP-02)
+_RP = {"RuntimeConfig_g": True, "RuntimeParams_g": True}
+RUNTIME.update({name: (c, 32, _RP) for name, c in ocp_configs.RUNTIME_PARAMS.items()})
+_RP02 = ocp_configs.RUNTIME_PARAMS["rp02_bi_mnz_hybrid"]
+NEGATIVE.update({
+    "n24_params_without_runtime": (ocp_configs.RUNTIME_PARAMS["rp01_bi_m4_sample"], 32,
+                                   {"RuntimeConfig_g": False, "RuntimeParams_g": True},
+                                   "RuntimeParams_g requires RuntimeConfig_g"),
+    "n25_params_hybrid_no_gamma0": (dict(_RP02, hybrid_initial_accumulator=[5000000] * 10), 32, _RP,
+                                    "no gamma0 up to min(8, RescaleCounterSize_g - 1)"),
+})
 _RT01 = ocp_configs.RUNTIME["rc01_bi_m1_sample"]
 _RT02 = ocp_configs.RUNTIME["rc02_bi_mnz_hybrid_abs"]
 _RT04 = ocp_configs.RUNTIME["rc04_bi_m4_sample_both"]

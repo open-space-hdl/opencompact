@@ -37,6 +37,10 @@
 --   until the core holds back a sample for 1000 clock cycles (the configuration queue full), then
 --   released; every image is compared, at least 16 images were taken before the stall
 --
+-- With RuntimeParams_g every image of the lists also has its own runtime parameters: the parameter
+-- inputs carry them with the configuration, the Act_ outputs of the parameters show the values taken
+-- (test_runtime, test_runtime_range, test_runtime_queue).
+--
 -- With UseInLast_g the source sets In_Last on the last sample of every image; without it In_Last
 -- and In_Error are random (ignored by the core).
 --
@@ -103,6 +107,8 @@ entity ocp_core_tb is
         RuntimeConfig_g        : boolean  := false;
         RtList_g               : string   := "runtime";
         RtImages_g             : natural  := 0;
+        -- Runtime parameters: the lines of the image list also hold the driven and the taken parameters
+        RuntimeParams_g        : boolean  := false;
         -- Configuration
         XSize_g                : positive := 8;
         YSize_g                : positive := 8;
@@ -261,10 +267,17 @@ architecture sim of ocp_core_tb is
     end function;
 
     -- Runtime configuration: values of image k (from 0) of the list: driven NX, NY, NZ, absolute and
-    -- relative error limit value, then the values taken (CO-RC-07)
+    -- relative error limit value, then the values taken (CO-RC-07); with the runtime parameters then
+    -- the driven parameters (from RtPar_c: user-defined data, M, log2 t_inc, vmin, vmax, Umax, gamma0,
+    -- gamma*, K, r) and the parameters taken (from RtPar_c + 10, CO-RP-02)
+    constant RtPar_c  : natural  := 10;
+    constant RtCols_c : positive := 10 + 20 * toInt(RuntimeParams_g);
+
+    subtype RtLine_t is integer_vector(0 to RtCols_c - 1);
+
     impure function rtValues (k : natural) return integer_vector is
     begin
-        return lineValues(RtList_g & ".txt", k, 10);
+        return lineValues(RtList_g & ".txt", k, RtCols_c);
     end function;
 
     -- Test image, compressed image and number of samples of image img (from 1) of a job
@@ -297,7 +310,7 @@ architecture sim of ocp_core_tb is
     end function;
 
     impure function imageSamples (img : positive) return positive is
-        variable V_v : integer_vector(0 to 9);
+        variable V_v : RtLine_t;
     begin
         if not RuntimeConfig_g then
             return Samples_c;
@@ -348,6 +361,28 @@ architecture sim of ocp_core_tb is
     signal Act_ZSize      : std_logic_vector(16 downto 0);
     signal Act_AbsLimit   : std_logic_vector(15 downto 0);
     signal Act_RelLimit   : std_logic_vector(15 downto 0);
+
+    -- Runtime parameters
+    signal Cfg_UserData       : std_logic_vector(7 downto 0)  := (others => '0');
+    signal Cfg_M              : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_WeightInterval : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Cfg_WeightVmin     : std_logic_vector(4 downto 0)  := (others => '0');
+    signal Cfg_WeightVmax     : std_logic_vector(4 downto 0)  := (others => '0');
+    signal Cfg_UnaryLimit     : std_logic_vector(5 downto 0)  := (others => '0');
+    signal Cfg_InitCountExp   : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Cfg_RescaleSize    : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Cfg_AccuInit       : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Cfg_RefInterval    : std_logic_vector(12 downto 0) := (others => '0');
+    signal Act_UserData       : std_logic_vector(7 downto 0);
+    signal Act_M              : std_logic_vector(16 downto 0);
+    signal Act_WeightInterval : std_logic_vector(3 downto 0);
+    signal Act_WeightVmin     : std_logic_vector(4 downto 0);
+    signal Act_WeightVmax     : std_logic_vector(4 downto 0);
+    signal Act_UnaryLimit     : std_logic_vector(5 downto 0);
+    signal Act_InitCountExp   : std_logic_vector(3 downto 0);
+    signal Act_RescaleSize    : std_logic_vector(3 downto 0);
+    signal Act_AccuInit       : std_logic_vector(3 downto 0);
+    signal Act_RefInterval    : std_logic_vector(12 downto 0);
 
     -- Runtime configuration: takes of the job (their cycles in StartCyc); timing test (changes of the
     -- configuration inputs around the take)
@@ -458,42 +493,63 @@ begin
             RefInterval_g          => RefInterval_g,
             UseInLast_g            => UseInLast_g,
             RuntimeConfig_g        => RuntimeConfig_g,
+            RuntimeParams_g        => RuntimeParams_g,
             OutWidth_g             => OutWidth_g
         )
         port map (
-            Clk            => Clk,
-            Rst            => Rst,
-            In_Valid       => In_Valid,
-            In_Ready       => In_Ready,
-            In_Data        => In_Data,
-            In_Last        => In_Last,
-            In_Error       => In_Error,
-            Lim_Valid      => Lim_Valid,
-            Lim_Ready      => Lim_Ready,
-            Lim_Data       => Lim_Data,
-            Out_Valid      => Out_Valid,
-            Out_Ready      => Out_Ready,
-            Out_Data       => Out_Data,
-            Out_Keep       => Out_Keep,
-            Out_Last       => Out_Last,
-            Out_Error      => Out_Error,
-            Ecc_Sec        => Ecc_Sec,
-            Ecc_Ded        => Ecc_Ded,
-            Ev_ImageError  => Ev_ImageError,
-            ErrInj_Channel => ErrInj_Channel,
-            ErrInj_Double  => ErrInj_Double,
-            ErrInj_Valid   => ErrInj_Valid,
-            Cfg_XSize      => Cfg_XSize,
-            Cfg_YSize      => Cfg_YSize,
-            Cfg_ZSize      => Cfg_ZSize,
-            Cfg_AbsLimit   => Cfg_AbsLimit,
-            Cfg_RelLimit   => Cfg_RelLimit,
-            Cfg_Taken      => Cfg_Taken,
-            Act_XSize      => Act_XSize,
-            Act_YSize      => Act_YSize,
-            Act_ZSize      => Act_ZSize,
-            Act_AbsLimit   => Act_AbsLimit,
-            Act_RelLimit   => Act_RelLimit
+            Clk                => Clk,
+            Rst                => Rst,
+            In_Valid           => In_Valid,
+            In_Ready           => In_Ready,
+            In_Data            => In_Data,
+            In_Last            => In_Last,
+            In_Error           => In_Error,
+            Lim_Valid          => Lim_Valid,
+            Lim_Ready          => Lim_Ready,
+            Lim_Data           => Lim_Data,
+            Out_Valid          => Out_Valid,
+            Out_Ready          => Out_Ready,
+            Out_Data           => Out_Data,
+            Out_Keep           => Out_Keep,
+            Out_Last           => Out_Last,
+            Out_Error          => Out_Error,
+            Ecc_Sec            => Ecc_Sec,
+            Ecc_Ded            => Ecc_Ded,
+            Ev_ImageError      => Ev_ImageError,
+            ErrInj_Channel     => ErrInj_Channel,
+            ErrInj_Double      => ErrInj_Double,
+            ErrInj_Valid       => ErrInj_Valid,
+            Cfg_XSize          => Cfg_XSize,
+            Cfg_YSize          => Cfg_YSize,
+            Cfg_ZSize          => Cfg_ZSize,
+            Cfg_AbsLimit       => Cfg_AbsLimit,
+            Cfg_RelLimit       => Cfg_RelLimit,
+            Cfg_Taken          => Cfg_Taken,
+            Act_XSize          => Act_XSize,
+            Act_YSize          => Act_YSize,
+            Act_ZSize          => Act_ZSize,
+            Act_AbsLimit       => Act_AbsLimit,
+            Act_RelLimit       => Act_RelLimit,
+            Cfg_UserData       => Cfg_UserData,
+            Cfg_M              => Cfg_M,
+            Cfg_WeightInterval => Cfg_WeightInterval,
+            Cfg_WeightVmin     => Cfg_WeightVmin,
+            Cfg_WeightVmax     => Cfg_WeightVmax,
+            Cfg_UnaryLimit     => Cfg_UnaryLimit,
+            Cfg_InitCountExp   => Cfg_InitCountExp,
+            Cfg_RescaleSize    => Cfg_RescaleSize,
+            Cfg_AccuInit       => Cfg_AccuInit,
+            Cfg_RefInterval    => Cfg_RefInterval,
+            Act_UserData       => Act_UserData,
+            Act_M              => Act_M,
+            Act_WeightInterval => Act_WeightInterval,
+            Act_WeightVmin     => Act_WeightVmin,
+            Act_WeightVmax     => Act_WeightVmax,
+            Act_UnaryLimit     => Act_UnaryLimit,
+            Act_InitCountExp   => Act_InitCountExp,
+            Act_RescaleSize    => Act_RescaleSize,
+            Act_AccuInit       => Act_AccuInit,
+            Act_RefInterval    => Act_RefInterval
         );
 
     Clk <= not Clk after ClkPeriod_c / 2;
@@ -837,14 +893,14 @@ begin
         variable Abort_v : boolean;
         variable Wait_v  : natural;
         variable N_v     : positive;
-        variable V_v     : integer_vector(0 to 9);
+        variable V_v     : RtLine_t;
         variable Mode_v  : natural;
-        variable Next_v  : integer_vector(0 to 9);
+        variable Next_v  : RtLine_t;
 
         -- Configuration inputs: values driven for image k of the list (or the values that follow
         -- after the last image)
         procedure drive (k : natural) is
-            variable D_v : integer_vector(0 to 9);
+            variable D_v : RtLine_t;
         begin
             if k < RtImages_g then
                 D_v := rtValues(k);
@@ -856,6 +912,18 @@ begin
             Cfg_ZSize    <= std_logic_vector(to_unsigned(D_v(2), 17));
             Cfg_AbsLimit <= std_logic_vector(to_unsigned(D_v(3), 16));
             Cfg_RelLimit <= std_logic_vector(to_unsigned(D_v(4), 16));
+            if RuntimeParams_g then
+                Cfg_UserData       <= std_logic_vector(to_unsigned(D_v(RtPar_c), 8));
+                Cfg_M              <= std_logic_vector(to_unsigned(D_v(RtPar_c + 1), 17));
+                Cfg_WeightInterval <= std_logic_vector(to_unsigned(D_v(RtPar_c + 2), 4));
+                Cfg_WeightVmin     <= std_logic_vector(to_signed(D_v(RtPar_c + 3), 5));
+                Cfg_WeightVmax     <= std_logic_vector(to_signed(D_v(RtPar_c + 4), 5));
+                Cfg_UnaryLimit     <= std_logic_vector(to_unsigned(D_v(RtPar_c + 5), 6));
+                Cfg_InitCountExp   <= std_logic_vector(to_unsigned(D_v(RtPar_c + 6), 4));
+                Cfg_RescaleSize    <= std_logic_vector(to_unsigned(D_v(RtPar_c + 7), 4));
+                Cfg_AccuInit       <= std_logic_vector(to_unsigned(D_v(RtPar_c + 8), 4));
+                Cfg_RefInterval    <= std_logic_vector(to_unsigned(D_v(RtPar_c + 9), 13));
+            end if;
         end procedure;
 
         -- One sample (Wait_v: cycles until it is taken); a reset aborts the job
@@ -1026,8 +1094,22 @@ begin
         variable Count_v : natural := 0;
         variable Job_v   : natural := 0;
         variable Takes_v : natural := 0;
-        variable Chk_v   : boolean := false;
-        variable V_v     : integer_vector(0 to 9);
+        variable V_v     : RtLine_t;
+        variable T_v     : natural;
+
+        -- An Act_ output of a runtime parameter against the value taken (two's complement for vmin and vmax)
+        procedure checkAct (act : std_logic_vector; idx : natural; name : string; sgn : boolean := false) is
+        begin
+            if sgn then
+                check_value(to_integer(signed(act)), V_v(T_v + idx), ERROR,
+                            "image " & to_string(Takes_v) & ": " & name);
+            else
+                check_value(to_integer(unsigned(act)), V_v(T_v + idx), ERROR,
+                            "image " & to_string(Takes_v) & ": " & name);
+            end if;
+        end procedure;
+
+        variable Chk_v : boolean := false;
     begin
         wait until rising_edge(Clk);
         if JobStart /= Job_v then
@@ -1046,6 +1128,20 @@ begin
                         "image " & to_string(Takes_v) & ": Act_AbsLimit");
             check_value(to_integer(unsigned(Act_RelLimit)), V_v(9), ERROR,
                         "image " & to_string(Takes_v) & ": Act_RelLimit");
+            -- Runtime parameters: the values taken (CO-RP-03)
+            if RuntimeParams_g then
+                T_v := RtPar_c + 10;
+                checkAct(Act_UserData, 0, "Act_UserData");
+                checkAct(Act_M, 1, "Act_M");
+                checkAct(Act_WeightInterval, 2, "Act_WeightInterval");
+                checkAct(Act_WeightVmin, 3, "Act_WeightVmin", true);
+                checkAct(Act_WeightVmax, 4, "Act_WeightVmax", true);
+                checkAct(Act_UnaryLimit, 5, "Act_UnaryLimit");
+                checkAct(Act_InitCountExp, 6, "Act_InitCountExp");
+                checkAct(Act_RescaleSize, 7, "Act_RescaleSize");
+                checkAct(Act_AccuInit, 8, "Act_AccuInit");
+                checkAct(Act_RefInterval, 9, "Act_RefInterval");
+            end if;
             Chk_v := false;
         end if;
         if RuntimeConfig_g and Cfg_Taken = '1' and Rst = '0' then

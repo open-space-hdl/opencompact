@@ -97,6 +97,9 @@ entity ocp_core is
         -- Runtime configuration: NX, NY, NZ (1 to the maxima XSize_g, YSize_g, ZSize_g) and the
         -- band-independent error limit values of every image from the configuration inputs
         RuntimeConfig_g        : boolean                   := false;
+        -- Runtime parameters (with RuntimeConfig_g only): user-defined data, M, the weight update parameters
+        -- and the entropy coder parameters of every image from the configuration inputs
+        RuntimeParams_g        : boolean                   := false;
         -- Implementation: width of the compressed image interface in bits (8, 16, 32 or 64), speculative
         -- weight loop of the predictor, memory style
         OutWidth_g             : positive                  := 8;
@@ -104,53 +107,77 @@ entity ocp_core is
         RamStyle_g             : string                    := "auto"
     );
     port (
-        Clk            : in    std_logic;
-        Rst            : in    std_logic;
+        Clk                : in    std_logic;
+        Rst                : in    std_logic;
         -- Image samples in the input order (unsigned or two's complement); In_Last on the last sample
         -- of every image, In_Error with In_Last: the image ends with an error (UseInLast_g, both ignored
         -- otherwise)
-        In_Valid       : in    std_logic;
-        In_Ready       : out   std_logic;
-        In_Data        : in    std_logic_vector(DynamicRange_g - 1 downto 0);
-        In_Last        : in    std_logic                     := '0';
-        In_Error       : in    std_logic                     := '0';
+        In_Valid           : in    std_logic;
+        In_Ready           : out   std_logic;
+        In_Data            : in    std_logic_vector(DynamicRange_g - 1 downto 0);
+        In_Last            : in    std_logic                     := '0';
+        In_Error           : in    std_logic                     := '0';
         -- Error limit values for periodic error limit updating
-        Lim_Valid      : in    std_logic                     := '0';
-        Lim_Ready      : out   std_logic;
-        Lim_Data       : in    std_logic_vector(15 downto 0) := (others => '0');
+        Lim_Valid          : in    std_logic                     := '0';
+        Lim_Ready          : out   std_logic;
+        Lim_Data           : in    std_logic_vector(15 downto 0) := (others => '0');
         -- Compressed image: byte n of a word in Out_Data(8n + 7 downto 8n), the first byte in bits 7:0;
         -- the last word of an image marks its valid bytes, contiguous from byte 0; Out_Error on the
         -- last word of an image with a framing error ('0' on every other word)
-        Out_Valid      : out   std_logic;
-        Out_Ready      : in    std_logic;
-        Out_Data       : out   std_logic_vector(OutWidth_g - 1 downto 0);
-        Out_Keep       : out   std_logic_vector(OutWidth_g / 8 - 1 downto 0);
-        Out_Last       : out   std_logic;
-        Out_Error      : out   std_logic;
+        Out_Valid          : out   std_logic;
+        Out_Ready          : in    std_logic;
+        Out_Data           : out   std_logic_vector(OutWidth_g - 1 downto 0);
+        Out_Keep           : out   std_logic_vector(OutWidth_g / 8 - 1 downto 0);
+        Out_Last           : out   std_logic;
+        Out_Error          : out   std_logic;
         -- Memory errors (pulses): corrected single error, detected double error
-        Ecc_Sec        : out   std_logic;
-        Ecc_Ded        : out   std_logic;
+        Ecc_Sec            : out   std_logic;
+        Ecc_Ded            : out   std_logic;
         -- Framing error of an image (pulse): In_Last before or missing on the last sample, or In_Error
-        Ev_ImageError  : out   std_logic;
+        Ev_ImageError      : out   std_logic;
         -- Error injection into the next write of memory ErrInj_Channel (user guide, memories): a single
         -- (corrected) or a double (detected) bit error
-        ErrInj_Channel : in    std_logic_vector(3 downto 0)  := (others => '0');
-        ErrInj_Double  : in    std_logic                     := '0';
-        ErrInj_Valid   : in    std_logic                     := '0';
+        ErrInj_Channel     : in    std_logic_vector(3 downto 0)  := (others => '0');
+        ErrInj_Double      : in    std_logic                     := '0';
+        ErrInj_Valid       : in    std_logic                     := '0';
         -- Runtime configuration (RuntimeConfig_g): NX, NY, NZ and the error limit values of the next
         -- image, taken when its first sample is accepted (Cfg_Taken, a pulse in that clock cycle); the
         -- values taken for the last image, after the range limitation (CO-RC-07)
-        Cfg_XSize      : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_YSize      : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_ZSize      : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_AbsLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
-        Cfg_RelLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
-        Cfg_Taken      : out   std_logic;
-        Act_XSize      : out   std_logic_vector(16 downto 0);
-        Act_YSize      : out   std_logic_vector(16 downto 0);
-        Act_ZSize      : out   std_logic_vector(16 downto 0);
-        Act_AbsLimit   : out   std_logic_vector(15 downto 0);
-        Act_RelLimit   : out   std_logic_vector(15 downto 0)
+        Cfg_XSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_YSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_ZSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_AbsLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_RelLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        -- Runtime parameters (RuntimeParams_g), taken with the configuration: user-defined data, M (BI
+        -- order), log2 t_inc, vmin and vmax (two's complement), Umax, gamma0, gamma*, K, r
+        Cfg_UserData       : in    std_logic_vector(7 downto 0)  := (others => '0');
+        Cfg_M              : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_WeightInterval : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_WeightVmin     : in    std_logic_vector(4 downto 0)  := (others => '0');
+        Cfg_WeightVmax     : in    std_logic_vector(4 downto 0)  := (others => '0');
+        Cfg_UnaryLimit     : in    std_logic_vector(5 downto 0)  := (others => '0');
+        Cfg_InitCountExp   : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_RescaleSize    : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_AccuInit       : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_RefInterval    : in    std_logic_vector(12 downto 0) := (others => '0');
+        Cfg_Taken          : out   std_logic;
+        Act_XSize          : out   std_logic_vector(16 downto 0);
+        Act_YSize          : out   std_logic_vector(16 downto 0);
+        Act_ZSize          : out   std_logic_vector(16 downto 0);
+        Act_AbsLimit       : out   std_logic_vector(15 downto 0);
+        Act_RelLimit       : out   std_logic_vector(15 downto 0);
+        -- Runtime parameters taken for the last image, after the range limitation (CO-RP-02); zero for a
+        -- parameter not in use
+        Act_UserData       : out   std_logic_vector(7 downto 0);
+        Act_M              : out   std_logic_vector(16 downto 0);
+        Act_WeightInterval : out   std_logic_vector(3 downto 0);
+        Act_WeightVmin     : out   std_logic_vector(4 downto 0);
+        Act_WeightVmax     : out   std_logic_vector(4 downto 0);
+        Act_UnaryLimit     : out   std_logic_vector(5 downto 0);
+        Act_InitCountExp   : out   std_logic_vector(3 downto 0);
+        Act_RescaleSize    : out   std_logic_vector(3 downto 0);
+        Act_AccuInit       : out   std_logic_vector(3 downto 0);
+        Act_RefInterval    : out   std_logic_vector(12 downto 0)
     );
 end entity;
 
@@ -204,6 +231,177 @@ architecture rtl of ocp_core is
     constant QDepth_c : positive := 16;
 
     type CfgQueue_t is array (0 to QDepth_c - 1) of Cfg_r;
+
+    -- Runtime parameters in use (CO-RP-01): M in BI order; Umax, gamma0 and gamma* with the sample-adaptive and
+    -- the hybrid coder; K with the sample-adaptive coder and an accumulator initialisation constant; r with the
+    -- block-adaptive coder
+    constant UseM_c   : boolean := encodingOrderCode(EncodingOrder_g) = OrderBi_c;
+    constant UseAdp_c : boolean := Coder_c /= CoderBlock_c;
+    constant UseK_c   : boolean := Coder_c = CoderSample_c and not AccuInitBandVarying_g;
+    constant UseR_c   : boolean := Coder_c = CoderBlock_c;
+
+    -- Lower bound of gamma0 (CO-RP-02): with the hybrid coder every initial accumulator below 2^(D + gamma0)
+    constant G0Min_c : positive := choose(Coder_c = CoderHybrid_c,
+                                          hybridG0Min(DynamicRange_g, ZSize_g, HybridAccuInit_g, HybridAccuInitHigh_g),
+                                          1);
+
+    -- Values of the parameters of an image (the ranges are those of the decoded header fields)
+    type Par_r is record
+        User  : natural range 0 to 255;
+        M     : natural range 1 to 65536;
+        TInc  : natural range 4 to 19;
+        Vmin  : integer range -6 to 9;
+        Vmax  : integer range -6 to 9;
+        Umax  : natural range 1 to 32;
+        G0    : natural range 1 to 8;
+        GStar : natural range 4 to 11;
+        K     : natural range 0 to 15;
+        R     : natural range 1 to 4096;
+    end record;
+
+    -- The parameters in the encoding of their header fields (architecture, section 6.3)
+    type ParCode_r is record
+        User  : std_logic_vector(7 downto 0);
+        M     : std_logic_vector(15 downto 0);
+        TInc  : std_logic_vector(3 downto 0);
+        Vmin  : std_logic_vector(3 downto 0);
+        Vmax  : std_logic_vector(3 downto 0);
+        Umax  : std_logic_vector(4 downto 0);
+        GStar : std_logic_vector(2 downto 0);
+        G0    : std_logic_vector(2 downto 0);
+        K     : std_logic_vector(3 downto 0);
+        R     : std_logic_vector(11 downto 0);
+    end record;
+
+    -- After a reset: the values of the generics
+    function parReset return Par_r is
+        variable P_v : Par_r;
+    begin
+        P_v.User  := UserData_g;
+        P_v.M     := minimum(SubFrameDepth_g, ZSize_g);
+        P_v.TInc  := WeightUpdateInterval_g;
+        P_v.Vmin  := WeightUpdateVmin_g;
+        P_v.Vmax  := WeightUpdateVmax_g;
+        P_v.Umax  := UnaryLimit_g;
+        P_v.G0    := InitialCountExp_g;
+        P_v.GStar := RescaleCounterSize_g;
+        P_v.K     := 0;
+        if UseK_c then
+            P_v.K := vecElem(AccuInit_g, 0);
+        end if;
+        P_v.R := RefInterval_g;
+        return P_v;
+    end function;
+
+    function encode (p : Par_r) return ParCode_r is
+        variable C_v : ParCode_r;
+    begin
+        C_v.User  := encOffset(p.User, 0, 8);
+        C_v.M     := encModPow2(p.M, 16);
+        C_v.TInc  := encOffset(p.TInc, 4, 4);
+        C_v.Vmin  := encOffset(p.Vmin, -6, 4);
+        C_v.Vmax  := encOffset(p.Vmax, -6, 4);
+        C_v.Umax  := encModPow2(p.Umax, 5);
+        C_v.GStar := encOffset(p.GStar, 4, 3);
+        C_v.G0    := encModPow2(p.G0, 3);
+        C_v.K     := encOffset(p.K, 0, 4);
+        C_v.R     := encModPow2(p.R, 12);
+        return C_v;
+    end function;
+
+    function decode (c : ParCode_r) return Par_r is
+        variable P_v : Par_r;
+    begin
+        P_v.User  := decOffset(c.User, 0);
+        P_v.M     := decModPow2(c.M);
+        P_v.TInc  := decOffset(c.TInc, 4);
+        P_v.Vmin  := decOffset(c.Vmin, -6);
+        P_v.Vmax  := decOffset(c.Vmax, -6);
+        P_v.Umax  := decModPow2(c.Umax);
+        P_v.GStar := decOffset(c.GStar, 4);
+        P_v.G0    := decModPow2(c.G0);
+        P_v.K     := decOffset(c.K, 0);
+        P_v.R     := decModPow2(c.R);
+        return P_v;
+    end function;
+
+    -- Queue entry: the fields of the parameters in use (specification, table 2), at these offsets
+    constant OfsTInc_c : natural  := 8;
+    constant OfsVmin_c : natural  := 12;
+    constant OfsVmax_c : natural  := 16;
+    constant OfsM_c    : natural  := 20;
+    constant OfsUmax_c : natural  := OfsM_c + 16 * toInt(UseM_c);
+    constant OfsGSt_c  : natural  := OfsUmax_c + 5;
+    constant OfsG0_c   : natural  := OfsGSt_c + 3;
+    constant OfsK_c    : natural  := OfsUmax_c + 11 * toInt(UseAdp_c);
+    constant OfsR_c    : natural  := OfsK_c + 4 * toInt(UseK_c);
+    constant ParW_c    : positive := OfsR_c + 12 * toInt(UseR_c);
+    -- Width that holds every field at its offset, also the fields not in use
+    constant ParMaxW_c : positive := 64;
+
+    subtype ParEntry_t is std_logic_vector(ParW_c - 1 downto 0);
+
+    function pack (c : ParCode_r) return ParEntry_t is
+        variable E_v : std_logic_vector(ParMaxW_c - 1 downto 0) := (others => '0');
+    begin
+        E_v(7 downto 0)                     := c.User;
+        E_v(OfsTInc_c + 3 downto OfsTInc_c) := c.TInc;
+        E_v(OfsVmin_c + 3 downto OfsVmin_c) := c.Vmin;
+        E_v(OfsVmax_c + 3 downto OfsVmax_c) := c.Vmax;
+        if UseM_c then
+            E_v(OfsM_c + 15 downto OfsM_c) := c.M;
+        end if;
+        if UseAdp_c then
+            E_v(OfsUmax_c + 4 downto OfsUmax_c) := c.Umax;
+            E_v(OfsGSt_c + 2 downto OfsGSt_c)   := c.GStar;
+            E_v(OfsG0_c + 2 downto OfsG0_c)     := c.G0;
+        end if;
+        if UseK_c then
+            E_v(OfsK_c + 3 downto OfsK_c) := c.K;
+        end if;
+        if UseR_c then
+            E_v(OfsR_c + 11 downto OfsR_c) := c.R;
+        end if;
+        return E_v(ParW_c - 1 downto 0);
+    end function;
+
+    -- The fields of the parameters not in use are zero
+    function unpack (e : ParEntry_t) return ParCode_r is
+        variable E_v : std_logic_vector(ParMaxW_c - 1 downto 0) := (others => '0');
+        variable C_v : ParCode_r;
+    begin
+        E_v(ParW_c - 1 downto 0) := e;
+        C_v                      := (User => E_v(7 downto 0),
+                                     M => (others => '0'),
+                                     TInc => E_v(OfsTInc_c + 3 downto OfsTInc_c),
+                                     Vmin => E_v(OfsVmin_c + 3 downto OfsVmin_c),
+                                     Vmax => E_v(OfsVmax_c + 3 downto OfsVmax_c),
+                                     Umax => (others => '0'),
+                                     GStar => (others => '0'),
+                                     G0 => (others => '0'),
+                                     K => (others => '0'),
+                                     R => (others => '0'));
+        if UseM_c then
+            C_v.M := E_v(OfsM_c + 15 downto OfsM_c);
+        end if;
+        if UseAdp_c then
+            C_v.Umax  := E_v(OfsUmax_c + 4 downto OfsUmax_c);
+            C_v.GStar := E_v(OfsGSt_c + 2 downto OfsGSt_c);
+            C_v.G0    := E_v(OfsG0_c + 2 downto OfsG0_c);
+        end if;
+        if UseK_c then
+            C_v.K := E_v(OfsK_c + 3 downto OfsK_c);
+        end if;
+        if UseR_c then
+            C_v.R := E_v(OfsR_c + 11 downto OfsR_c);
+        end if;
+        return C_v;
+    end function;
+
+    type ParQueue_t is array (0 to QDepth_c - 1) of ParEntry_t;
+
+    -- Decoding the encoding gives back every value of every parameter range (CO-RP-05)
+    constant ParamCodingOk_c : boolean := paramCodingExact;
 
     -- Entropy coder input sequence
     signal Item_Valid : std_logic;
@@ -284,6 +482,22 @@ architecture rtl of ocp_core is
     attribute ramstyle of Queue     : signal is "logic";
     attribute syn_ramstyle of Queue : signal is "registers";
 
+    -- Runtime parameters: inputs after the range limitation, active parameters (encoded), queue of the encoded
+    -- parameters and the read pointer of the sample-adaptive and the block-adaptive coder, the entries at the
+    -- read pointers (header generator: the encoding; coders: the values), the active values
+    signal LimPar : Par_r;
+    signal ParAct : ParEntry_t;
+    signal PQueue : ParQueue_t;
+    signal QRdE   : unsigned(4 downto 0);
+    signal HeadPH : ParCode_r;
+    signal HeadPC : Par_r;
+    signal HeadPE : Par_r;
+    signal ActPar : Par_r;
+
+    attribute ram_style of PQueue    : signal is "registers";
+    attribute ramstyle of PQueue     : signal is "logic";
+    attribute syn_ramstyle of PQueue : signal is "registers";
+
 begin
 
     assert OutWidth_g = 8 or OutWidth_g = 16 or OutWidth_g = 32 or OutWidth_g = 64
@@ -329,6 +543,21 @@ begin
 
     assert not (RuntimeConfig_g and SupTableCount_g > 0)
         report "ocp_core: RuntimeConfig_g excludes supplementary information tables (CO-CF-04)"
+        severity failure;
+
+    -- Runtime parameters (CO-CF-05, CO-RP-05)
+    assert RuntimeConfig_g or not RuntimeParams_g
+        report "ocp_core: RuntimeParams_g requires RuntimeConfig_g (CO-CF-05)"
+        severity failure;
+
+    assert ParamCodingOk_c
+        report "ocp_core: decoding the header field encoding of a runtime parameter does not give its value back " &
+               "(CO-RP-05)"
+        severity failure;
+
+    assert not RuntimeParams_g or Coder_c /= CoderHybrid_c or G0Min_c <= minimum(8, RescaleCounterSize_g - 1)
+        report "ocp_core: with RuntimeParams_g no gamma0 up to min(8, RescaleCounterSize_g - 1) keeps every " &
+               "initial accumulator of HybridAccuInit_g below 2^(D + gamma0) (CCSDS 5.4.3.3.4.3, CO-RP-02)"
         severity failure;
 
     g_accu_init : for i in 0 to AccuCount_c - 1 generate
@@ -458,7 +687,9 @@ begin
 
         HeadH    <= Queue(to_integer(QRdH(3 downto 0)));
         HeadC    <= Queue(to_integer(QRdC(3 downto 0)));
-        CfgReady <= '0' when QWr - QRdH = QDepth_c or (Coder_c = CoderHybrid_c and QWr - QRdC = QDepth_c) else '1';
+        CfgReady <= '0' when QWr - QRdH = QDepth_c or (Coder_c = CoderHybrid_c and QWr - QRdC = QDepth_c) or
+                             (RuntimeParams_g and Coder_c /= CoderHybrid_c and QWr - QRdE = QDepth_c) else
+                    '1';
 
         Cfg_Taken    <= Take;
         Act_XSize    <= std_logic_vector(Act.X);
@@ -499,6 +730,124 @@ begin
         Act_ZSize    <= (others => '0');
         Act_AbsLimit <= (others => '0');
         Act_RelLimit <= (others => '0');
+    end generate;
+
+    -----------------------------------------------------------------------------------------------
+    -- Runtime parameters
+    -----------------------------------------------------------------------------------------------
+    g_params : if RuntimeParams_g generate
+
+        -- Range limitation (CO-RP-02): a parameter whose range depends on another one is limited after it, with
+        -- its limited value (gamma* after gamma0, vmax after vmin, M after NZ)
+        p_param_limit : process (all) is
+            variable P_v    : Par_r;
+            variable MMax_v : natural range 1 to 65536;
+        begin
+            P_v      := parReset;
+            P_v.User := to_integer(unsigned(Cfg_UserData));
+            if UseM_c then
+                MMax_v := SubFrameDepth_g;
+                if Lim.Z < SubFrameDepth_g then
+                    MMax_v := to_integer(Lim.Z);
+                end if;
+                P_v.M := limitInt(to_integer(unsigned(Cfg_M)), 1, MMax_v);
+            end if;
+            P_v.TInc := limitInt(to_integer(unsigned(Cfg_WeightInterval)), 4, 11);
+            P_v.Vmin := limitInt(to_integer(signed(Cfg_WeightVmin)), -6, 9);
+            P_v.Vmax := limitInt(to_integer(signed(Cfg_WeightVmax)), P_v.Vmin, 9);
+            if UseAdp_c then
+                P_v.Umax  := limitInt(to_integer(unsigned(Cfg_UnaryLimit)), 8, 32);
+                P_v.G0    := limitInt(to_integer(unsigned(Cfg_InitCountExp)), G0Min_c,
+                                      minimum(8, RescaleCounterSize_g - 1));
+                P_v.GStar := limitInt(to_integer(unsigned(Cfg_RescaleSize)), maximum(4, P_v.G0 + 1),
+                                      RescaleCounterSize_g);
+            end if;
+            if UseK_c then
+                P_v.K := limitInt(to_integer(unsigned(Cfg_AccuInit)), 0, minimum(DynamicRange_g - 2, 14));
+            end if;
+            if UseR_c then
+                P_v.R := limitInt(to_integer(unsigned(Cfg_RefInterval)), 1, RefInterval_g);
+            end if;
+            LimPar <= P_v;
+        end process;
+
+        -- Active parameters and the queue, both in the encoding of the header fields (CO-RP-05); the read
+        -- pointer of the sample-adaptive and the block-adaptive coder moves on after the last item of an image
+        p_param : process (Clk) is
+        begin
+            if rising_edge(Clk) then
+                if Take = '1' then
+                    ParAct                              <= pack(encode(LimPar));
+                    PQueue(to_integer(QWr(3 downto 0))) <= pack(encode(LimPar));
+                end if;
+                if Item_Valid = '1' and Item_Ready = '1' and Item_Last = '1' then
+                    QRdE <= QRdE + 1;
+                end if;
+                if Rst = '1' then
+                    ParAct <= pack(encode(parReset));
+                    QRdE   <= (others => '0');
+                end if;
+            end if;
+        end process;
+
+        HeadPH <= unpack(PQueue(to_integer(QRdH(3 downto 0))));
+        HeadPC <= decode(unpack(PQueue(to_integer(QRdC(3 downto 0)))));
+        HeadPE <= decode(unpack(PQueue(to_integer(QRdE(3 downto 0)))));
+        ActPar <= decode(unpack(ParAct));
+
+        Act_UserData       <= std_logic_vector(to_unsigned(ActPar.User, 8));
+        Act_M              <= std_logic_vector(to_unsigned(ActPar.M, 17)) when UseM_c else (others => '0');
+        Act_WeightInterval <= std_logic_vector(to_unsigned(ActPar.TInc, 4));
+        Act_WeightVmin     <= std_logic_vector(to_signed(ActPar.Vmin, 5));
+        Act_WeightVmax     <= std_logic_vector(to_signed(ActPar.Vmax, 5));
+        Act_UnaryLimit     <= std_logic_vector(to_unsigned(ActPar.Umax, 6)) when UseAdp_c else (others => '0');
+        Act_InitCountExp   <= std_logic_vector(to_unsigned(ActPar.G0, 4)) when UseAdp_c else (others => '0');
+        Act_RescaleSize    <= std_logic_vector(to_unsigned(ActPar.GStar, 4)) when UseAdp_c else (others => '0');
+        Act_AccuInit       <= std_logic_vector(to_unsigned(ActPar.K, 4)) when UseK_c else (others => '0');
+        Act_RefInterval    <= std_logic_vector(to_unsigned(ActPar.R, 13)) when UseR_c else (others => '0');
+
+        -- synthesis translate_off
+        p_param_check : process (Clk) is
+        begin
+            if rising_edge(Clk) then
+                if Take = '1' and Rst = '0' then
+                    assert unsigned(Cfg_UserData) = LimPar.User and
+                           (not UseM_c or unsigned(Cfg_M) = LimPar.M) and
+                           unsigned(Cfg_WeightInterval) = LimPar.TInc and
+                           signed(Cfg_WeightVmin) = LimPar.Vmin and signed(Cfg_WeightVmax) = LimPar.Vmax and
+                           (not UseAdp_c or (unsigned(Cfg_UnaryLimit) = LimPar.Umax and
+                                             unsigned(Cfg_InitCountExp) = LimPar.G0 and
+                                             unsigned(Cfg_RescaleSize) = LimPar.GStar)) and
+                           (not UseK_c or unsigned(Cfg_AccuInit) = LimPar.K) and
+                           (not UseR_c or unsigned(Cfg_RefInterval) = LimPar.R)
+                        report "ocp_core: runtime parameter input out of range, taken as the nearest valid value " &
+                               "(CO-RP-02)"
+                        severity warning;
+                end if;
+            end if;
+        end process;
+
+        -- synthesis translate_on
+
+    end generate;
+
+    g_no_params : if not RuntimeParams_g generate
+        LimPar             <= parReset;
+        QRdE               <= (others => '0');
+        HeadPH             <= encode(parReset);
+        HeadPC             <= parReset;
+        HeadPE             <= parReset;
+        ActPar             <= parReset;
+        Act_UserData       <= (others => '0');
+        Act_M              <= (others => '0');
+        Act_WeightInterval <= (others => '0');
+        Act_WeightVmin     <= (others => '0');
+        Act_WeightVmax     <= (others => '0');
+        Act_UnaryLimit     <= (others => '0');
+        Act_InitCountExp   <= (others => '0');
+        Act_RescaleSize    <= (others => '0');
+        Act_AccuInit       <= (others => '0');
+        Act_RefInterval    <= (others => '0');
     end generate;
 
     -----------------------------------------------------------------------------------------------
@@ -607,22 +956,33 @@ begin
             BlockSize_g            => BlockSize_g,
             RestrictedCodes_g      => RestrictedCodes_g,
             RefInterval_g          => RefInterval_g,
-            RuntimeConfig_g        => RuntimeConfig_g
+            RuntimeConfig_g        => RuntimeConfig_g,
+            RuntimeParams_g        => RuntimeParams_g
         )
         port map (
-            Clk          => Clk,
-            Rst          => Rst,
-            Start        => Hdr_Start,
-            Out_Valid    => Hdr_Valid,
-            Out_Ready    => Hdr_Ready,
-            Out_Data     => Hdr_Data,
-            Out_Length   => Hdr_Length,
-            Out_Last     => Hdr_Last,
-            Cfg_XSize    => std_logic_vector(HeadH.X),
-            Cfg_YSize    => std_logic_vector(HeadH.Y),
-            Cfg_ZSize    => std_logic_vector(HeadH.Z),
-            Cfg_AbsLimit => std_logic_vector(HeadH.AbsL),
-            Cfg_RelLimit => std_logic_vector(HeadH.RelL)
+            Clk                => Clk,
+            Rst                => Rst,
+            Start              => Hdr_Start,
+            Out_Valid          => Hdr_Valid,
+            Out_Ready          => Hdr_Ready,
+            Out_Data           => Hdr_Data,
+            Out_Length         => Hdr_Length,
+            Out_Last           => Hdr_Last,
+            Cfg_XSize          => std_logic_vector(HeadH.X),
+            Cfg_YSize          => std_logic_vector(HeadH.Y),
+            Cfg_ZSize          => std_logic_vector(HeadH.Z),
+            Cfg_AbsLimit       => std_logic_vector(HeadH.AbsL),
+            Cfg_RelLimit       => std_logic_vector(HeadH.RelL),
+            Cfg_UserData       => HeadPH.User,
+            Cfg_M              => HeadPH.M,
+            Cfg_WeightInterval => HeadPH.TInc,
+            Cfg_WeightVmin     => HeadPH.Vmin,
+            Cfg_WeightVmax     => HeadPH.Vmax,
+            Cfg_UnaryLimit     => HeadPH.Umax,
+            Cfg_RescaleSize    => HeadPH.GStar,
+            Cfg_InitCountExp   => HeadPH.G0,
+            Cfg_AccuInit       => HeadPH.K,
+            Cfg_RefInterval    => HeadPH.R
         );
 
     -----------------------------------------------------------------------------------------------
@@ -662,39 +1022,44 @@ begin
             Offset_g               => Offset_g,
             Speculation_g          => Speculation_g,
             RamStyle_g             => RamStyle_g,
-            RuntimeConfig_g        => RuntimeConfig_g
+            RuntimeConfig_g        => RuntimeConfig_g,
+            RuntimeParams_g        => RuntimeParams_g
         )
         port map (
-            Clk            => Clk,
-            Rst            => Rst,
-            In_Valid       => SmpValid,
-            In_Ready       => SmpReady,
-            In_Data        => In_Data,
-            In_End         => SmpEnd,
-            Lim_Valid      => ValValid,
-            Lim_Ready      => ValReady,
-            Lim_Data       => Lim_Data,
-            Cfg_Ready      => CfgReady,
-            Cfg_XSize      => std_logic_vector(Lim.X),
-            Cfg_YSize      => std_logic_vector(Lim.Y),
-            Cfg_ZSize      => std_logic_vector(Lim.Z),
-            Cfg_AbsLimit   => std_logic_vector(Lim.AbsL),
-            Cfg_RelLimit   => std_logic_vector(Lim.RelL),
-            Cfg_Take       => Take,
-            Img_Start      => ImgStart,
-            Out_Valid      => Item_Valid,
-            Out_Ready      => Item_Ready,
-            Out_Data       => Item_Data,
-            Out_Kind       => Item_Kind,
-            Out_Band       => Item_Band,
-            Out_First      => Item_First,
-            Out_Init       => Item_Init,
-            Out_Last       => Item_Last,
-            Ecc_Sec        => PredSec,
-            Ecc_Ded        => PredDed,
-            ErrInj_Channel => ErrInj_Channel,
-            ErrInj_Double  => ErrInj_Double,
-            ErrInj_Valid   => ErrInj_Valid
+            Clk                => Clk,
+            Rst                => Rst,
+            In_Valid           => SmpValid,
+            In_Ready           => SmpReady,
+            In_Data            => In_Data,
+            In_End             => SmpEnd,
+            Lim_Valid          => ValValid,
+            Lim_Ready          => ValReady,
+            Lim_Data           => Lim_Data,
+            Cfg_Ready          => CfgReady,
+            Cfg_XSize          => std_logic_vector(Lim.X),
+            Cfg_YSize          => std_logic_vector(Lim.Y),
+            Cfg_ZSize          => std_logic_vector(Lim.Z),
+            Cfg_AbsLimit       => std_logic_vector(Lim.AbsL),
+            Cfg_RelLimit       => std_logic_vector(Lim.RelL),
+            Cfg_M              => std_logic_vector(to_unsigned(LimPar.M, 17)),
+            Cfg_WeightInterval => std_logic_vector(to_unsigned(LimPar.TInc, 4)),
+            Cfg_WeightVmin     => std_logic_vector(to_signed(LimPar.Vmin, 5)),
+            Cfg_WeightVmax     => std_logic_vector(to_signed(LimPar.Vmax, 5)),
+            Cfg_Take           => Take,
+            Img_Start          => ImgStart,
+            Out_Valid          => Item_Valid,
+            Out_Ready          => Item_Ready,
+            Out_Data           => Item_Data,
+            Out_Kind           => Item_Kind,
+            Out_Band           => Item_Band,
+            Out_First          => Item_First,
+            Out_Init           => Item_Init,
+            Out_Last           => Item_Last,
+            Ecc_Sec            => PredSec,
+            Ecc_Ded            => PredDed,
+            ErrInj_Channel     => ErrInj_Channel,
+            ErrInj_Double      => ErrInj_Double,
+            ErrInj_Valid       => ErrInj_Valid
         );
 
     -----------------------------------------------------------------------------------------------
@@ -713,29 +1078,34 @@ begin
                 AccuInit_g            => AccuInit_g,
                 AbsBitDepth_g         => AbsBitDepth_g,
                 RelBitDepth_g         => RelBitDepth_g,
-                RamStyle_g            => RamStyle_g
+                RamStyle_g            => RamStyle_g,
+                RuntimeParams_g       => RuntimeParams_g
             )
             port map (
-                Clk           => Clk,
-                Rst           => Rst,
-                In_Valid      => Item_Valid,
-                In_Ready      => Item_Ready,
-                In_Data       => Item_Data,
-                In_Kind       => Item_Kind,
-                In_Band       => Item_Band,
-                In_First      => Item_First,
-                In_Init       => Item_Init,
-                In_Last       => Item_Last,
-                Cw_Valid      => Cw_Valid,
-                Cw_Ready      => Cw_Ready,
-                Cw_Data       => Cw_Data,
-                Cw_Length     => Cw_Length,
-                Cw_Last       => Cw_Last,
-                Ecc_Sec       => CoderSec,
-                Ecc_Ded       => CoderDed,
-                ErrInj_Stats  => InjStats,
-                ErrInj_Buffer => InjBuffer,
-                ErrInj_Double => ErrInj_Double
+                Clk             => Clk,
+                Rst             => Rst,
+                In_Valid        => Item_Valid,
+                In_Ready        => Item_Ready,
+                In_Data         => Item_Data,
+                In_Kind         => Item_Kind,
+                In_Band         => Item_Band,
+                In_First        => Item_First,
+                In_Init         => Item_Init,
+                In_Last         => Item_Last,
+                In_UnaryLimit   => std_logic_vector(to_unsigned(HeadPE.Umax, 6)),
+                In_InitCountExp => std_logic_vector(to_unsigned(HeadPE.G0, 4)),
+                In_RescaleSize  => std_logic_vector(to_unsigned(HeadPE.GStar, 4)),
+                In_AccuInit     => std_logic_vector(to_unsigned(HeadPE.K, 4)),
+                Cw_Valid        => Cw_Valid,
+                Cw_Ready        => Cw_Ready,
+                Cw_Data         => Cw_Data,
+                Cw_Length       => Cw_Length,
+                Cw_Last         => Cw_Last,
+                Ecc_Sec         => CoderSec,
+                Ecc_Ded         => CoderDed,
+                ErrInj_Stats    => InjStats,
+                ErrInj_Buffer   => InjBuffer,
+                ErrInj_Double   => ErrInj_Double
             );
 
     end generate;
@@ -760,31 +1130,35 @@ begin
                 AbsBitDepth_g        => AbsBitDepth_g,
                 RelBitDepth_g        => RelBitDepth_g,
                 RamStyle_g           => RamStyle_g,
-                RuntimeConfig_g      => RuntimeConfig_g
+                RuntimeConfig_g      => RuntimeConfig_g,
+                RuntimeParams_g      => RuntimeParams_g
             )
             port map (
-                Clk           => Clk,
-                Rst           => Rst,
-                In_Valid      => Item_Valid,
-                In_Ready      => Item_Ready,
-                In_Data       => Item_Data,
-                In_Kind       => Item_Kind,
-                In_Band       => Item_Band,
-                In_First      => Item_First,
-                In_Init       => Item_Init,
-                In_Last       => Item_Last,
-                Cw_Valid      => Cw_Valid,
-                Cw_Ready      => Cw_Ready,
-                Cw_Data       => Cw_Data,
-                Cw_Length     => Cw_Length,
-                Cw_Last       => Cw_Last,
-                Ecc_Sec       => CoderSec,
-                Ecc_Ded       => CoderDed,
-                ErrInj_Stats  => InjStats,
-                ErrInj_Buffer => InjBuffer,
-                ErrInj_Double => ErrInj_Double,
-                Cfg_ZSize     => std_logic_vector(HeadC.Z),
-                Cfg_Done      => HybDone
+                Clk              => Clk,
+                Rst              => Rst,
+                In_Valid         => Item_Valid,
+                In_Ready         => Item_Ready,
+                In_Data          => Item_Data,
+                In_Kind          => Item_Kind,
+                In_Band          => Item_Band,
+                In_First         => Item_First,
+                In_Init          => Item_Init,
+                In_Last          => Item_Last,
+                Cw_Valid         => Cw_Valid,
+                Cw_Ready         => Cw_Ready,
+                Cw_Data          => Cw_Data,
+                Cw_Length        => Cw_Length,
+                Cw_Last          => Cw_Last,
+                Ecc_Sec          => CoderSec,
+                Ecc_Ded          => CoderDed,
+                ErrInj_Stats     => InjStats,
+                ErrInj_Buffer    => InjBuffer,
+                ErrInj_Double    => ErrInj_Double,
+                Cfg_ZSize        => std_logic_vector(HeadC.Z),
+                Cfg_UnaryLimit   => std_logic_vector(to_unsigned(HeadPC.Umax, 6)),
+                Cfg_InitCountExp => std_logic_vector(to_unsigned(HeadPC.G0, 4)),
+                Cfg_RescaleSize  => std_logic_vector(to_unsigned(HeadPC.GStar, 4)),
+                Cfg_Done         => HybDone
             );
 
     end generate;
@@ -797,24 +1171,26 @@ begin
                 BlockSize_g       => BlockSize_g,
                 RestrictedCodes_g => RestrictedCodes_g,
                 RefInterval_g     => RefInterval_g,
-                RamStyle_g        => RamStyle_g
+                RamStyle_g        => RamStyle_g,
+                RuntimeParams_g   => RuntimeParams_g
             )
             port map (
-                Clk           => Clk,
-                Rst           => Rst,
-                In_Valid      => Item_Valid,
-                In_Ready      => Item_Ready,
-                In_Data       => Item_Data,
-                In_Last       => Item_Last,
-                Cw_Valid      => Cw_Valid,
-                Cw_Ready      => Cw_Ready,
-                Cw_Data       => Cw_Data,
-                Cw_Length     => Cw_Length,
-                Cw_Last       => Cw_Last,
-                Ecc_Sec       => CoderSec,
-                Ecc_Ded       => CoderDed,
-                ErrInj_Buffer => InjBuffer,
-                ErrInj_Double => ErrInj_Double
+                Clk            => Clk,
+                Rst            => Rst,
+                In_Valid       => Item_Valid,
+                In_Ready       => Item_Ready,
+                In_Data        => Item_Data,
+                In_Last        => Item_Last,
+                In_RefInterval => std_logic_vector(to_unsigned(HeadPE.R, 13)),
+                Cw_Valid       => Cw_Valid,
+                Cw_Ready       => Cw_Ready,
+                Cw_Data        => Cw_Data,
+                Cw_Length      => Cw_Length,
+                Cw_Last        => Cw_Last,
+                Ecc_Sec        => CoderSec,
+                Ecc_Ded        => CoderDed,
+                ErrInj_Buffer  => InjBuffer,
+                ErrInj_Double  => ErrInj_Double
             );
 
     end generate;

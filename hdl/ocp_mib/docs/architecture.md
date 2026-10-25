@@ -41,12 +41,16 @@ the synthesis tool, like all logic outside the memories (user guide, section "Pr
 | `Cfg_Taken` | in | 1 | Pulse from the core: it takes the configuration outputs for an image in this clock cycle |
 | `Act_XSize`, `Act_YSize`, `Act_ZSize` | in | 17 | With `RuntimeConfig_g`: NX, NY, NZ that the core took for the last image |
 | `Act_AbsLimit`, `Act_RelLimit` | in | 16 | With `RuntimeConfig_g`: error limit values that the core took for the last image |
+| `Cfg_UserData`, `Cfg_M`, `Cfg_WeightInterval`, `Cfg_WeightVmin`, `Cfg_WeightVmax`, `Cfg_UnaryLimit`, `Cfg_InitCountExp`, `Cfg_RescaleSize`, `Cfg_AccuInit`, `Cfg_RefInterval` | out | 8, 17, 4, 5, 5, 6, 4, 4, 4, 13 | With `RuntimeParams_g`: committed runtime parameters for the core (zero for a parameter not in use) |
+| `Act_UserData` to `Act_RefInterval` | in | as `Cfg_` | With `RuntimeParams_g`: runtime parameters that the core took for the last image |
 
 ## 4. Generics
 
 The generics listed in the specification (section 4), with the names, defaults and ranges of `ocp_channel`; the
 channel passes its own values. `AccuInit_g` gives the constant of the sample-adaptive coder (the first element; 15
-when `AccuInitBandVarying_g` is true, as in the header).
+when `AccuInitBandVarying_g` is true, as in the header). `HybridAccuInit_g` and `HybridAccuInitHigh_g` give the
+lower bound of gamma0 that the COMMIT checks with the runtime parameters and the hybrid coder (`hybridG0Min` of
+`ocp_pkg`, the function the core uses for its range limitation).
 
 ## 5. Runtime configuration
 
@@ -81,7 +85,8 @@ New registers (offsets for `ocp_regs.yml`; the existing registers keep their off
 | 0x074 | NEXT_LIMITS | ABS (bits 15:0, RW), REL (bits 31:16, RW) |
 | 0x078 | LIMITS | ABS (bits 15:0, RO), REL (bits 31:16, RO) |
 
-GENERICS gets the field RUNTIME_CONFIG (bit 18, RO), and the ID the version 2 (0x4F435002). These registers rely on
+GENERICS gets the field RUNTIME_CONFIG (bit 18, RO), and the ID the version 2 (0x4F435002; version 3 with the runtime
+parameters of section 6). These registers rely on
 the TMR of the synthesis tool, like the counters.
 
 ## 6. Runtime parameters (register map version 3)
@@ -98,7 +103,7 @@ dimensions, the error limit values and the parameters in one clock cycle.
 | Committed | Outputs `Cfg_UserData`, `Cfg_M`, `Cfg_Weight*`, `Cfg_UnaryLimit`, `Cfg_InitCountExp`, `Cfg_RescaleSize`, `Cfg_AccuInit`, `Cfg_RefInterval` | A valid COMMIT, with the dimensions | The core at every image start |
 | Active | The parameter fields of SAMPLES, ORDER, WEIGHTS, ADAPTIVE, BLOCK (RO) | The core at every image start, after its range limitation (`Act_` inputs) | Software |
 
-New registers (draft for `ocp_regs.yml`; the registers of version 2 keep their offsets and fields):
+New registers (offsets of `ocp_regs.yml`; the registers of version 2 keep their offsets and fields):
 
 | Offset | Register | Fields (as in the read-only register of the same name without NEXT_) |
 | --- | --- | --- |

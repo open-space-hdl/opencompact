@@ -587,9 +587,10 @@ def runtime_limit(c, nx, ny, nz, a, r):
     return nx, ny, nz, a, r
 
 
-def runtime_image_cfg(c, nx, ny, nz, a, r, index):
+def runtime_image_cfg(c, nx, ny, nz, a, r, index, params=None):
     """Configuration of image `index` of a runtime sequence with its dimensions and error limit values (seed of the
-    test image from the configuration and the index)."""
+    test image from the configuration and the index); with params (the values taken, PARAM_NAMES) also its runtime
+    parameters."""
     d = dict(c)
     d.update(large_n_x=nx, large_n_y=ny, large_n_z=nz, seed=1000 * c["seed"] + index)
     if c["sample_encoding_order"] == 0:
@@ -598,6 +599,18 @@ def runtime_image_cfg(c, nx, ny, nz, a, r, index):
         d["a_vector"] = [a]
     if c["quantizer_fidelity_control_method"] in (2, 3):
         d["r_vector"] = [r]
+    if params is not None:
+        p = dict(zip(PARAM_NAMES, params))
+        use = params_in_use(c)
+        d.update(user_defined_data=p["user"], log_two_t_inc=p["tinc"], v_min=p["vmin"], v_max=p["vmax"])
+        if use["m"]:
+            d["large_m"] = p["m"]
+        if use["adp"]:
+            d.update(large_u_max=p["umax"], gamma_0=p["g0"], gamma_star=p["gstar"])
+        if use["k"]:
+            d["k_prime_prime_vector"] = [p["k"]]
+        if use["r"]:
+            d["r"] = p["r"]
     return d
 
 
@@ -649,6 +662,190 @@ def runtime_range_sequence(c):
               (0, my, mz + 1, 0, 0), (top, 0, 1, 1 << da, 0), (mx + 1, 1, 0, 0, 1 << dr), (1, my, mz, a_ok, r_ok),
               (1, 1, 1, 65535, 0), ok]
     return [(d, runtime_limit(c, *d)) for d in driven]
+
+
+# ------------------------------------------------------------------------------------------------
+# Runtime parameters (RuntimeParams_g): every image of a sequence also takes its own user-defined data, M (BI order),
+# weight update parameters and entropy coder parameters (CO-RP-01). The values of a configuration are those after a
+# reset and the maxima of M (SubFrameDepth_g), gamma* (RescaleCounterSize_g) and r (RefInterval_g).
+# ------------------------------------------------------------------------------------------------
+RUNTIME_PARAMS = {
+    # BI with sub-frames up to M = 4, sample-adaptive coder with an accumulator initialisation constant
+    "rp01_bi_m4_sample": dict(RUNTIME["rc04_bi_m4_sample_both"], gamma_star=11, seed=111),
+    # BI with M up to NZ, hybrid coder; an initial accumulator of 2^15 or more raises the smallest gamma0 to 2
+    "rp02_bi_mnz_hybrid": dict(RUNTIME["rc02_bi_mnz_hybrid_abs"], gamma_star=11, seed=112,
+                               hybrid_initial_accumulator=[30, 45, 60, 75, 90, 105, 120, 135, 150, 40000]),
+    # BSQ, block-adaptive coder with r up to 4096
+    "rp03_bsq_block": dict(RUNTIME["rc03_bsq_block_rel"], r=4096, seed=113),
+}
+# Runtime parameter configurations of the queue test (TC-CO-61): the read pointer of the hybrid coder (its tail) and
+# that of the sample-adaptive and the block-adaptive coder
+RUNTIME_PARAMS_QUEUE = list(RUNTIME_PARAMS)
+
+# Runtime parameters in the order of the lines of the image lists (driven, then taken)
+PARAM_NAMES = ["user", "m", "tinc", "vmin", "vmax", "umax", "g0", "gstar", "k", "r"]
+
+
+def params_in_use(c):
+    """Runtime parameters in use (CO-RP-01): M in BI order; Umax, gamma0 and gamma* with the sample-adaptive and the
+    hybrid coder; K with the sample-adaptive coder and an accumulator initialisation constant; r with the
+    block-adaptive coder."""
+    ec = c["entropy_coder_type"]
+    return {"m": c["sample_encoding_order"] == 0, "adp": ec in (0, 1),
+            "k": ec == 0 and not c["band_varying_k_flag"], "r": ec == 2}
+
+
+def g0_min(c):
+    """Smallest gamma0 (CO-RP-02): with the hybrid coder every initial accumulator below 2^(D + gamma0) (CCSDS
+    5.4.3.3.4.3), else 1; 9 when there is none."""
+    if c["entropy_coder_type"] != 1:
+        return 1
+    acc = c["hybrid_initial_accumulator"]
+    peak = max(acc[min(z, len(acc) - 1)] for z in range(c["large_n_z"]))
+    for g in range(1, 9):
+        if peak < 1 << (c["large_d"] + g):
+            return g
+    return 9
+
+
+def param_bounds(c, nz):
+    """Ranges (low, high) of the runtime parameters in use for an image with nz bands, the dependent ones (vmax,
+    gamma*) for the lowest value of the parameter they depend on (CO-RP-02)."""
+    use = params_in_use(c)
+    b = {"user": (0, 255), "tinc": (4, 11), "vmin": (-6, 9), "vmax": (-6, 9)}
+    if use["m"]:
+        b["m"] = (1, min(c["large_m"], nz))
+    if use["adp"]:
+        b.update(umax=(8, 32), g0=(g0_min(c), min(8, c["gamma_star"] - 1)), gstar=(4, c["gamma_star"]))
+    if use["k"]:
+        b["k"] = (0, min(c["large_d"] - 2, 14))
+    if use["r"]:
+        b["r"] = (1, c["r"])
+    return b
+
+
+def runtime_params_limit(c, nz, p):
+    """Values that the core takes for runtime parameter inputs (CO-RP-02): every parameter in use to the nearest value
+    of its range, gamma* after gamma0, vmax after vmin, M after NZ (nz: the NZ taken); a parameter not in use is 0
+    (the Act_ outputs)."""
+    v = dict(zip(PARAM_NAMES, p))
+    use = params_in_use(c)
+
+    def lim(x, lo, hi):
+        return min(max(x, lo), hi)
+
+    out = dict.fromkeys(PARAM_NAMES, 0)
+    out["user"] = v["user"]
+    out["tinc"] = lim(v["tinc"], 4, 11)
+    out["vmin"] = lim(v["vmin"], -6, 9)
+    out["vmax"] = lim(v["vmax"], out["vmin"], 9)
+    if use["m"]:
+        out["m"] = lim(v["m"], 1, min(c["large_m"], nz))
+    if use["adp"]:
+        out["umax"] = lim(v["umax"], 8, 32)
+        out["g0"] = lim(v["g0"], g0_min(c), min(8, c["gamma_star"] - 1))
+        out["gstar"] = lim(v["gstar"], max(4, out["g0"] + 1), c["gamma_star"])
+    if use["k"]:
+        out["k"] = lim(v["k"], 0, min(c["large_d"] - 2, 14))
+    if use["r"]:
+        out["r"] = lim(v["r"], 1, c["r"])
+    return tuple(out[n] for n in PARAM_NAMES)
+
+
+def random_params(c, nz, rng, edge=None):
+    """Valid runtime parameters for an image with nz bands: random, or with edge "low" or "high" every parameter at
+    the bound of its range (the dependent ones against the value they depend on); random values on the inputs of the
+    parameters not in use (ignored by the core)."""
+    b = param_bounds(c, nz)
+    v = {}
+    for n in ["user", "m", "tinc", "vmin", "umax", "g0", "k", "r"]:
+        if n not in b:
+            continue
+        lo, hi = b[n]
+        v[n] = lo if edge == "low" else hi if edge == "high" else rng.randint(lo, hi)
+    vlo = v["vmin"]
+    v["vmax"] = vlo if edge == "low" else 9 if edge == "high" else rng.randint(vlo, 9)
+    if "g0" in v:
+        glo = max(4, v["g0"] + 1)
+        v["gstar"] = glo if edge == "low" else c["gamma_star"] if edge == "high" else rng.randint(glo, c["gamma_star"])
+    ignored = {"m": (0, (1 << 17) - 1), "umax": (0, 63), "g0": (0, 15), "gstar": (0, 15), "k": (0, 15),
+               "r": (0, (1 << 13) - 1)}
+    for n, (lo, hi) in ignored.items():
+        if n not in v:
+            v[n] = rng.randint(lo, hi)
+    return tuple(v[n] for n in PARAM_NAMES)
+
+
+def runtime_params_sequence(c, n=RUNTIME_IMAGES):
+    """Images of the runtime parameter sequence (TC-CO-59): the dimensions of runtime_sequence and per image the
+    runtime parameters, the first two images with every parameter at the high and at the low bound of its range,
+    the others random. Each entry is (driven dimensions, taken dimensions, driven parameters, taken parameters)."""
+    rng = random.Random(8000 + c["seed"])
+    out = []
+    for k, dims in enumerate(runtime_sequence(c, n)):
+        edge = "high" if k == 0 else "low" if k == 1 else None
+        p = random_params(c, dims[2], rng, edge)
+        out.append((dims, dims, p, runtime_params_limit(c, dims[2], p)))
+    return out
+
+
+def runtime_params_queue_sequence(c):
+    """Images of the queue test with runtime parameters (TC-CO-61): the images of runtime_queue_sequence, each with
+    its own random runtime parameters."""
+    rng = random.Random(8500 + c["seed"])
+    out = []
+    for driven, taken in runtime_queue_sequence(c):
+        p = random_params(c, taken[2], rng)
+        out.append((driven, taken, p, runtime_params_limit(c, taken[2], p)))
+    return out
+
+
+def runtime_params_range_sequence(c):
+    """Images of the range test of the runtime parameters (TC-CO-60): parameters outside their ranges alone and
+    together, between images with valid values, among them M above the NZ of an image whose NZ is limited itself.
+    Each entry is (driven dimensions, taken dimensions, driven parameters, taken parameters)."""
+    use = params_in_use(c)
+    mx, my, mz = c["large_n_x"], c["large_n_y"], c["large_n_z"]
+    fid = c["quantizer_fidelity_control_method"]
+    a_ok = 1 if fid in (1, 3) else 0
+    r_ok = 1 if fid in (2, 3) else 0
+    ok_dims = (min(3, mx), min(2, my), mz, a_ok, r_ok)
+    rng = random.Random(8800 + c["seed"])
+    ok = random_params(c, mz, rng)
+    names = PARAM_NAMES
+
+    def with_(base, **kw):
+        v = dict(zip(names, base))
+        v.update(kw)
+        return tuple(v[n] for n in names)
+
+    g0hi = min(8, c["gamma_star"] - 1)
+    cases = [with_(ok, tinc=3), with_(ok, tinc=12), with_(ok, tinc=15, vmin=-7, vmax=10), with_(ok, tinc=0),
+             with_(ok, vmin=10, vmax=-16), with_(ok, vmin=-16, vmax=-7), with_(ok, vmin=5, vmax=4)]
+    if use["adp"]:
+        cases += [with_(ok, umax=7), with_(ok, umax=33), with_(ok, umax=63), with_(ok, g0=0),
+                  with_(ok, g0=9), with_(ok, g0=15, gstar=15), with_(ok, g0=g0hi, gstar=g0hi),
+                  with_(ok, gstar=3), with_(ok, gstar=c["gamma_star"] + 1), with_(ok, g0=0, gstar=0, umax=0)]
+        if g0_min(c) > 1:
+            cases.append(with_(ok, g0=g0_min(c) - 1))
+    if use["k"]:
+        cases += [with_(ok, k=min(c["large_d"] - 2, 14) + 1), with_(ok, k=15)]
+    if use["r"]:
+        cases += [with_(ok, r=0), with_(ok, r=c["r"] + 1), with_(ok, r=(1 << 13) - 1)]
+    driven = []
+    for p in cases:
+        driven += [(ok_dims, ok), (ok_dims, p)]
+    if use["m"]:
+        driven += [(ok_dims, ok), (ok_dims, with_(ok, m=0)), (ok_dims, with_(ok, m=c["large_m"] + 1)),
+                   (ok_dims, with_(ok, m=(1 << 17) - 1)), ((ok_dims[0], ok_dims[1], 1) + ok_dims[3:], with_(ok, m=2)),
+                   ((ok_dims[0], ok_dims[1], mz + 5) + ok_dims[3:], with_(ok, m=mz + 1)),
+                   ((ok_dims[0], ok_dims[1], 0) + ok_dims[3:], with_(ok, m=3))]
+    driven.append((ok_dims, ok))
+    out = []
+    for dims, p in driven:
+        taken = runtime_limit(c, *dims)
+        out.append((dims, taken, p, runtime_params_limit(c, taken[2], p)))
+    return out
 
 
 # ------------------------------------------------------------------------------------------------

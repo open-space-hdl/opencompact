@@ -83,3 +83,32 @@ New registers (offsets for `ocp_regs.yml`; the existing registers keep their off
 
 GENERICS gets the field RUNTIME_CONFIG (bit 18, RO), and the ID the version 2 (0x4F435002). These registers rely on
 the TMR of the synthesis tool, like the counters.
+
+## 6. Runtime parameters (register map version 3)
+
+With `RuntimeParams_g` the runtime parameters join the three sets of section 5. The pending registers mirror the
+layout of the read-only registers that show the parameters, so software uses one field definition for both: SAMPLES
+and NEXT_SAMPLES, ORDER and NEXT_ORDER, and so on. The range check of a COMMIT covers the parameters of the options in
+use, the dependent ranges against the pending values they depend on, and the copy into the committed set takes the
+dimensions, the error limit values and the parameters in one clock cycle.
+
+| Set | Registers | Written by | Read by |
+| --- | --- | --- | --- |
+| Pending | NEXT_SAMPLES, NEXT_ORDER, NEXT_WEIGHTS, NEXT_ADAPTIVE, NEXT_BLOCK (RW) | Software | Software, the range check |
+| Committed | Outputs `Cfg_UserData`, `Cfg_M`, `Cfg_Weight*`, `Cfg_UnaryLimit`, `Cfg_InitCountExp`, `Cfg_RescaleSize`, `Cfg_AccuInit`, `Cfg_RefInterval` | A valid COMMIT, with the dimensions | The core at every image start |
+| Active | The parameter fields of SAMPLES, ORDER, WEIGHTS, ADAPTIVE, BLOCK (RO) | The core at every image start, after its range limitation (`Act_` inputs) | Software |
+
+New registers (draft for `ocp_regs.yml`; the registers of version 2 keep their offsets and fields):
+
+| Offset | Register | Fields (as in the read-only register of the same name without NEXT_) |
+| --- | --- | --- |
+| 0x07C | NEXT_SAMPLES | USER_DATA (bits 15:8, RW) |
+| 0x080 | NEXT_ORDER | SUB_FRAME_DEPTH (bits 24:8, RW; BI order only) |
+| 0x084 | NEXT_WEIGHTS | VMAX (bits 21:17, RW), VMIN (bits 16:12, RW), UPDATE_INTERVAL (bits 11:8, RW) |
+| 0x088 | NEXT_ADAPTIVE | ACCU_INIT (bits 19:16, RW; sample-adaptive coder), INITIAL_COUNT (bits 15:12, RW), RESCALE_SIZE (bits 11:8, RW), UNARY_LIMIT (bits 5:0, RW); zero with the block-adaptive coder |
+| 0x08C | NEXT_BLOCK | REF_INTERVAL (bits 20:8, RW); zero with the other coders |
+
+GENERICS gets the field RUNTIME_PARAMS (bit 19, RO), and the ID the version 3 (0x4F435003). The fields
+SAMPLES.USER_DATA, ORDER.SUB_FRAME_DEPTH, WEIGHTS.VMAX, VMIN and UPDATE_INTERVAL, ADAPTIVE.ACCU_INIT, INITIAL_COUNT,
+RESCALE_SIZE and UNARY_LIMIT and BLOCK.REF_INTERVAL read the `Act_` inputs with `RuntimeParams_g`. Like the
+registers of section 5 the new registers rely on the TMR of the synthesis tool.

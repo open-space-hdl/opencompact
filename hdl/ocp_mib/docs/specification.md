@@ -39,6 +39,15 @@ map](register_map.md) and the C header `sw/ocp_regs.h` from it.
 | MB-RC-04 | IMAGE_X, IMAGE_Y, IMAGE_Z, ORDER.SUB_FRAME_DEPTH and LIMITS shall read the values that the core took for the last image, from its `Act_` outputs (after a reset the values of MB-RC-01; values out of range taken as in CO-RC-07); GENERICS.RUNTIME_CONFIG shall read `RuntimeConfig_g`. | 5.3.2.2, 5.3.3.4 |
 | MB-RC-05 | With `RuntimeConfig_g` false NEXT_X to NEXT_LIMITS, CONTROL and STATUS shall read zero, writes to them shall have no effect, and LIMITS shall read the band-independent error limit values of the generics (zero for a method not in use or with band-dependent limits). | none |
 
+### 2.3a Runtime parameters
+
+| ID | Requirement | CCSDS |
+| --- | --- | --- |
+| MB-RP-01 | With `RuntimeParams_g` true the registers NEXT_SAMPLES, NEXT_ORDER, NEXT_WEIGHTS, NEXT_ADAPTIVE and NEXT_BLOCK shall hold the runtime parameters for the next images in the fields of the read-only registers SAMPLES, ORDER, WEIGHTS, ADAPTIVE and BLOCK, written and read back by software; after a reset they hold the values of the generics. Fields of options not in use shall read zero and ignore writes. | 4.10.2, 5.3.2.2, 5.3.3.2, 5.3.4 |
+| MB-RP-02 | A COMMIT (MB-RC-02) shall also check the runtime parameters of the options in use against the ranges of CO-RP-02, with the dependent ranges against the pending values they depend on (gamma\* against gamma0, vmax against vmin, M against NZ); valid values shall reach all configuration outputs of the core in the same clock cycle as the dimensions; any value out of range shall set STATUS.CFG_ERROR and leave every configuration output unchanged. | 4.10.2, 5.4.2.2.1, 5.4.3.2.2.2, 5.4.3.2.3.2, 5.4.3.2.3.3, 5.4.3.2.3.4, 5.4.3.3.3.2.2, 5.4.3.3.4.2, 5.4.3.3.4.5, 5.4.3.4.2.5 |
+| MB-RP-03 | With `RuntimeParams_g` true the fields of SAMPLES, ORDER, WEIGHTS, ADAPTIVE and BLOCK that hold runtime parameters shall read the values that the core took for the last image, from its `Act_` outputs; GENERICS.RUNTIME_PARAMS shall read `RuntimeParams_g`; the ID shall read version 3 (0x4F435003). | 5.3.2.2, 5.3.3.2, 5.3.4 |
+| MB-RP-04 | With `RuntimeParams_g` false NEXT_SAMPLES to NEXT_BLOCK shall read zero, writes to them shall have no effect, and SAMPLES, ORDER, WEIGHTS, ADAPTIVE and BLOCK shall read as with the runtime configuration alone. | none |
+
 ### 2.4 Register map generation
 
 | ID | Requirement | CCSDS |

@@ -22,7 +22,7 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | EC-SA-01 | The coder shall encode with length-limited GPO2 codewords with a unary length limit Umax from 8 to 32. | 5.4.3.2.2 |
-| EC-SA-02 | The coder shall keep an accumulator and a counter per band, initialised with the initial count exponent gamma0 from 1 to 8 and the accumulator initialisation constant K or the band-dependent values k''_z, and rescaled with the rescaling counter size gamma* from max(4, gamma0 + 1) to 11. | 5.4.3.2.3 |
+| EC-SA-02 | The coder shall keep an accumulator and a counter per band, initialised with the initial count exponent gamma0 from 1 to 8 and the accumulator initialisation constant K or the band-dependent values k''_z, and rescaled with the rescaling counter size gamma\* from max(4, gamma0 + 1) to 11. | 5.4.3.2.3 |
 | EC-SA-03 | The coder shall output the first mapped quantizer index of every band uncoded and select the code index of every other index from the statistics. | 5.4.3.2.4.2, 5.4.3.2.4.3 |
 
 ### 2.3 Hybrid coder (EC-2)
@@ -47,6 +47,8 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | EC-RC-01 | With `RuntimeConfig_g` true the sample-adaptive and the hybrid coder shall use the NZ of every image (up to `ZSize_g`) for their statistics, and the hybrid coder shall output the compressed image tail for the NZ bands of the image and treat an image with NX = NY = 1 as an image of one pixel per band. | 5.4.3.2.3, 5.4.3.3.4, 5.4.3.3.5.4 |
+| EC-RP-01 | With `RuntimeParams_g` true the sample-adaptive and the hybrid coder shall code every image with the unary length limit Umax, the initial count exponent gamma0 and the rescaling counter size gamma\* given with the configuration of the image (gamma\* up to `RescaleCounterSize_g`), the sample-adaptive coder also with the accumulator initialisation constant K. | 5.4.3.2.2.2, 5.4.3.2.3.2, 5.4.3.2.3.3, 5.4.3.2.3.4, 5.4.3.3.3.2.2, 5.4.3.3.4.2, 5.4.3.3.4.5 |
+| EC-RP-02 | With `RuntimeParams_g` true the block-adaptive coder shall code every image with the reference sample interval r given with the configuration of the image (up to `RefInterval_g`). | 5.4.3.4.2.5 |
 
 ### 2.5 Fault tolerance
 
@@ -61,13 +63,14 @@ predictor and produces the codewords of the compressed image body; `ocp_core` in
 | --- | --- | --- | --- |
 | `ZSize_g`, `DynamicRange_g` | all | 1 to 65536, 2 to 32 | NZ, D |
 | `UnaryLimit_g` | EC-1, EC-2 | 8 to 32 | Umax |
-| `RescaleCounterSize_g`, `InitialCountExp_g` | EC-1, EC-2 | 4 to 11, 1 to 8 | gamma*, gamma0 |
+| `RescaleCounterSize_g`, `InitialCountExp_g` | EC-1, EC-2 | 4 to 11, 1 to 8 | gamma\*, gamma0 |
 | `AccuInitBandVarying_g`, `AccuInit_g` | EC-1 | 0 to min(D - 2, 14) | K (first element) or k''_z per band |
 | `HybridAccuInit_g` | EC-2 | 0 to 2^(D + gamma0) - 1 | Initial high-resolution accumulator per band |
 | `AbsBitDepth_g`, `RelBitDepth_g` | EC-1, EC-2 | 1 to 16 | DA, DR |
 | `BlockSize_g`, `RestrictedCodes_g`, `RefInterval_g` | EC-3 | 8, 16, 32, 64; D <= 4; 1 to 4096 | J, restricted code options, r |
 | `XSize_g`, `YSize_g` | EC-2 | | Image of one pixel per band: the final accumulators are the initial ones |
 | `RuntimeConfig_g` | EC-2 | | NZ of every image from the configuration of the image (`Cfg_ZSize`, EC-RC-01); `ZSize_g` sizes the statistics |
+| `RuntimeParams_g` | EC-1, EC-2, EC-3 | | The coder parameters of every image from the configuration of the image (EC-RP-01, EC-RP-02); `RescaleCounterSize_g` and `RefInterval_g` are then the maxima that size the accumulators, the counters and the reference sample counter |
 
 ## 4. Interpretation of the standard
 

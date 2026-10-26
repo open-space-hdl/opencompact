@@ -21,6 +21,7 @@ feature and a patch version for a fix.
   compressed images, the throughput and the registers of the GHDL netlist are those of version 0.2.0.
 - Register map version 3 (ID 0x4F435003): NEXT_SAMPLES to NEXT_BLOCK, GENERICS.RUNTIME_PARAMS; with the runtime
   parameters the parameter fields of SAMPLES, ORDER, WEIGHTS, ADAPTIVE and BLOCK show the values of the last image.
+- `lint/xsim_smoke.py` also elaborates and simulates the runtime parameter configurations (167 top levels).
 
 ## [0.2.0] - 2026-10-25
 

@@ -35,7 +35,10 @@
 --   as the nearest valid values (CO-RC-07)
 -- * test_runtime_queue: the images of queue.txt (the smallest images first) with Out_Ready held low
 --   until the core holds back a sample for 1000 clock cycles (the configuration queue full), then
---   released; every image is compared, at least 16 images were taken before the stall
+--   released; every image is compared, at least 16 images were taken before the stall; with
+--   QueueHoldBytes_g (queuehold.txt) Out_Ready is held low only after the header and some bytes of the
+--   body of a larger first image, so that the coder still takes items of that image while the header
+--   pointer of the queue has passed it
 --
 -- With RuntimeParams_g every image of the lists also has its own runtime parameters: the parameter
 -- inputs carry them with the configuration, the Act_ outputs of the parameters show the values taken
@@ -109,6 +112,8 @@ entity ocp_core_tb is
         RtImages_g             : natural  := 0;
         -- Runtime parameters: the lines of the image list also hold the driven and the taken parameters
         RuntimeParams_g        : boolean  := false;
+        -- Queue test: the output is held low after this many bytes of the first image (0: from the start)
+        QueueHoldBytes_g       : natural  := 0;
         -- Configuration
         XSize_g                : positive := 8;
         YSize_g                : positive := 8;
@@ -1290,8 +1295,9 @@ begin
 
             loop
 
-                -- Queue test: no word is taken until the core holds back a sample
-                while QueueTest and not QueueRelease and Rst = '0' loop
+                -- Queue test: no word is taken until the core holds back a sample (with QueueHoldBytes_g from that
+                -- byte of the first image on)
+                while QueueTest and not QueueRelease and Rst = '0' and (img > 1 or Cnt_v >= QueueHoldBytes_g) loop
                     Out_Ready <= '0';
                     wait until rising_edge(Clk);
                 end loop;

@@ -200,6 +200,11 @@ def configure(lib):
         add(rng, name, dict(gen, RtList_g="range", RtImages_g=len(lines)))
         if name in ocp_configs.RUNTIME_PARAMS_QUEUE:
             add(queue, name, dict(runtime_generics(name, cfg, "queue"), RuntimeParams_g=True))
+        # The output held after the header and some body bytes of a larger first image: the queue fills behind the
+        # read pointer of the sample-adaptive or the block-adaptive coder while the header pointer has passed it
+        if name in ocp_configs.RUNTIME_PARAMS_QUEUE_HOLD:
+            gen = dict(runtime_generics(name, cfg, "queuehold"), RuntimeParams_g=True)
+            add(queue, name + "_hold", dict(gen, QueueHoldBytes_g=gen["HeaderBytes_g"] + ocp_configs.QUEUE_HOLD_BODY))
 
     framing = tb.test("test_framing")
     for name, width, bp in FRAMING:

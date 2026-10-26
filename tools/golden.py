@@ -411,6 +411,12 @@ def write_runtime_params(name, c):
         jobs.append(("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
                      ocp_configs.runtime_params_queue_sequence(c)))
     write_jobs(name, c, out, jobs)
+    # Queue test with the output held after the header of the first image (queuehold.txt, queuehold_image_<k>.raw,
+    # queuehold_<k>.bin), images of QUEUE_HOLD_IMAGE
+    if name in ocp_configs.RUNTIME_PARAMS_QUEUE_HOLD:
+        write_jobs(name, dict(c, image=ocp_configs.QUEUE_HOLD_IMAGE), out,
+                   [("queuehold", "queuehold_image_{:02d}.raw", "queuehold_{:02d}.bin", False, 300,
+                     ocp_configs.runtime_params_queue_hold_sequence(name, c))])
 
 
 def write_queue_only(name, c):

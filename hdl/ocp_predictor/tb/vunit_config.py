@@ -125,6 +125,9 @@ def configure(lib):
     for name, cfg in ocp_configs.RUNTIME_PARAMS.items():
         if cfg["sample_encoding_order"] == 0:
             add_start(sweep, name, cfg, runtime_m=True)
+    # Every M of an image in lossless BI order with prediction bands (no dependency on the sample representatives of
+    # the previous band): the distance of the local differences of the previous sub-frame decides with M < NZ
+    add_start(sweep, "c01_lossless_bip_runtime_m", ocp_configs.ALL["c01_lossless_bip"], runtime_m=True)
     for name in START:
         add_start(sweep, name, ocp_configs.ALL[name])
     # No prediction bands (P = 0): the distance of the local differences of the band before does not apply

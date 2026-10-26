@@ -675,12 +675,21 @@ RUNTIME_PARAMS = {
     # BI with M up to NZ, hybrid coder; an initial accumulator of 2^15 or more raises the smallest gamma0 to 2
     "rp02_bi_mnz_hybrid": dict(RUNTIME["rc02_bi_mnz_hybrid_abs"], gamma_star=11, seed=112,
                                hybrid_initial_accumulator=[30, 45, 60, 75, 90, 105, 120, 135, 150, 40000]),
-    # BSQ, block-adaptive coder with r up to 4096
-    "rp03_bsq_block": dict(RUNTIME["rc03_bsq_block_rel"], r=4096, seed=113),
+    # BSQ, block-adaptive coder with r up to 4096; constant bands give runs of all-zeros blocks, which end at the
+    # reference sample interval
+    "rp03_bsq_block": dict(RUNTIME["rc03_bsq_block_rel"], r=4096, seed=113, image="constant"),
 }
 # Runtime parameter configurations of the queue test (TC-CO-61): the read pointer of the hybrid coder (its tail) and
 # that of the sample-adaptive and the block-adaptive coder
 RUNTIME_PARAMS_QUEUE = list(RUNTIME_PARAMS)
+# Queue test with the output held only after the header and some bytes of the body of a first image of these
+# dimensions (TC-CO-61): the coder still takes items of that image while the header pointer has passed it, so the
+# queue fills behind the read pointer of the sample-adaptive or the block-adaptive coder; the image type of the
+# first image (noise: long codewords, the coder stalls within the image)
+RUNTIME_PARAMS_QUEUE_HOLD = {"rp01_bi_m4_sample": (8, 4, 3), "rp03_bsq_block": (10, 6, 2)}
+QUEUE_HOLD_IMAGE = "noise"
+# Bytes of the body of the first image that the output takes before it is held
+QUEUE_HOLD_BODY = 16
 
 # Runtime parameters in the order of the lines of the image lists (driven, then taken)
 PARAM_NAMES = ["user", "m", "tinc", "vmin", "vmax", "umax", "g0", "gstar", "k", "r"]
@@ -752,16 +761,19 @@ def runtime_params_limit(c, nz, p):
     return tuple(out[n] for n in PARAM_NAMES)
 
 
-def random_params(c, nz, rng, edge=None):
+def random_params(c, nz, rng, edge=None, blocks=None):
     """Valid runtime parameters for an image with nz bands: random, or with edge "low" or "high" every parameter at
     the bound of its range (the dependent ones against the value they depend on); random values on the inputs of the
-    parameters not in use (ignored by the core)."""
+    parameters not in use (ignored by the core). With blocks (the blocks of the image, block-adaptive coder) r is
+    drawn up to twice that number in half the images, so that the reference sample interval ends within the image."""
     b = param_bounds(c, nz)
     v = {}
     for n in ["user", "m", "tinc", "vmin", "umax", "g0", "k", "r"]:
         if n not in b:
             continue
         lo, hi = b[n]
+        if n == "r" and blocks and edge is None and rng.random() < 0.5:
+            hi = min(hi, 2 * blocks)
         v[n] = lo if edge == "low" else hi if edge == "high" else rng.randint(lo, hi)
     vlo = v["vmin"]
     v["vmax"] = vlo if edge == "low" else 9 if edge == "high" else rng.randint(vlo, 9)
@@ -784,8 +796,47 @@ def runtime_params_sequence(c, n=RUNTIME_IMAGES):
     out = []
     for k, dims in enumerate(runtime_sequence(c, n)):
         edge = "high" if k == 0 else "low" if k == 1 else None
-        p = random_params(c, dims[2], rng, edge)
+        p = random_params(c, dims[2], rng, edge, image_blocks(c, dims))
         out.append((dims, dims, p, runtime_params_limit(c, dims[2], p)))
+    # A last image of the maximum dimensions with log2 t_inc 4 and vmin = vmax = -6: the weight update scaling
+    # exponent reaches vmax from t = NX + 16 on (the clip of CCSDS 4.10.2 at the vmax of the image); r = 2
+    mx, my, mz = c["large_n_x"], c["large_n_y"], c["large_n_z"]
+    fid = c["quantizer_fidelity_control_method"]
+    dims = runtime_limit(c, mx, my, mz, 1 if fid in (1, 3) else 0, 1 if fid in (2, 3) else 0)
+    v = dict(zip(PARAM_NAMES, random_params(c, mz, rng)))
+    v.update(tinc=4, vmin=-6, vmax=-6)
+    if params_in_use(c)["r"]:
+        v["r"] = 2
+    p = tuple(v[n] for n in PARAM_NAMES)
+    out.append((dims, dims, p, runtime_params_limit(c, dims[2], p)))
+    return out
+
+
+def image_blocks(c, dims):
+    """Blocks of an image of the block-adaptive coder (None with the other coders)."""
+    if c["entropy_coder_type"] != 2:
+        return None
+    return -(-(dims[0] * dims[1] * dims[2]) // c["large_j"])
+
+
+def runtime_params_queue_hold_sequence(name, c):
+    """Images of the queue test with the output held after the header of the first image (TC-CO-61): a first image of
+    the dimensions of RUNTIME_PARAMS_QUEUE_HOLD[name], then QUEUE_SMALL images of the smallest size, each with its own
+    random runtime parameters. Each entry is (driven dimensions, taken dimensions, driven parameters, taken
+    parameters)."""
+    rng = random.Random(8700 + c["seed"])
+    fid = c["quantizer_fidelity_control_method"]
+    xmin = 1 if width_one_allowed(c) else 2
+    amax = (1 << c["large_d_large_a"]) - 1 if fid in (1, 3) else 0
+    rmax = (1 << c["large_d_large_r"]) - 1 if fid in (2, 3) else 0
+    nx, ny, nz = RUNTIME_PARAMS_QUEUE_HOLD[name]
+    seq = [(nx, ny, nz, amax, rmax)]
+    seq += [(xmin, 1, 1, rng.randint(0, amax), rng.randint(0, rmax)) for _ in range(QUEUE_SMALL)]
+    out = []
+    for d in seq:
+        taken = runtime_limit(c, *d)
+        p = random_params(c, taken[2], rng, blocks=image_blocks(c, taken))
+        out.append((d, taken, p, runtime_params_limit(c, taken[2], p)))
     return out
 
 

@@ -322,16 +322,17 @@ statements of every source file with their operators.
 
 | Configuration | Register bits (0.2.0, this version) | Statements | Difference |
 | --- | --- | --- | --- |
-| rc01_bi_m1_sample | 29793, 29793 | 35352, 35374 | 22 constant wires in `ocp_core` |
-| rc02_bi_mnz_hybrid_abs | 71064, 71064 | 39501, 39522 | 21 constant wires in `ocp_core` |
-| rc03_bsq_block_rel | 59945, 59945 | 34230, 34249 | 19 constant wires in `ocp_core` |
-| rc04_bi_m4_sample_both | 71535, 71535 | 44329, 44351 | 22 constant wires in `ocp_core` |
-| rc05_bsq_column_hybrid | 30081, 30081 | 27069, 27090 | 21 constant wires in `ocp_core` |
+| rc01_bi_m1_sample | 29793, 29793 | 35352, 35382 | 30 constant wires in `ocp_core` |
+| rc02_bi_mnz_hybrid_abs | 71064, 71064 | 39501, 39529 | 28 constant wires in `ocp_core` |
+| rc03_bsq_block_rel | 59945, 59945 | 34230, 34254 | 24 constant wires in `ocp_core` |
+| rc04_bi_m4_sample_both | 71535, 71535 | 44329, 44359 | 30 constant wires in `ocp_core` |
+| rc05_bsq_column_hybrid | 30081, 30081 | 27069, 27097 | 28 constant wires in `ocp_core` |
 
 The register bits are equal, and no source file has a different number of operators. The additional statements are
 slices of constant signals: the runtime parameters of the generics (and the entry of a queue without parameter
 fields) on the new inputs of the predictor, the header generator and the entropy coder, which these units do not read
-with the generic false, and one truncation of the constant read pointer of the coders. They carry no logic.
+with the generic false, the named signals that carry them to these inputs, and one truncation of the constant read
+pointer of the coders. They carry no logic.
 
 ## 8. Mutations of the runtime parameters
 

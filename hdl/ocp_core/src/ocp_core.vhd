@@ -498,6 +498,21 @@ architecture rtl of ocp_core is
     attribute ramstyle of PQueue     : signal is "logic";
     attribute syn_ramstyle of PQueue : signal is "registers";
 
+    -- Runtime parameters on the ports of the predictor (the limited values of the next image), of the sample-adaptive
+    -- and the block-adaptive coder (the entry at their read pointer) and of the hybrid coder (the entry of its image)
+    signal PredM      : std_logic_vector(16 downto 0);
+    signal PredTInc   : std_logic_vector(3 downto 0);
+    signal PredVmin   : std_logic_vector(4 downto 0);
+    signal PredVmax   : std_logic_vector(4 downto 0);
+    signal CoderUmax  : std_logic_vector(5 downto 0);
+    signal CoderG0    : std_logic_vector(3 downto 0);
+    signal CoderGStar : std_logic_vector(3 downto 0);
+    signal CoderK     : std_logic_vector(3 downto 0);
+    signal CoderR     : std_logic_vector(12 downto 0);
+    signal HybUmax    : std_logic_vector(5 downto 0);
+    signal HybG0      : std_logic_vector(3 downto 0);
+    signal HybGStar   : std_logic_vector(3 downto 0);
+
 begin
 
     assert OutWidth_g = 8 or OutWidth_g = 16 or OutWidth_g = 32 or OutWidth_g = 64
@@ -859,6 +874,20 @@ begin
         Act_RefInterval    <= (others => '0');
     end generate;
 
+    -- Runtime parameters on the ports of the units
+    PredM      <= std_logic_vector(to_unsigned(LimPar.M, 17));
+    PredTInc   <= std_logic_vector(to_unsigned(LimPar.TInc, 4));
+    PredVmin   <= std_logic_vector(to_signed(LimPar.Vmin, 5));
+    PredVmax   <= std_logic_vector(to_signed(LimPar.Vmax, 5));
+    CoderUmax  <= std_logic_vector(to_unsigned(HeadPE.Umax, 6));
+    CoderG0    <= std_logic_vector(to_unsigned(HeadPE.G0, 4));
+    CoderGStar <= std_logic_vector(to_unsigned(HeadPE.GStar, 4));
+    CoderK     <= std_logic_vector(to_unsigned(HeadPE.K, 4));
+    CoderR     <= std_logic_vector(to_unsigned(HeadPE.R, 13));
+    HybUmax    <= std_logic_vector(to_unsigned(HeadPC.Umax, 6));
+    HybG0      <= std_logic_vector(to_unsigned(HeadPC.G0, 4));
+    HybGStar   <= std_logic_vector(to_unsigned(HeadPC.GStar, 4));
+
     -----------------------------------------------------------------------------------------------
     -- Image framing
     -----------------------------------------------------------------------------------------------
@@ -1050,10 +1079,10 @@ begin
             Cfg_ZSize          => std_logic_vector(Lim.Z),
             Cfg_AbsLimit       => std_logic_vector(Lim.AbsL),
             Cfg_RelLimit       => std_logic_vector(Lim.RelL),
-            Cfg_M              => std_logic_vector(to_unsigned(LimPar.M, 17)),
-            Cfg_WeightInterval => std_logic_vector(to_unsigned(LimPar.TInc, 4)),
-            Cfg_WeightVmin     => std_logic_vector(to_signed(LimPar.Vmin, 5)),
-            Cfg_WeightVmax     => std_logic_vector(to_signed(LimPar.Vmax, 5)),
+            Cfg_M              => PredM,
+            Cfg_WeightInterval => PredTInc,
+            Cfg_WeightVmin     => PredVmin,
+            Cfg_WeightVmax     => PredVmax,
             Cfg_Take           => Take,
             Img_Start          => ImgStart,
             Out_Valid          => Item_Valid,
@@ -1101,10 +1130,10 @@ begin
                 In_First        => Item_First,
                 In_Init         => Item_Init,
                 In_Last         => Item_Last,
-                In_UnaryLimit   => std_logic_vector(to_unsigned(HeadPE.Umax, 6)),
-                In_InitCountExp => std_logic_vector(to_unsigned(HeadPE.G0, 4)),
-                In_RescaleSize  => std_logic_vector(to_unsigned(HeadPE.GStar, 4)),
-                In_AccuInit     => std_logic_vector(to_unsigned(HeadPE.K, 4)),
+                In_UnaryLimit   => CoderUmax,
+                In_InitCountExp => CoderG0,
+                In_RescaleSize  => CoderGStar,
+                In_AccuInit     => CoderK,
                 Cw_Valid        => Cw_Valid,
                 Cw_Ready        => Cw_Ready,
                 Cw_Data         => Cw_Data,
@@ -1164,9 +1193,9 @@ begin
                 ErrInj_Buffer    => InjBuffer,
                 ErrInj_Double    => ErrInj_Double,
                 Cfg_ZSize        => std_logic_vector(HeadC.Z),
-                Cfg_UnaryLimit   => std_logic_vector(to_unsigned(HeadPC.Umax, 6)),
-                Cfg_InitCountExp => std_logic_vector(to_unsigned(HeadPC.G0, 4)),
-                Cfg_RescaleSize  => std_logic_vector(to_unsigned(HeadPC.GStar, 4)),
+                Cfg_UnaryLimit   => HybUmax,
+                Cfg_InitCountExp => HybG0,
+                Cfg_RescaleSize  => HybGStar,
                 Cfg_Done         => HybDone
             );
 
@@ -1190,7 +1219,7 @@ begin
                 In_Ready       => Item_Ready,
                 In_Data        => Item_Data,
                 In_Last        => Item_Last,
-                In_RefInterval => std_logic_vector(to_unsigned(HeadPE.R, 13)),
+                In_RefInterval => CoderR,
                 Cw_Valid       => Cw_Valid,
                 Cw_Ready       => Cw_Ready,
                 Cw_Data        => Cw_Data,

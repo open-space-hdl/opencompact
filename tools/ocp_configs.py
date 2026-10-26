@@ -686,7 +686,7 @@ RUNTIME_PARAMS_QUEUE = list(RUNTIME_PARAMS)
 # dimensions (TC-CO-61): the coder still takes items of that image while the header pointer has passed it, so the
 # queue fills behind the read pointer of the sample-adaptive or the block-adaptive coder; the image type of the
 # first image (noise: long codewords, the coder stalls within the image)
-RUNTIME_PARAMS_QUEUE_HOLD = {"rp01_bi_m4_sample": (8, 4, 3), "rp03_bsq_block": (10, 6, 2)}
+RUNTIME_PARAMS_QUEUE_HOLD = {"rp01_bi_m4_sample": (16, 8, 1), "rp03_bsq_block": (10, 8, 2)}
 QUEUE_HOLD_IMAGE = "noise"
 # Bytes of the body of the first image that the output takes before it is held
 QUEUE_HOLD_BODY = 16

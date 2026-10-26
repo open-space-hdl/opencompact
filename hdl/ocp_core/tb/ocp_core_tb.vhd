@@ -858,6 +858,11 @@ begin
                 check_value(QueueAtFirst, ERROR, "the sample held back was the first sample of an image");
                 check_value(QueueTakes >= 16, ERROR, "at least 16 images taken before the stall (" &
                             to_string(QueueTakes) & ")");
+                -- Output held after the header of the first image: the coder is still in that image, so its read
+                -- pointer limits the queue to 16 images
+                if QueueHoldBytes_g > 0 then
+                    check_value(QueueTakes, 16, ERROR, "16 images taken before the stall: the coder read pointer binds");
+                end if;
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
                 check_value(ErrCount, 0, ERROR, "no framing error");
                 checkIdle;

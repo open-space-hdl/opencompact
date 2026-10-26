@@ -3,7 +3,7 @@
 OpenCompact compresses multispectral and hyperspectral images according to CCSDS 123.0-B-2, Low-Complexity Lossless
 and Near-Lossless Multispectral and Hyperspectral Image Compression. This guide explains how to integrate the core:
 sources, generics, interfaces, operating sequence, protection scope, integration constraints, performance, the
-conformance statement and the corrected defects.
+conformance statement, the reference data, the decompression of compressed images and the corrected defects.
 
 ## 1. Sources
 
@@ -596,6 +596,10 @@ python tools/golden.py --aborted                                # aborted images
 The aborted images (`aborted_<n>.bin`, the image ended early on sample n) come from the reference model, which
 reproduces the CNES encoder for every complete image; the CNES software cannot produce them.
 
+`python tools/golden.py --decoded --cnes-bin /path/to/cnes/bin` writes the images that the CNES decoder reconstructs
+from the compressed images of the near-lossless configurations into `tools/tests/golden_decoded/`; the tests of the
+decoder of the reference model (`python -m pytest tools/tests`, section 11) compare its output with them.
+
 A new configuration is a new entry in `tools/ocp_configs.py`; the testbenches pick it up automatically. The random
 configurations `r01_random` to `r24_random` come from `random_config(seed)` in the same file: every parameter is drawn
 in the range of the standard, with a small test image.
@@ -610,7 +614,43 @@ python tools/ocp_testvectors.py /path/to/testdata --out /path/to/selection --cou
 OCP_TESTVECTORS=/path/to/selection python run.py -p 4
 ```
 
-## 11. Corrected defects
+## 11. Decompression
+
+The reference model has a decoder: `ocp_model.decompress()` in Python, without other software. It reads the header,
+decodes the body of each of the three entropy coders (the hybrid coder from the end of the compressed image, CCSDS
+5.4.3.3.1) and runs the predictor in the decompressor's direction. The decoded image holds the clipped quantizer bin
+centers (CCSDS 4.1, 4.8.2.1): the samples under lossless compression, values within the maximum error mz(t) of every
+sample under near-lossless compression. The CNES reference decoder reconstructs the same values.
+
+```python
+import ocp_model                                            # tools/ocp_model.py
+
+cfg, img, max_error = ocp_model.decompress(data, tables=channel_cfg)
+# cfg: the configuration of the header; img[z][y][x]: the decoded image; max_error[z][y][x]: mz(t)
+```
+
+- `data` is the compressed image, header and body. With the hybrid coder it must end with the compressed image, which
+  is decoded from its end; with the other coders bytes after it are ignored.
+- A table that the header leaves out (a table flag of '0': weight initialisation, weight exponent offsets, damping,
+  offset, accumulator initialisation) is taken from `tables`, a configuration dict such as the one given to
+  `ocp_model.compress()` (only its table entries are used), or from `optional_tables`, the bytes of the optional
+  tables file of the CNES software. With the runtime configuration these are the values of the generics for the
+  largest NZ; an image of NZ bands uses the first NZ of them (section 4.4).
+- Data that cannot be the compressed image of its header (it ends early, a codeword does not decode, the body does
+  not end where the header says, a table is missing) raises `ocp_model.DecodeError`.
+- `ocp_model.image_samples(cfg, img)` gives the samples in the input order of the compressor, the order of the raw
+  image files; `ocp_model.image_from_samples()` is its inverse.
+
+`tools/ocp_decompress.py` decodes a compressed image file, writes the decoded image in the format of the raw images
+of the testbenches (input order of the compressor, little-endian 8, 16 or 32-bit samples) and compares it with the
+original: identical under lossless compression, every sample within its maximum error under near-lossless
+compression (exit code 1 otherwise):
+
+```shell
+python tools/ocp_decompress.py compressed.bin -o decoded.raw --compare image.raw
+```
+
+## 12. Corrected defects
 
 | Defect | Affected | Effect | Correction |
 | --- | --- | --- | --- |

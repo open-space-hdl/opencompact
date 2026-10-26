@@ -46,7 +46,7 @@ of annex A of the standard.
 | Document | Content |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | Architecture: building blocks, owned clauses, Open Logic usage, verification |
-| [docs/user_guide.md](docs/user_guide.md) | Integration: sources, generics, interfaces, operating sequence, integration constraints, performance, conformance statement |
+| [docs/user_guide.md](docs/user_guide.md) | Integration: sources, generics, interfaces, operating sequence, integration constraints, performance, conformance statement, decompression |
 | [docs/conventions.md](docs/conventions.md) | Coding, verification and repository conventions |
 | [docs/roadmap.md](docs/roadmap.md) | Technology readiness, module status, open items |
 | [docs/compliance.md](docs/compliance.md) | Compliance matrix: requirements and test cases of every clause (generated) |
@@ -61,8 +61,9 @@ opencompact/
 |-- hdl/<module>/     One folder per module: src/, tb/, docs/
 |-- tb/               Shared verification package and the golden data (tb/golden/<configuration>/)
 |-- lint/             VSG configuration (Open Logic rules), synthesizability check
-|-- tools/            Reference model, configurations, golden data generator, table generator, compliance matrix,
-|                     synthesis scripts
+|-- tools/            Reference model and its decoder, configurations, golden data generator, table generator,
+|                     compliance matrix, synthesis scripts
+|   |-- tests/        Tests of the decoder of the reference model (pytest)
 |   `-- docs/         Documentation website (MkDocs)
 |-- open-logic/       Git submodule: Open Logic (fault-tolerant fork)
 |-- uvvm/             Git submodule: UVVM verification framework
@@ -101,7 +102,8 @@ python lint/lint.py                         # VSG, no errors and no warnings
 python lint/synth_check.py                  # GHDL synthesis: configurations, generic bounds, invalid values
 python tools/compliance.py --check          # traceability of every clause
 python tools/gen_low_entropy_pkg.py --check # low-entropy code tables up to date
-python tools/check_model_testvectors.py <dir>   # reference model against the CCSDS test data set
+python -m pytest tools/tests               # decoder of the reference model against the golden data
+python tools/check_model_testvectors.py <dir> --decode   # reference model and decoder on the CCSDS test data set
 python tools/ocp_throughput.py              # cycles per sample of every configuration
 python run.py --compile-order               # compile_order.txt; the CI fails when the file changes
 ```

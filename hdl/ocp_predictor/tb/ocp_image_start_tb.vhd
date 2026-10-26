@@ -12,7 +12,8 @@
 --   sub-frame interleaving depth, and M < NZ beyond it) and NY in {1, 2, 3, 64}, and for the
 --   points of Extra_g, the issue conditions of the sequencer equal those that the elaboration
 --   computes for constant dimensions (issueDist of ocp_pkg), and Done follows Start after
---   imageStartCycles clock cycles for every input
+--   imageStartCycles clock cycles for every input; with RuntimeM_g (runtime parameters) for every M
+--   from 1 to min(SubFrameDepth_g, NZ) on In_M, against issueDist with that M
 --
 -- Documentation: hdl/ocp_predictor/docs/verification_plan.md
 
@@ -52,7 +53,9 @@ entity ocp_image_start_tb is
         -- Sweep: NX from 1 to XMax_g, NZ from 1 to ZMax_g; further points NX, NY, NZ (in groups of three)
         XMax_g          : positive := 64;
         ZMax_g          : positive := 8;
-        Extra_g         : string   := "65536,65536,65536"
+        Extra_g         : string   := "65536,65536,65536";
+        -- M of every image from In_M (runtime parameters)
+        RuntimeM_g      : boolean  := false
     );
 end entity;
 
@@ -70,6 +73,7 @@ architecture sim of ocp_image_start_tb is
     signal In_XSize    : std_logic_vector(16 downto 0) := (others => '0');
     signal In_YSize    : std_logic_vector(16 downto 0) := (others => '0');
     signal In_ZSize    : std_logic_vector(16 downto 0) := (others => '0');
+    signal In_M        : std_logic_vector(16 downto 0) := (others => '0');
     signal Done        : std_logic;
     signal Out_M       : std_logic_vector(16 downto 0);
     signal Out_Gap1    : std_logic;
@@ -86,6 +90,7 @@ begin
         generic map (
             Bsq_g           => Bsq_g,
             SubFrameDepth_g => SubFrameDepth_g,
+            RuntimeM_g      => RuntimeM_g,
             PredBands_g     => PredBands_g,
             RepIsSample_g   => RepIsSample_g,
             WUsed_g         => WUsed_g,
@@ -101,6 +106,7 @@ begin
             In_XSize    => In_XSize,
             In_YSize    => In_YSize,
             In_ZSize    => In_ZSize,
+            In_M        => In_M,
             Done        => Done,
             Out_M       => Out_M,
             Out_Gap1    => Out_Gap1,
@@ -117,23 +123,26 @@ begin
     p_main : process is
         variable Points_v : natural := 0;
 
-        -- One image start: the results and the number of cycles against the elaboration function
-        procedure check (nx : positive; ny : positive; nz : positive) is
-            constant Exp_c  : IssueDist_r := issueDist(Bsq_g, SubFrameDepth_g, nx, ny, nz, PredBands_g,
+        -- One image start with the sub-frame interleaving depth sfd (with RuntimeM_g the M of the image on In_M):
+        -- the results and the number of cycles against the elaboration function
+        procedure check (nx : positive; ny : positive; nz : positive; sfd : positive := SubFrameDepth_g) is
+            constant Exp_c  : IssueDist_r := issueDist(Bsq_g, sfd, nx, ny, nz, PredBands_g,
                                                        RepIsSample_g, WUsed_g, CrossRep_g, LWin_g, LRep_g, LDw_g);
             constant What_c : string      := "NX " & to_string(nx) & ", NY " & to_string(ny) & ", NZ " &
-                                             to_string(nz) & ": ";
+                                             to_string(nz) & ", M " & to_string(minimum(sfd, nz)) & ": ";
             variable Cyc_v  : natural     := 0;
         begin
             In_XSize <= std_logic_vector(to_unsigned(nx, 17));
             In_YSize <= std_logic_vector(to_unsigned(ny, 17));
             In_ZSize <= std_logic_vector(to_unsigned(nz, 17));
+            In_M     <= std_logic_vector(to_unsigned(minimum(sfd, nz), 17));
             Start    <= '1';
             wait until rising_edge(Clk);
             Start    <= '0';
             -- Random inputs after Start: the sequencer uses the values taken with Start
             In_XSize <= std_logic_vector(to_unsigned(random(1, 65536), 17));
             In_ZSize <= std_logic_vector(to_unsigned(random(1, 65536), 17));
+            In_M     <= std_logic_vector(to_unsigned(random(1, 65536), 17));
 
             -- Cyc_v: the clock cycle after the cycle of Start whose values are read (the registered outputs
             -- change after the clock edge)
@@ -177,7 +186,16 @@ begin
                     for nz in 1 to ZMax_g loop
 
                         for nx in 1 to XMax_g loop
-                            check(nx, Ny_c(ny), nz);
+                            if RuntimeM_g then
+
+                                -- Every M of the image
+                                for m in 1 to minimum(SubFrameDepth_g, nz) loop
+                                    check(nx, Ny_c(ny), nz, m);
+                                end loop;
+
+                            else
+                                check(nx, Ny_c(ny), nz);
+                            end if;
                         end loop;
 
                     end loop;
@@ -187,6 +205,10 @@ begin
                 for i in 0 to Extra_c'length / 3 - 1 loop
                     check(Extra_c(Extra_c'low + 3 * i), Extra_c(Extra_c'low + 3 * i + 1),
                           Extra_c(Extra_c'low + 3 * i + 2));
+                    if RuntimeM_g then
+                        check(Extra_c(Extra_c'low + 3 * i), Extra_c(Extra_c'low + 3 * i + 1),
+                              Extra_c(Extra_c'low + 3 * i + 2), 1);
+                    end if;
                 end loop;
 
                 log(ID_SEQUENCER, to_string(Points_v) & " image starts checked");

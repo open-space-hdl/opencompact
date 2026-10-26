@@ -45,10 +45,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x0000000C",
@@ -109,10 +112,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -173,10 +179,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x0000000A",
@@ -237,10 +246,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "40,60,80,100,120,140,160,180",
+   "HybridAccuInitHigh_g": "0,0,0,0,0,0,0,0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -301,10 +313,13 @@
    "RelBandDependent_g": true,
    "RelBitDepth_g": 8,
    "RelErrorLimits_g": "16,32,64,8,0,128,24",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "64",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x0000000A",
@@ -365,10 +380,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 10,
    "RelErrorLimits_g": "40",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -429,10 +447,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x00000010",
@@ -493,10 +514,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000010",
@@ -557,10 +581,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x0000000C",
@@ -621,10 +648,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 6,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "100",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x0000000C",
@@ -685,10 +715,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x00000008",
@@ -749,10 +782,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000040",
@@ -813,10 +849,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000030",
    "IMAGE_Y": "0x00000020",
@@ -877,10 +916,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x00000008",
@@ -941,10 +983,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -1005,10 +1050,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x00000010",
@@ -1069,10 +1117,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000018",
@@ -1133,10 +1184,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -1197,10 +1251,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x00000010",
@@ -1261,10 +1318,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "2147483647,0,852516352,123456789,0,0",
+   "HybridAccuInitHigh_g": "3,2,1,0,0,1",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x0000000A",
@@ -1325,10 +1385,13 @@
    "RelBandDependent_g": true,
    "RelBitDepth_g": 7,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000014",
    "IMAGE_Y": "0x00000008",
@@ -1389,10 +1452,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0,17,300,5000,77,1",
+   "HybridAccuInitHigh_g": "0,0,0,0,0,0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000001",
@@ -1453,10 +1519,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -1517,10 +1586,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000018",
    "IMAGE_Y": "0x0000000C",
@@ -1581,10 +1653,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000020",
    "IMAGE_Y": "0x0000000C",
@@ -1645,10 +1720,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "300",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000008",
@@ -1709,10 +1787,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -1773,10 +1854,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000006",
@@ -1837,10 +1921,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x00000006",
@@ -1901,10 +1988,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 8,
    "RelErrorLimits_g": "30",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "500",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000A",
    "IMAGE_Y": "0x00000005",
@@ -1965,10 +2055,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000004",
@@ -2029,10 +2122,13 @@
    "RelBandDependent_g": true,
    "RelBitDepth_g": 5,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "50",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000004",
@@ -2093,10 +2189,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x00000004",
@@ -2157,10 +2256,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000008",
    "IMAGE_Y": "0x00000004",
@@ -2221,10 +2323,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000028",
    "IMAGE_Y": "0x00000004",
@@ -2285,10 +2390,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000040",
    "IMAGE_Y": "0x00000008",
@@ -2349,10 +2457,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x00000008",
    "IMAGE_Y": "0x00000004",
@@ -2413,10 +2524,13 @@
    "RelBandDependent_g": true,
    "RelBitDepth_g": 16,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000003",
@@ -2477,10 +2591,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 14,
    "RelErrorLimits_g": "7264",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "67108863,0,55858725,0,0,44653591,56654242,67108863,38139224,67023240,52795029,67108863,32580007,67108863",
+   "HybridAccuInitHigh_g": "0,0,0,0,0,0,0,0,0,0,0,0,0,0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000008",
    "IMAGE_Y": "0x00000002",
@@ -2541,10 +2658,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 8,
    "RelErrorLimits_g": "204",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "16320",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000A",
    "IMAGE_Y": "0x0000000B",
@@ -2605,10 +2725,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x00000015",
    "IMAGE_Y": "0x00000001",
@@ -2669,10 +2792,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "1",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x00000009",
@@ -2733,10 +2859,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0,0,127,127,0,127,0",
+   "HybridAccuInitHigh_g": "0,0,0,0,0,0,0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000005",
@@ -2797,10 +2926,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000004",
    "IMAGE_Y": "0x00000006",
@@ -2861,10 +2993,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "2147483647",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00032210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000002",
@@ -2925,10 +3060,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 6,
    "RelErrorLimits_g": "33",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x0000000E",
    "IMAGE_Y": "0x0000000D",
@@ -2989,10 +3127,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000D",
    "IMAGE_Y": "0x00000004",
@@ -3053,10 +3194,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x0000000D",
@@ -3117,10 +3261,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x00000004",
@@ -3181,10 +3328,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000017",
    "IMAGE_Y": "0x00000007",
@@ -3245,10 +3395,13 @@
    "RelBandDependent_g": true,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "1,1,1,1,1,1",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000017",
    "IMAGE_Y": "0x00000002",
@@ -3309,10 +3462,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "127,127",
+   "HybridAccuInitHigh_g": "0,0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000001",
    "IMAGE_Y": "0x00000001",
@@ -3373,10 +3529,13 @@
    "RelBandDependent_g": true,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0,0,1,0,1,0,1,1,0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000002",
    "IMAGE_Y": "0x00000002",
@@ -3437,10 +3596,13 @@
    "RelBandDependent_g": true,
    "RelBitDepth_g": 3,
    "RelErrorLimits_g": "0,4",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x0000000D",
@@ -3501,10 +3663,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000017",
    "IMAGE_Y": "0x00000010",
@@ -3565,10 +3730,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x0000000A",
    "IMAGE_Y": "0x00000001",
@@ -3629,10 +3797,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x00000003",
@@ -3693,10 +3864,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 7,
    "RelErrorLimits_g": "8",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000005",
    "IMAGE_Y": "0x0000000B",
@@ -3757,10 +3931,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "511,313,391,0,0,511,0,0,309,384,0,170,0,511,511",
+   "HybridAccuInitHigh_g": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000002",
    "IMAGE_Y": "0x00000001",
@@ -3821,10 +3998,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x00026210",
    "IMAGE_X": "0x00000006",
    "IMAGE_Y": "0x0000000B",
@@ -3885,10 +4065,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002A210",
    "IMAGE_X": "0x0000000B",
    "IMAGE_Y": "0x00000003",
@@ -3949,10 +4132,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": false
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": false,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0002E210",
    "IMAGE_X": "0x00000007",
    "IMAGE_Y": "0x00000006",
@@ -4013,10 +4199,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": true
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0006A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x0000000C",
@@ -4077,10 +4266,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": true
+   "HybridAccuInit_g": "30,45,60,75,90,105,120,135,150,165",
+   "HybridAccuInitHigh_g": "0,0,0,0,0,0,0,0,0,0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0006A210",
    "IMAGE_X": "0x0000000C",
    "IMAGE_Y": "0x00000008",
@@ -4141,10 +4333,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 8,
    "RelErrorLimits_g": "20",
-   "RuntimeConfig_g": true
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0006A210",
    "IMAGE_X": "0x0000000A",
    "IMAGE_Y": "0x0000000A",
@@ -4205,10 +4400,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 9,
    "RelErrorLimits_g": "64",
-   "RuntimeConfig_g": true
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0006A210",
    "IMAGE_X": "0x00000010",
    "IMAGE_Y": "0x00000008",
@@ -4269,10 +4467,13 @@
    "RelBandDependent_g": false,
    "RelBitDepth_g": 1,
    "RelErrorLimits_g": "0",
-   "RuntimeConfig_g": true
+   "HybridAccuInit_g": "20,40,60,80,100",
+   "HybridAccuInitHigh_g": "0,0,0,0,0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": false
   },
   "words": {
-   "ID": "0x4F435002",
+   "ID": "0x4F435003",
    "GENERICS": "0x0006A210",
    "IMAGE_X": "0x00000008",
    "IMAGE_Y": "0x00000008",
@@ -4285,6 +4486,207 @@
    "ADAPTIVE": "0x0000150E",
    "BLOCK": "0x00000000",
    "LIMITS": "0x00000000"
+  }
+ },
+ "rp01_bi_m4_sample": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 16,
+   "YSize_g": 8,
+   "ZSize_g": 12,
+   "DynamicRange_g": 16,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BI",
+   "SubFrameDepth_g": 4,
+   "OutputWordSize_g": 3,
+   "EntropyCoder_g": "SAMPLE_ADAPTIVE",
+   "Fidelity_g": "ABSOLUTE_RELATIVE",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 4,
+   "PredictionMode_g": "FULL",
+   "LocalSum_g": "WIDE_NEIGHBOR",
+   "RegisterSize_g": 48,
+   "SampleRepResolution_g": 0,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 13,
+   "WeightUpdateInterval_g": 6,
+   "WeightUpdateVmin_g": -1,
+   "WeightUpdateVmax_g": 3,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 16,
+   "RescaleCounterSize_g": 11,
+   "InitialCountExp_g": 1,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "4",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 5,
+   "AbsErrorLimits_g": "4",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 9,
+   "RelErrorLimits_g": "64",
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": true
+  },
+  "words": {
+   "ID": "0x4F435003",
+   "GENERICS": "0x000EA210",
+   "IMAGE_X": "0x00000010",
+   "IMAGE_Y": "0x00000008",
+   "IMAGE_Z": "0x0000000C",
+   "SAMPLES": "0x00000010",
+   "ORDER": "0x00000400",
+   "CODER": "0x000000C3",
+   "PREDICTOR": "0x00003004",
+   "WEIGHTS": "0x0007F60D",
+   "ADAPTIVE": "0x00041B10",
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00400004"
+  }
+ },
+ "rp02_bi_mnz_hybrid": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 12,
+   "YSize_g": 8,
+   "ZSize_g": 10,
+   "DynamicRange_g": 14,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BI",
+   "SubFrameDepth_g": 10,
+   "OutputWordSize_g": 4,
+   "EntropyCoder_g": "HYBRID",
+   "Fidelity_g": "ABSOLUTE",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 3,
+   "PredictionMode_g": "FULL",
+   "LocalSum_g": "WIDE_NEIGHBOR",
+   "RegisterSize_g": 48,
+   "SampleRepResolution_g": 2,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 14,
+   "WeightUpdateInterval_g": 6,
+   "WeightUpdateVmin_g": -1,
+   "WeightUpdateVmax_g": 3,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 18,
+   "RescaleCounterSize_g": 11,
+   "InitialCountExp_g": 2,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "3",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 6,
+   "AbsErrorLimits_g": "3",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 1,
+   "RelErrorLimits_g": "0",
+   "HybridAccuInit_g": "30,45,60,75,90,105,120,135,150,40000",
+   "HybridAccuInitHigh_g": "0,0,0,0,0,0,0,0,0,0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": true
+  },
+  "words": {
+   "ID": "0x4F435003",
+   "GENERICS": "0x000EA210",
+   "IMAGE_X": "0x0000000C",
+   "IMAGE_Y": "0x00000008",
+   "IMAGE_Z": "0x0000000A",
+   "SAMPLES": "0x0000000E",
+   "ORDER": "0x00000A00",
+   "CODER": "0x00000054",
+   "PREDICTOR": "0x00023003",
+   "WEIGHTS": "0x0007F60E",
+   "ADAPTIVE": "0x00002B12",
+   "BLOCK": "0x00000000",
+   "LIMITS": "0x00000003"
+  }
+ },
+ "rp03_bsq_block": {
+  "generics": {
+   "InStreamWidth_g": 128,
+   "OutStreamWidth_g": 128,
+   "OutWidth_g": 64,
+   "Speculation_g": true,
+   "XSize_g": 10,
+   "YSize_g": 10,
+   "ZSize_g": 6,
+   "DynamicRange_g": 16,
+   "SignedSamples_g": false,
+   "UserData_g": 0,
+   "EncodingOrder_g": "BSQ",
+   "SubFrameDepth_g": 1,
+   "OutputWordSize_g": 1,
+   "EntropyCoder_g": "BLOCK_ADAPTIVE",
+   "Fidelity_g": "RELATIVE",
+   "SupTableCount_g": 0,
+   "PredictionBands_g": 2,
+   "PredictionMode_g": "FULL",
+   "LocalSum_g": "NARROW_NEIGHBOR",
+   "RegisterSize_g": 40,
+   "SampleRepResolution_g": 0,
+   "PeriodicUpdate_g": false,
+   "UpdatePeriodExp_g": 0,
+   "WeightResolution_g": 12,
+   "WeightUpdateInterval_g": 5,
+   "WeightUpdateVmin_g": -2,
+   "WeightUpdateVmax_g": 4,
+   "WeightExpOffsetsUsed_g": false,
+   "CustomWeights_g": false,
+   "WeightInitResolution_g": 0,
+   "UnaryLimit_g": 16,
+   "RescaleCounterSize_g": 6,
+   "InitialCountExp_g": 1,
+   "AccuInitBandVarying_g": false,
+   "AccuInit_g": "3",
+   "BlockSize_g": 16,
+   "RestrictedCodes_g": false,
+   "RefInterval_g": 4096,
+   "AbsBandDependent_g": false,
+   "AbsBitDepth_g": 1,
+   "AbsErrorLimits_g": "0",
+   "RelBandDependent_g": false,
+   "RelBitDepth_g": 8,
+   "RelErrorLimits_g": "20",
+   "HybridAccuInit_g": "0",
+   "HybridAccuInitHigh_g": "0",
+   "RuntimeConfig_g": true,
+   "RuntimeParams_g": true
+  },
+  "words": {
+   "ID": "0x4F435003",
+   "GENERICS": "0x000EA210",
+   "IMAGE_X": "0x0000000A",
+   "IMAGE_Y": "0x0000000A",
+   "IMAGE_Z": "0x00000006",
+   "SAMPLES": "0x00000010",
+   "ORDER": "0x00000001",
+   "CODER": "0x000000A1",
+   "PREDICTOR": "0x00002822",
+   "WEIGHTS": "0x0009E50C",
+   "ADAPTIVE": "0x00000000",
+   "BLOCK": "0x00100010",
+   "LIMITS": "0x00140000"
   }
  }
 }

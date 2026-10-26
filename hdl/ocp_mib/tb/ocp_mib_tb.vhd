@@ -24,7 +24,15 @@
 --   leaves the outputs, a write of '1' clears CFG_ERROR
 -- * test_runtime_commit: the five configuration outputs change in the same clock cycle; COMMITs
 --   one clock cycle before, in and after a Cfg_Taken pulse: in the cycle of Cfg_Taken the outputs
---   carry the previous values, after the COMMIT in that cycle CFG_PENDING stays set
+--   carry the previous values, after the COMMIT in that cycle CFG_PENDING stays set; with
+--   RuntimeParams_g the parameter outputs change in the same clock cycle as well
+-- * test_runtime_params (RuntimeParams_g): reset values and readback of NEXT_SAMPLES to NEXT_BLOCK
+--   (fields of options not in use read zero); every parameter in use at the bounds of its range and
+--   one value beyond each, the dependent ranges against the pending values: a valid COMMIT reaches
+--   the outputs, an invalid one sets CFG_ERROR and leaves them; the parameter fields of SAMPLES to
+--   BLOCK read the Act_ inputs; GENERICS.RUNTIME_PARAMS and the ID of version 3
+-- * test_runtime_config without the runtime parameters also checks that NEXT_SAMPLES to NEXT_BLOCK
+--   read zero, ignore writes and that the Act_ inputs of the parameters change no register
 --
 -- Documentation: hdl/ocp_mib/docs/verification_plan.md
 
@@ -106,6 +114,9 @@ entity ocp_mib_tb is
         RelBitDepth_g          : positive := 1;
         RelErrorLimits_g       : string   := "0";
         RuntimeConfig_g        : boolean  := false;
+        RuntimeParams_g        : boolean  := false;
+        HybridAccuInit_g       : string   := "0";
+        HybridAccuInitHigh_g   : string   := "0";
         -- Expected LIMITS register (the error limit values of the generics)
         ExpLimits_g            : integer  := 0
     );
@@ -173,6 +184,75 @@ architecture sim of ocp_mib_tb is
     signal Act_AbsLimit : std_logic_vector(15 downto 0) := (others => '0');
     signal Act_RelLimit : std_logic_vector(15 downto 0) := (others => '0');
 
+    -- Runtime parameters: outputs of the MIB, the values of the core (driven by the testbench)
+    signal Cfg_UserData       : std_logic_vector(7 downto 0);
+    signal Cfg_M              : std_logic_vector(16 downto 0);
+    signal Cfg_WeightInterval : std_logic_vector(3 downto 0);
+    signal Cfg_WeightVmin     : std_logic_vector(4 downto 0);
+    signal Cfg_WeightVmax     : std_logic_vector(4 downto 0);
+    signal Cfg_UnaryLimit     : std_logic_vector(5 downto 0);
+    signal Cfg_InitCountExp   : std_logic_vector(3 downto 0);
+    signal Cfg_RescaleSize    : std_logic_vector(3 downto 0);
+    signal Cfg_AccuInit       : std_logic_vector(3 downto 0);
+    signal Cfg_RefInterval    : std_logic_vector(12 downto 0);
+    signal Act_UserData       : std_logic_vector(7 downto 0)  := (others => '0');
+    signal Act_M              : std_logic_vector(16 downto 0) := (others => '0');
+    signal Act_WeightInterval : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Act_WeightVmin     : std_logic_vector(4 downto 0)  := (others => '0');
+    signal Act_WeightVmax     : std_logic_vector(4 downto 0)  := (others => '0');
+    signal Act_UnaryLimit     : std_logic_vector(5 downto 0)  := (others => '0');
+    signal Act_InitCountExp   : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Act_RescaleSize    : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Act_AccuInit       : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Act_RefInterval    : std_logic_vector(12 downto 0) := (others => '0');
+
+    -- Runtime parameters in use (CO-RP-01)
+    constant Coder_c  : natural := entropyCoderCode(EntropyCoder_g);
+    constant UseM_c   : boolean := EncodingOrder_g = "BI";
+    constant UseAdp_c : boolean := Coder_c /= CoderBlock_c;
+    constant UseK_c   : boolean := Coder_c = CoderSample_c and not AccuInitBandVarying_g;
+    constant UseR_c   : boolean := Coder_c = CoderBlock_c;
+
+    -- All configuration outputs as one vector: X, Y, Z, absolute and relative limit (bits 152 to 70), then the
+    -- runtime parameters (bits 69 to 0)
+    signal CfgAll : std_logic_vector(152 downto 0);
+
+    type FieldArr_t is array (natural range <>) of integer_vector(0 to 2);
+
+    -- Fields of CfgAll: highest bit, lowest bit, in use
+    constant Fields_c : FieldArr_t(0 to 14) := (
+        (152, 136, 1), (135, 119, 1), (118, 102, 1), (101, 86, 1), (85, 70, 1),
+        (69, 62, toInt(RuntimeParams_g)), (61, 45, toInt(RuntimeParams_g and UseM_c)),
+        (44, 41, toInt(RuntimeParams_g)), (40, 36, toInt(RuntimeParams_g)), (35, 31, toInt(RuntimeParams_g)),
+        (30, 25, toInt(RuntimeParams_g and UseAdp_c)), (24, 21, toInt(RuntimeParams_g and UseAdp_c)),
+        (20, 17, toInt(RuntimeParams_g and UseAdp_c)), (16, 13, toInt(RuntimeParams_g and UseK_c)),
+        (12, 0, toInt(RuntimeParams_g and UseR_c)));
+
+    -- Number of fields in use and of fields in use that are equal in a and b
+    function fieldsInUse return natural is
+        variable N_v : natural := 0;
+    begin
+
+        for i in Fields_c'range loop
+            N_v := N_v + Fields_c(i)(2);
+        end loop;
+
+        return N_v;
+    end function;
+
+    function sameFields (a : std_logic_vector(152 downto 0); b : std_logic_vector(152 downto 0)) return natural is
+        variable N_v : natural := 0;
+    begin
+
+        for i in Fields_c'range loop
+            if Fields_c(i)(2) = 1 and a(Fields_c(i)(0) downto Fields_c(i)(1)) = b(Fields_c(i)(0) downto Fields_c(i)(1)) then
+                N_v := N_v + 1;
+            end if;
+        end loop;
+
+        return N_v;
+    end function;
+
     -- Cfg_Taken pulse TakeOfs cycles after the write cycle of the next write (TakeArm; negative: before
     -- it, with the write cycle measured as WrDelay cycles after AwValid rises); the outputs in the cycle
     -- of the pulse
@@ -180,7 +260,7 @@ architecture sim of ocp_mib_tb is
     signal TakeOfs  : integer := 0;
     signal WrDelay  : natural := 0;
     signal TakeCnt  : natural := 0;
-    signal TakeSeen : std_logic_vector(82 downto 0);
+    signal TakeSeen : std_logic_vector(152 downto 0);
 
     -- Atomicity (while AtomicOn, every COMMIT changes every field): number of clock cycles in which only some of
     -- the configuration outputs changed
@@ -203,6 +283,10 @@ begin
     i_ti_uvvm_engine : entity uvvm_vvc_framework.ti_uvvm_engine;
 
     Cfg_Taken <= TakeSeq or TakeTimed;
+
+    CfgAll <= cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit) & Cfg_UserData & Cfg_M &
+              Cfg_WeightInterval & Cfg_WeightVmin & Cfg_WeightVmax & Cfg_UnaryLimit & Cfg_InitCountExp &
+              Cfg_RescaleSize & Cfg_AccuInit & Cfg_RefInterval;
 
     Clk <= not Clk after ClkPeriod_c / 2;
 
@@ -252,45 +336,68 @@ begin
             RelBandDependent_g     => RelBandDependent_g,
             RelBitDepth_g          => RelBitDepth_g,
             RelErrorLimits_g       => parseIntVec(RelErrorLimits_g),
-            RuntimeConfig_g        => RuntimeConfig_g
+            HybridAccuInit_g       => parseIntVec(HybridAccuInit_g),
+            HybridAccuInitHigh_g   => parseIntVec(HybridAccuInitHigh_g),
+            RuntimeConfig_g        => RuntimeConfig_g,
+            RuntimeParams_g        => RuntimeParams_g
         )
         port map (
-            Clk               => Clk,
-            Rst               => Rst,
-            S_AxiLite_ArAddr  => ArAddr,
-            S_AxiLite_ArValid => ArValid,
-            S_AxiLite_ArReady => ArReady,
-            S_AxiLite_AwAddr  => AwAddr,
-            S_AxiLite_AwValid => AwValid,
-            S_AxiLite_AwReady => AwReady,
-            S_AxiLite_WData   => WData,
-            S_AxiLite_WStrb   => WStrb,
-            S_AxiLite_WValid  => WValid,
-            S_AxiLite_WReady  => WReady,
-            S_AxiLite_BResp   => BResp,
-            S_AxiLite_BValid  => BValid,
-            S_AxiLite_BReady  => BReady,
-            S_AxiLite_RData   => RData,
-            S_AxiLite_RResp   => RResp,
-            S_AxiLite_RValid  => RValid,
-            S_AxiLite_RReady  => RReady,
-            Ev_ImageDone      => Ev(0),
-            Ev_ImageAborted   => Ev(1),
-            Ev_SduError       => Ev(2),
-            Ev_SduDiscarded   => Ev(3),
-            Ecc_Sec           => Ev(4),
-            Ecc_Ded           => Ev(5),
-            Cfg_XSize         => Cfg_XSize,
-            Cfg_YSize         => Cfg_YSize,
-            Cfg_ZSize         => Cfg_ZSize,
-            Cfg_AbsLimit      => Cfg_AbsLimit,
-            Cfg_RelLimit      => Cfg_RelLimit,
-            Cfg_Taken         => Cfg_Taken,
-            Act_XSize         => Act_XSize,
-            Act_YSize         => Act_YSize,
-            Act_ZSize         => Act_ZSize,
-            Act_AbsLimit      => Act_AbsLimit,
-            Act_RelLimit      => Act_RelLimit
+            Clk                => Clk,
+            Rst                => Rst,
+            S_AxiLite_ArAddr   => ArAddr,
+            S_AxiLite_ArValid  => ArValid,
+            S_AxiLite_ArReady  => ArReady,
+            S_AxiLite_AwAddr   => AwAddr,
+            S_AxiLite_AwValid  => AwValid,
+            S_AxiLite_AwReady  => AwReady,
+            S_AxiLite_WData    => WData,
+            S_AxiLite_WStrb    => WStrb,
+            S_AxiLite_WValid   => WValid,
+            S_AxiLite_WReady   => WReady,
+            S_AxiLite_BResp    => BResp,
+            S_AxiLite_BValid   => BValid,
+            S_AxiLite_BReady   => BReady,
+            S_AxiLite_RData    => RData,
+            S_AxiLite_RResp    => RResp,
+            S_AxiLite_RValid   => RValid,
+            S_AxiLite_RReady   => RReady,
+            Ev_ImageDone       => Ev(0),
+            Ev_ImageAborted    => Ev(1),
+            Ev_SduError        => Ev(2),
+            Ev_SduDiscarded    => Ev(3),
+            Ecc_Sec            => Ev(4),
+            Ecc_Ded            => Ev(5),
+            Cfg_XSize          => Cfg_XSize,
+            Cfg_YSize          => Cfg_YSize,
+            Cfg_ZSize          => Cfg_ZSize,
+            Cfg_AbsLimit       => Cfg_AbsLimit,
+            Cfg_RelLimit       => Cfg_RelLimit,
+            Cfg_Taken          => Cfg_Taken,
+            Act_XSize          => Act_XSize,
+            Act_YSize          => Act_YSize,
+            Act_ZSize          => Act_ZSize,
+            Act_AbsLimit       => Act_AbsLimit,
+            Act_RelLimit       => Act_RelLimit,
+            Cfg_UserData       => Cfg_UserData,
+            Cfg_M              => Cfg_M,
+            Cfg_WeightInterval => Cfg_WeightInterval,
+            Cfg_WeightVmin     => Cfg_WeightVmin,
+            Cfg_WeightVmax     => Cfg_WeightVmax,
+            Cfg_UnaryLimit     => Cfg_UnaryLimit,
+            Cfg_InitCountExp   => Cfg_InitCountExp,
+            Cfg_RescaleSize    => Cfg_RescaleSize,
+            Cfg_AccuInit       => Cfg_AccuInit,
+            Cfg_RefInterval    => Cfg_RefInterval,
+            Act_UserData       => Act_UserData,
+            Act_M              => Act_M,
+            Act_WeightInterval => Act_WeightInterval,
+            Act_WeightVmin     => Act_WeightVmin,
+            Act_WeightVmax     => Act_WeightVmax,
+            Act_UnaryLimit     => Act_UnaryLimit,
+            Act_InitCountExp   => Act_InitCountExp,
+            Act_RescaleSize    => Act_RescaleSize,
+            Act_AccuInit       => Act_AccuInit,
+            Act_RefInterval    => Act_RefInterval
         );
 
     i_axi : entity work.ocp_tb_axilite_master
@@ -406,6 +513,113 @@ begin
             return std_logic_vector(to_unsigned(r, 16)) & std_logic_vector(to_unsigned(a, 16));
         end function;
 
+        -- Valid runtime parameters of the COMMIT x of the commit test (x = 2, 3, 4 and NZ = x): every field
+        -- differs from the reset values of the configurations of the test and from the parameters of x - 1
+        function parCommit (x : natural) return integer_vector is
+        begin
+            return (x, 1 + x mod 2, 6 + x, x - 6, x, 8 + x, 2 + x mod 2, 5 + x, x, x);
+        end function;
+
+        -- Runtime parameters (order of the lists: user-defined data, M, log2 t_inc, vmin, vmax, Umax,
+        -- gamma0, gamma*, K, r): the pending registers, their masks of the fields in use, the read-only
+        -- registers of the same layout
+        type RegArr_t is array (0 to 4) of natural;
+
+        constant NextReg_c : RegArr_t := (RegNextSamples_c, RegNextOrder_c, RegNextWeights_c, RegNextAdaptive_c,
+                                          RegNextBlock_c);
+        constant RoReg_c   : RegArr_t := (RegSamples_c, RegOrder_c, RegWeights_c, RegAdaptive_c, RegBlock_c);
+
+        function parMask (i : natural) return std_logic_vector is
+            variable M_v : std_logic_vector(31 downto 0) := (others => '0');
+        begin
+
+            case i is
+                when 0 => M_v := x"0000FF00";
+                when 1 =>
+                    if UseM_c then
+                        M_v := x"01FFFF00";
+                    end if;
+                when 2 => M_v := x"003FFF00";
+                when 3 =>
+                    if UseAdp_c then
+                        M_v := x"0000FF3F";
+                    end if;
+                    if UseK_c then
+                        M_v := M_v or x"000F0000";
+                    end if;
+                when others =>
+                    if UseR_c then
+                        M_v := x"001FFF00";
+                    end if;
+            end case;
+
+            return M_v;
+        end function;
+
+        -- Word of pending register i for the parameter values p (all fields, before the mask)
+        function parWord (i : natural; p : integer_vector(0 to 9)) return std_logic_vector is
+            variable W_v : std_logic_vector(31 downto 0) := (others => '0');
+        begin
+
+            case i is
+                when 0 => W_v(15 downto 8) := std_logic_vector(to_unsigned(p(0), 8));
+                when 1 => W_v(24 downto 8) := std_logic_vector(to_unsigned(p(1), 17));
+                when 2 =>
+                    W_v(21 downto 17) := std_logic_vector(to_signed(p(4), 5));
+                    W_v(16 downto 12) := std_logic_vector(to_signed(p(3), 5));
+                    W_v(11 downto 8)  := std_logic_vector(to_unsigned(p(2), 4));
+                when 3 =>
+                    W_v(19 downto 16) := std_logic_vector(to_unsigned(p(8), 4));
+                    W_v(15 downto 12) := std_logic_vector(to_unsigned(p(6), 4));
+                    W_v(11 downto 8)  := std_logic_vector(to_unsigned(p(7), 4));
+                    W_v(5 downto 0)   := std_logic_vector(to_unsigned(p(5), 6));
+                when others => W_v(20 downto 8) := std_logic_vector(to_unsigned(p(9), 13));
+            end case;
+
+            return W_v;
+        end function;
+
+        procedure setPar (p : integer_vector(0 to 9)) is
+        begin
+
+            for i in 0 to 4 loop
+                wr(NextReg_c(i), parWord(i, p));
+            end loop;
+
+        end procedure;
+
+        -- The parameter outputs equal p in the fields in use, zero otherwise
+        procedure chkParOut (p : integer_vector(0 to 9); msg : string) is
+            variable Q_v : integer_vector(0 to 9) := p;
+        begin
+            if not UseM_c then
+                Q_v(1) := 0;
+            end if;
+            if not UseAdp_c then
+                Q_v(5 to 7) := (0,
+                                0,
+                                0);
+            end if;
+            if not UseK_c then
+                Q_v(8) := 0;
+            end if;
+            if not UseR_c then
+                Q_v(9) := 0;
+            end if;
+            await_completion(AXILITE_VVCT, Axi_c, 10 us, "parameter outputs");
+            syncClk;
+            check_value(to_integer(unsigned(Cfg_UserData)), Q_v(0), ERROR, msg & ": Cfg_UserData");
+            check_value(to_integer(unsigned(Cfg_M)), Q_v(1), ERROR, msg & ": Cfg_M");
+            check_value(to_integer(unsigned(Cfg_WeightInterval)), Q_v(2), ERROR, msg & ": Cfg_WeightInterval");
+            check_value(to_integer(signed(Cfg_WeightVmin)), Q_v(3), ERROR, msg & ": Cfg_WeightVmin");
+            check_value(to_integer(signed(Cfg_WeightVmax)), Q_v(4), ERROR, msg & ": Cfg_WeightVmax");
+            check_value(to_integer(unsigned(Cfg_UnaryLimit)), Q_v(5), ERROR, msg & ": Cfg_UnaryLimit");
+            check_value(to_integer(unsigned(Cfg_InitCountExp)), Q_v(6), ERROR, msg & ": Cfg_InitCountExp");
+            check_value(to_integer(unsigned(Cfg_RescaleSize)), Q_v(7), ERROR, msg & ": Cfg_RescaleSize");
+            check_value(to_integer(unsigned(Cfg_AccuInit)), Q_v(8), ERROR, msg & ": Cfg_AccuInit");
+            check_value(to_integer(unsigned(Cfg_RefInterval)), Q_v(9), ERROR, msg & ": Cfg_RefInterval");
+        end procedure;
+
         -- Pending values and COMMIT; the configuration outputs afterwards
         procedure setNext (x : natural; y : natural; z : natural; a : natural; r : natural) is
         begin
@@ -457,11 +671,15 @@ begin
             chkStatus('0', '0', msg & " (cleared)");
         end procedure;
 
-        -- A COMMIT whose write cycle is ofs clock cycles before (negative) or after a Cfg_Taken pulse
+        -- A COMMIT whose write cycle is ofs clock cycles before (negative) or after a Cfg_Taken pulse; with the
+        -- runtime parameters every parameter in use changes as well (parCommit)
         procedure commitAt (ofs : integer; x : natural; msg : string) is
             variable Cnt_v : natural;
         begin
             setNext(x, x, x, x mod 2, x mod 2);
+            if RuntimeParams_g then
+                setPar(parCommit(x));
+            end if;
             await_completion(AXILITE_VVCT, Axi_c, 10 us, "pending values");
             Cnt_v   := TakeCnt;
             TakeOfs <= -ofs;
@@ -478,7 +696,54 @@ begin
             syncClk;
         end procedure;
 
-        variable Prev_v : std_logic_vector(82 downto 0);
+        variable ParLast_v : integer_vector(0 to 9);
+
+        -- A COMMIT of the parameters p with the pending dimensions: valid, the outputs carry p; invalid,
+        -- CFG_ERROR and the previous outputs (MB-RP-02)
+        procedure tryPar (p : integer_vector(0 to 9); valid : boolean; msg : string) is
+        begin
+            setPar(p);
+            commit;
+            if valid then
+                chkStatus('0', '1', msg);
+                chkParOut(p, msg);
+                ParLast_v := p;
+                take;
+            else
+                chkStatus('1', '0', msg & " (invalid)");
+                chkParOut(ParLast_v, msg & " (invalid)");
+                wr(RegStatus_c, x"00000002");
+            end if;
+        end procedure;
+
+        -- Parameter values with element i replaced
+        function withPar (p : integer_vector(0 to 9); i : natural; v : integer) return integer_vector is
+            variable Q_v : integer_vector(0 to 9) := p;
+        begin
+            Q_v(i) := v;
+            return Q_v;
+        end function;
+
+        constant G0Max_c : natural := minimum(8, RescaleCounterSize_g - 1);
+        constant KMax_c  : natural := minimum(DynamicRange_g - 2, 14);
+
+        -- Lower bound of gamma0 (with the hybrid coder from the initial accumulators)
+        function g0Min return positive is
+        begin
+            if Coder_c = CoderHybrid_c then
+                return hybridG0Min(DynamicRange_g, ZSize_g, parseIntVec(HybridAccuInit_g),
+                                   parseIntVec(HybridAccuInitHigh_g));
+            end if;
+            return 1;
+        end function;
+
+        constant G0Min_c : positive := g0Min;
+
+        variable Par_v    : integer_vector(0 to 9);
+        variable Base_v   : integer_vector(0 to 9);
+        variable Word32_v : std_logic_vector(31 downto 0);
+
+        variable Prev_v : std_logic_vector(152 downto 0);
         variable Sfd_v  : natural;
         variable Cnt_v  : natural;
         variable Lim_v  : std_logic_vector(31 downto 0);
@@ -743,6 +1008,164 @@ begin
                 wr(RegStatus_c, x"00000002");
                 chkStatus('0', '0', "CFG_ERROR cleared");
 
+                -- Without the runtime parameters (MB-RP-04): NEXT_SAMPLES to NEXT_BLOCK read zero and ignore
+                -- writes, the parameter outputs stay zero, the Act_ inputs of the parameters change no register
+                Act_UserData       <= (others => '1');
+                Act_M              <= (others => '1');
+                Act_WeightInterval <= (others => '1');
+                Act_WeightVmin     <= (others => '1');
+                Act_WeightVmax     <= (others => '1');
+                Act_UnaryLimit     <= (others => '1');
+                Act_InitCountExp   <= (others => '1');
+                Act_RescaleSize    <= (others => '1');
+                Act_AccuInit       <= (others => '1');
+                Act_RefInterval    <= (others => '1');
+                Act_ZSize          <= std_logic_vector(to_unsigned(ZSize_g, 17));
+
+                for i in 0 to 4 loop
+                    wr(NextReg_c(i), x"FFFFFFFF");
+                    chk(NextReg_c(i), x"00000000", "pending parameter register " & to_string(i) &
+                        " without the runtime parameters");
+                end loop;
+
+                for i in 5 to 11 loop
+                    if i /= RegOrder_c / 4 then
+                        chk(4 * i, word(i), "register at 0x" & to_hstring(to_unsigned(4 * i, 8)) &
+                            " with the Act_ inputs of the parameters");
+                    end if;
+                end loop;
+
+                setNext(2, 1, 1, 0, 0);
+                commit;
+                chkStatus('0', '1', "valid COMMIT without the runtime parameters");
+                chkParOut((0, 0, 0, 0, 0, 0, 0, 0, 0, 0), "parameter outputs without the runtime parameters");
+                take;
+
+            elsif run("test_runtime_params") then
+                Words_v := parseIntVec(ExpWords_g);
+                -- The ID of version 3 and GENERICS.RUNTIME_PARAMS (MB-RP-03)
+                chk(RegId_c, x"4F435003", "ID: register map version 3");
+                check_value(word(1)(GenericsRuntimeParams_c), '1', ERROR, "GENERICS.RUNTIME_PARAMS in the file");
+                chk(RegGenerics_c, word(1), "GENERICS");
+
+                -- Reset values: the values of the generics in the fields in use, the read-only registers of the
+                -- same layout give them (MB-RP-01)
+                for i in 0 to 4 loop
+                    chk(NextReg_c(i), word(RoReg_c(i) / 4) and parMask(i), "pending parameter register " &
+                        to_string(i) & " after the reset");
+                end loop;
+
+                -- Readback: of all ones written the fields in use stay, every other bit reads zero
+                for i in 0 to 4 loop
+                    wr(NextReg_c(i), x"FFFFFFFF");
+                    chk(NextReg_c(i), parMask(i), "pending parameter register " & to_string(i) & " readback");
+                end loop;
+
+                -- A write with byte lane 1 only changes only that byte (NEXT_SAMPLES.USER_DATA)
+                wr(RegNextSamples_c, x"00000000");
+                wrStrb(RegNextSamples_c, x"0000A5FF", "0010");
+                chk(RegNextSamples_c, x"0000A500", "NEXT_SAMPLES written with byte lane 1 only");
+
+                -- Base values: those of the generics, the pending dimensions at their maxima
+                Base_v    := (UserData_g,
+                              minimum(SubFrameDepth_g,
+                                         ZSize_g),
+                              WeightUpdateInterval_g,
+                              WeightUpdateVmin_g,
+                              WeightUpdateVmax_g,
+                              UnaryLimit_g,
+                              InitialCountExp_g,
+                              RescaleCounterSize_g,
+                              vecElem(parseIntVec(AccuInit_g),
+                                         0),
+                              RefInterval_g);
+                ParLast_v := Base_v;
+                setNext(XSize_g, YSize_g, ZSize_g, 0, 0);
+                tryPar(Base_v, true, "values of the generics");
+
+                -- Every parameter in use at the bounds of its range and one value beyond each (MB-RP-02, CO-RP-02)
+                tryPar(withPar(Base_v, 0, 0), true, "user-defined data 0");
+                tryPar(withPar(Base_v, 0, 255), true, "user-defined data 255");
+                tryPar(withPar(withPar(Base_v, 3, -6), 4, -6), true, "vmin = vmax = -6");
+                tryPar(withPar(withPar(Base_v, 3, 9), 4, 9), true, "vmin = vmax = 9");
+                tryPar(withPar(withPar(Base_v, 3, -7), 4, 0), false, "vmin -7");
+                tryPar(withPar(withPar(Base_v, 3, 10), 4, 10), false, "vmin 10");
+                tryPar(withPar(withPar(Base_v, 3, 2), 4, 1), false, "vmax below vmin");
+                tryPar(withPar(withPar(Base_v, 3, -6), 4, 10), false, "vmax 10");
+                tryPar(withPar(Base_v, 2, 4), true, "log2 t_inc 4");
+                tryPar(withPar(Base_v, 2, 11), true, "log2 t_inc 11");
+                tryPar(withPar(Base_v, 2, 3), false, "log2 t_inc 3");
+                tryPar(withPar(Base_v, 2, 12), false, "log2 t_inc 12");
+                if UseM_c then
+                    tryPar(withPar(Base_v, 1, 1), true, "M 1");
+                    tryPar(withPar(Base_v, 1, minimum(SubFrameDepth_g, ZSize_g)), true, "M min(SubFrameDepth_g, NZ)");
+                    tryPar(withPar(Base_v, 1, 0), false, "M 0");
+                    tryPar(withPar(Base_v, 1, SubFrameDepth_g + 1), false, "M above SubFrameDepth_g");
+                    -- M against the pending NZ
+                    setNext(XSize_g, YSize_g, 1, 0, 0);
+                    tryPar(withPar(Base_v, 1, 2), false, "M 2 with NZ 1");
+                    tryPar(withPar(Base_v, 1, 1), true, "M 1 with NZ 1");
+                    setNext(XSize_g, YSize_g, ZSize_g, 0, 0);
+                end if;
+                if UseAdp_c then
+                    tryPar(withPar(Base_v, 5, 8), true, "Umax 8");
+                    tryPar(withPar(Base_v, 5, 32), true, "Umax 32");
+                    tryPar(withPar(Base_v, 5, 7), false, "Umax 7");
+                    tryPar(withPar(Base_v, 5, 33), false, "Umax 33");
+                    Par_v := withPar(withPar(Base_v, 6, G0Min_c), 7, maximum(4, G0Min_c + 1));
+                    tryPar(Par_v, true, "gamma0 at its lower bound, gamma* max(4, gamma0 + 1)");
+                    tryPar(withPar(Par_v, 6, G0Min_c - 1), false, "gamma0 below its lower bound");
+                    tryPar(withPar(Par_v, 7, maximum(4, G0Min_c + 1) - 1), false, "gamma* below max(4, gamma0 + 1)");
+                    Par_v := withPar(withPar(Base_v, 6, G0Max_c), 7, RescaleCounterSize_g);
+                    tryPar(Par_v, true, "gamma0 min(8, RescaleCounterSize_g - 1), gamma* RescaleCounterSize_g");
+                    tryPar(withPar(Par_v, 6, G0Max_c + 1), false, "gamma0 above its upper bound");
+                    tryPar(withPar(Par_v, 7, G0Max_c), false, "gamma* = gamma0");
+                    tryPar(withPar(Par_v, 7, RescaleCounterSize_g + 1), false, "gamma* above RescaleCounterSize_g");
+                end if;
+                if UseK_c then
+                    tryPar(withPar(Base_v, 8, 0), true, "K 0");
+                    tryPar(withPar(Base_v, 8, KMax_c), true, "K min(D - 2, 14)");
+                    tryPar(withPar(Base_v, 8, KMax_c + 1), false, "K above min(D - 2, 14)");
+                end if;
+                if UseR_c then
+                    tryPar(withPar(Base_v, 9, 1), true, "r 1");
+                    tryPar(withPar(Base_v, 9, RefInterval_g), true, "r RefInterval_g");
+                    tryPar(withPar(Base_v, 9, 0), false, "r 0");
+                    tryPar(withPar(Base_v, 9, RefInterval_g + 1), false, "r above RefInterval_g");
+                end if;
+                -- An invalid dimension with valid parameters passes nothing either
+                setNext(0, YSize_g, ZSize_g, 0, 0);
+                tryPar(withPar(Base_v, 0, 17), false, "NX 0 with valid parameters");
+                setNext(XSize_g, YSize_g, ZSize_g, 0, 0);
+
+                -- The parameter fields of SAMPLES to BLOCK read the Act_ inputs (MB-RP-03)
+                Par_v              := (165,
+                                       3,
+                                       9,
+                                       -5,
+                                       7,
+                                       21,
+                                       3,
+                                       9,
+                                       6,
+                                       1234);
+                Act_UserData       <= std_logic_vector(to_unsigned(Par_v(0), 8));
+                Act_M              <= std_logic_vector(to_unsigned(Par_v(1), 17));
+                Act_WeightInterval <= std_logic_vector(to_unsigned(Par_v(2), 4));
+                Act_WeightVmin     <= std_logic_vector(to_signed(Par_v(3), 5));
+                Act_WeightVmax     <= std_logic_vector(to_signed(Par_v(4), 5));
+                Act_UnaryLimit     <= std_logic_vector(to_unsigned(Par_v(5), 6));
+                Act_InitCountExp   <= std_logic_vector(to_unsigned(Par_v(6), 4));
+                Act_RescaleSize    <= std_logic_vector(to_unsigned(Par_v(7), 4));
+                Act_AccuInit       <= std_logic_vector(to_unsigned(Par_v(8), 4));
+                Act_RefInterval    <= std_logic_vector(to_unsigned(Par_v(9), 13));
+
+                for i in 0 to 4 loop
+                    Word32_v := (word(RoReg_c(i) / 4) and not parMask(i)) or (parWord(i, Par_v) and parMask(i));
+                    chk(RoReg_c(i), Word32_v, "register at 0x" & to_hstring(to_unsigned(RoReg_c(i), 8)) &
+                        ": parameter fields of the core");
+                end loop;
+
             elsif run("test_runtime_commit") then
                 -- Write cycle of a COMMIT relative to the rise of AwValid (calibration); limits 1 so that the
                 -- first COMMIT below (limits 0) changes every field
@@ -765,16 +1188,18 @@ begin
 
                 -- COMMIT one cycle before, in and one cycle after the cycle of Cfg_Taken
                 for ofs in -1 to 1 loop
-                    Prev_v := cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit);
+                    Prev_v := CfgAll;
                     commitAt(ofs, 2 + ofs + 1, "COMMIT " & to_string(ofs) & " cycles from Cfg_Taken");
                     if ofs < 0 then
                         -- The write before the take: the core takes the new values, CFG_PENDING is cleared
-                        check_value(TakeSeen = cfgVec(std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
-                                                      std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
-                                                      std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
-                                                      std_logic_vector(to_unsigned((2 + ofs + 1) mod 2, 16)),
-                                                      std_logic_vector(to_unsigned((2 + ofs + 1) mod 2, 16))), ERROR,
-                                    "COMMIT before Cfg_Taken: the new values are taken");
+                        check_value(TakeSeen(152 downto 70) = cfgVec(std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
+                                                                     std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
+                                                                     std_logic_vector(to_unsigned(2 + ofs + 1, 17)),
+                                                                     std_logic_vector(to_unsigned((2 + ofs + 1) mod 2, 16)),
+                                                                     std_logic_vector(to_unsigned((2 + ofs + 1) mod 2, 16))),
+                                    ERROR, "COMMIT before Cfg_Taken: the new values are taken");
+                        check_value(sameFields(TakeSeen, Prev_v) = 0, ERROR,
+                                    "COMMIT before Cfg_Taken: every output changed");
                         chkStatus('0', '0', "COMMIT before Cfg_Taken");
                     else
                         -- In or after the cycle of the take: the previous values are taken, CFG_PENDING stays
@@ -836,7 +1261,7 @@ begin
 
             TakeTimed <= '1';
             wait until rising_edge(Clk);
-            TakeSeen  <= cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit);
+            TakeSeen  <= CfgAll;
             TakeTimed <= '0';
         end if;
         TakeCnt <= TakeCnt + 1;
@@ -844,16 +1269,14 @@ begin
 
     -- Atomicity of the configuration outputs: a clock cycle in which some but not all of them change
     p_atomic : process is
-        variable Prev_v : std_logic_vector(82 downto 0) := (others => '0');
-        variable Cur_v  : std_logic_vector(82 downto 0);
+        variable Prev_v : std_logic_vector(152 downto 0) := (others => '0');
+        variable Cur_v  : std_logic_vector(152 downto 0);
         variable Same_v : natural;
     begin
         wait until rising_edge(Clk);
-        Cur_v  := cfgVec(Cfg_XSize, Cfg_YSize, Cfg_ZSize, Cfg_AbsLimit, Cfg_RelLimit);
-        Same_v := toInt(Cur_v(82 downto 66) = Prev_v(82 downto 66)) + toInt(Cur_v(65 downto 49) = Prev_v(65 downto 49)) +
-                  toInt(Cur_v(48 downto 32) = Prev_v(48 downto 32)) + toInt(Cur_v(31 downto 16) = Prev_v(31 downto 16)) +
-                  toInt(Cur_v(15 downto 0) = Prev_v(15 downto 0));
-        if Rst = '0' and Same_v > 0 and Same_v < 5 and AtomicOn then
+        Cur_v  := CfgAll;
+        Same_v := sameFields(Cur_v, Prev_v);
+        if Rst = '0' and Same_v > 0 and Same_v < fieldsInUse and AtomicOn then
             Partial <= Partial + 1;
         end if;
         Prev_v := Cur_v;

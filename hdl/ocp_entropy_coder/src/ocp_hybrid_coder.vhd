@@ -55,38 +55,46 @@ entity ocp_hybrid_coder is
         RamStyle_g           : string                    := "auto";
         -- Runtime configuration: the number of bands of every image from Cfg_ZSize (ZSize_g is the
         -- maximum)
-        RuntimeConfig_g      : boolean                   := false
+        RuntimeConfig_g      : boolean                   := false;
+        -- Runtime parameters: Umax, gamma0 and gamma* of every image from the configuration inputs
+        -- (UnaryLimit_g and RescaleCounterSize_g are the maxima)
+        RuntimeParams_g      : boolean                   := false
     );
     port (
-        Clk           : in    std_logic;
-        Rst           : in    std_logic;
+        Clk              : in    std_logic;
+        Rst              : in    std_logic;
         -- Entropy coder input sequence
-        In_Valid      : in    std_logic;
-        In_Ready      : out   std_logic;
-        In_Data       : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
-        In_Kind       : in    std_logic_vector(1 downto 0);
-        In_Band       : in    std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
-        In_First      : in    std_logic;
-        In_Init       : in    std_logic;
-        In_Last       : in    std_logic;
+        In_Valid         : in    std_logic;
+        In_Ready         : out   std_logic;
+        In_Data          : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
+        In_Kind          : in    std_logic_vector(1 downto 0);
+        In_Band          : in    std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
+        In_First         : in    std_logic;
+        In_Init          : in    std_logic;
+        In_Last          : in    std_logic;
         -- Codewords
-        Cw_Valid      : out   std_logic;
-        Cw_Ready      : in    std_logic;
-        Cw_Data       : out   std_logic_vector(CwWidth_c - 1 downto 0);
-        Cw_Length     : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Cw_Last       : out   std_logic;
+        Cw_Valid         : out   std_logic;
+        Cw_Ready         : in    std_logic;
+        Cw_Data          : out   std_logic_vector(CwWidth_c - 1 downto 0);
+        Cw_Length        : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Cw_Last          : out   std_logic;
         -- Memory errors (pulses)
-        Ecc_Sec       : out   std_logic;
-        Ecc_Ded       : out   std_logic;
+        Ecc_Sec          : out   std_logic;
+        Ecc_Ded          : out   std_logic;
         -- Error injection into the next write of the statistics memory or of the codeword buffer: a
         -- single or a double bit error
-        ErrInj_Stats  : in    std_logic                     := '0';
-        ErrInj_Buffer : in    std_logic                     := '0';
-        ErrInj_Double : in    std_logic                     := '0';
+        ErrInj_Stats     : in    std_logic                     := '0';
+        ErrInj_Buffer    : in    std_logic                     := '0';
+        ErrInj_Double    : in    std_logic                     := '0';
         -- Runtime configuration: NZ of the image whose tail comes next (1 to ZSize_g); Cfg_Done pulses when
         -- the tail of an image is complete
-        Cfg_ZSize     : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_Done      : out   std_logic
+        Cfg_ZSize        : in    std_logic_vector(16 downto 0) := (others => '0');
+        -- Runtime parameters (RuntimeParams_g) of the image in coding, stable from its first item to the end
+        -- of its tail: Umax (8 to UnaryLimit_g), gamma0, gamma* (max(4, gamma0 + 1) to RescaleCounterSize_g)
+        Cfg_UnaryLimit   : in    std_logic_vector(5 downto 0)  := (others => '0');
+        Cfg_InitCountExp : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_RescaleSize  : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_Done         : out   std_logic
     );
 end entity;
 
@@ -223,10 +231,11 @@ architecture rtl of ocp_hybrid_coder is
     signal StatsUse     : std_logic;
     signal EccDedVec    : std_logic_vector(1 downto 0);
 
-    -- Reversed length-limited GPO2 codeword of j with code index k (5.4.3.3.3.2)
+    -- Reversed length-limited GPO2 codeword of j with code index k and unary length limit umax (5.4.3.3.3.2)
     procedure reversedGpo2 (
         j    : in    unsigned;
         k    : in    natural;
+        umax : in    natural;
         data : out   std_logic_vector(CwWidth_c - 1 downto 0);
         len  : out   unsigned(CwLenWidth_c - 1 downto 0)) is
         variable U_v   : unsigned(j'length - 1 downto 0);
@@ -234,14 +243,14 @@ architecture rtl of ocp_hybrid_coder is
         variable Un_v  : natural range 0 to 31;
     begin
         U_v := shift_right(j, k);
-        if U_v < UnaryLimit_g then
+        if U_v < umax then
             Un_v  := to_integer(U_v);
             Lsb_v := resize(j, CwWidth_c) and (shift_left(to_unsigned(1, CwWidth_c), k) - 1);
             data  := std_logic_vector(shift_left(Lsb_v, Un_v + 1) or shift_left(to_unsigned(1, CwWidth_c), Un_v));
             len   := to_unsigned(k + 1 + Un_v, CwLenWidth_c);
         else
-            data := std_logic_vector(shift_left(resize(j, CwWidth_c), UnaryLimit_g));
-            len  := to_unsigned(D_c + UnaryLimit_g, CwLenWidth_c);
+            data := std_logic_vector(shift_left(resize(j, CwWidth_c), umax));
+            len  := to_unsigned(D_c + umax, CwLenWidth_c);
         end if;
     end procedure;
 
@@ -289,8 +298,26 @@ begin
         variable UseRom_v : boolean;
         variable Nz_v     : natural range 0 to 131071;
         variable Band_v   : natural range 0 to maximum(ZSize_g, 16);
+        variable Umax_v   : natural range 0 to 63;
+        variable G0_v     : natural range 0 to 15;
+        variable GSt_v    : natural range 0 to 15;
+        variable NoResc_v : boolean;
+        variable TailW_v  : natural range 0 to 63;
     begin
         v := r;
+
+        -- Coder parameters: the generics, or those of the image in coding (runtime parameters)
+        if RuntimeParams_g then
+            Umax_v := to_integer(unsigned(Cfg_UnaryLimit));
+            G0_v   := to_integer(unsigned(Cfg_InitCountExp));
+            GSt_v  := to_integer(unsigned(Cfg_RescaleSize));
+        else
+            Umax_v := UnaryLimit_g;
+            G0_v   := InitialCountExp_g;
+            GSt_v  := RescaleCounterSize_g;
+        end if;
+        -- Final accumulator in the tail: 2 + D + gamma* bits (5.4.3.3.5.4.3)
+        TailW_v := 2 + D_c + GSt_v;
 
         for k in 1 to NSt_c - 1 loop
             v.P(k) := r.P(k - 1);
@@ -340,14 +367,20 @@ begin
 
         if I_v.Init = '1' then
             Acc_v := AccRom_c(to_integer(I_v.Band));
-            Cnt_v := shift_left(to_unsigned(1, CntW_c), InitialCountExp_g);
+            Cnt_v := shift_left(to_unsigned(1, CntW_c), G0_v);
         end if;
         if I_v.Valid = '1' and I_v.Kind = ItemSample_c and I_v.Init = '1' then
             v.InitTop := to_integer(I_v.Band) + 1;
         end if;
         Dlt_v       := resize(unsigned(I_v.Data), D_c);
         O_v.RescBit := Acc_v(0);
-        if Cnt_v < 2 ** RescaleCounterSize_g - 1 then
+        -- Rescaling when the counter reaches 2^gamma* - 1 (5.4.3.3.4.5)
+        if RuntimeParams_g then
+            NoResc_v := Cnt_v < shift_left(to_unsigned(1, CntW_c), GSt_v) - 1;
+        else
+            NoResc_v := Cnt_v < 2 ** RescaleCounterSize_g - 1;
+        end if;
+        if NoResc_v then
             O_v.Resc   := '0';
             O_v.AccNew := Acc_v + shift_left(resize(Dlt_v, AccW_c), 2);
             O_v.CntNew := Cnt_v + 1;
@@ -422,7 +455,7 @@ begin
             O_v.CwLen  := to_unsigned(D_c, CwLenWidth_c);
             O_v.Resc   := '0';
         elsif I_v.High = '1' then
-            reversedGpo2(Dlt_v, I_v.K, Data_v, Len_v);
+            reversedGpo2(Dlt_v, I_v.K, Umax_v, Data_v, Len_v);
             O_v.CwData := Data_v;
             O_v.CwLen  := Len_v;
         else
@@ -431,7 +464,7 @@ begin
             if I_v.Esc(I_v.Code) = '1' then
                 Sym_v      := LeLimit_c(I_v.Code) + 1;
                 Esc_v      := Dlt_v - LeLimit_c(I_v.Code) - 1;
-                reversedGpo2(Esc_v, 0, Data_v, Len_v);
+                reversedGpo2(Esc_v, 0, Umax_v, Data_v, Len_v);
                 O_v.CwData := Data_v;
                 O_v.CwLen  := Len_v;
             else
@@ -559,7 +592,7 @@ begin
                     end if;
                     UseRom_v     := OnePixel_c or Band_v >= r.InitTop;
                     StatsUse     <= toSl(not UseRom_v);
-                    FifoInLength <= std_logic_vector(to_unsigned(AccW_c, CwLenWidth_c));
+                    FifoInLength <= std_logic_vector(to_unsigned(TailW_v, CwLenWidth_c));
                     if UseRom_v then
                         Acc_v := AccRom_c(Band_v);
                     else
@@ -568,7 +601,7 @@ begin
                     FifoInData <= std_logic_vector(resize(Acc_v, CwWidth_c));
                     if Band_v = Nz_v - 1 then
                         -- Final '1' bit (5.4.3.3.5.4.4); the bit packer appends the fill bits
-                        FifoInLength <= std_logic_vector(to_unsigned(AccW_c + 1, CwLenWidth_c));
+                        FifoInLength <= std_logic_vector(to_unsigned(TailW_v + 1, CwLenWidth_c));
                         FifoInData   <= std_logic_vector(shift_left(resize(Acc_v, CwWidth_c), 1) or to_unsigned(1, CwWidth_c));
                         FifoInLast   <= '1';
                         v.Tail       := TIdle_s;

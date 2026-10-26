@@ -23,6 +23,14 @@ compressed image of the core tests. Each coder takes one item per clock cycle (T
 requirement of the specification is covered; the error injection into the statistics memories and the codeword
 buffers (EC-FT-01, EC-FT-02) runs in the core testbench (TC-CO-37).
 
+With the runtime parameters every coder codes the images of the sequences of rp01 (sample-adaptive), rp02 (hybrid)
+and rp03 (block-adaptive) with Umax, gamma0, gamma\*, K and r of every image, among them every bound of their ranges,
+and every compressed image equals the reference model byte by byte (TC-CO-59, EC-RP-01, EC-RP-02): in the
+sample-adaptive coder two images with different parameters share the pipeline, the hybrid coder writes the final
+accumulators of the tail with 2 + D + gamma\* bits of the image, the block-adaptive coder limits the reference sample
+interval of every block by the r of its image. The values limited at the image start (TC-CO-60) and the parameters of
+images that wait in the full queue (TC-CO-61) are used the same way.
+
 Findings:
 
 | Finding | Resolution |

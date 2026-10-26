@@ -15,7 +15,7 @@
 # A reset value written as text depends on generics; status fields have none. Counters are 32 bits
 # wide and saturate. Codes of enumerations are the values of the header fields (CCSDS 5.3).
 
-id: 0x4F435002
+id: 0x4F435003
 addr_bits: 8
 
 registers:
@@ -23,7 +23,7 @@ registers:
     offset: 0x000
     description: Identification of the core and version of the register map
     fields:
-      - {name: ID, bits: "31:0", access: RO, reset: 0x4F435002, description: "Bits 31:8 the prefix of the core in ASCII (0x4F4350, OCP), as in the other Open Space HDL cores; bits 7:0 the version of the register map (2)"}
+      - {name: ID, bits: "31:0", access: RO, reset: 0x4F435003, description: "Bits 31:8 the prefix of the core in ASCII (0x4F4350, OCP), as in the other Open Space HDL cores; bits 7:0 the version of the register map (3)"}
 
   - name: GENERICS
     offset: 0x004
@@ -33,6 +33,7 @@ registers:
       - {name: OUT_STREAM_BYTES, bits: "9:5", access: RO, reset: OutStreamWidth_g / 8, description: Bytes per beat of the compressed image stream}
       - {name: OUT_BYTES, bits: "13:10", access: RO, reset: OutWidth_g / 8, description: Bytes per word at the output of ocp_core}
       - {name: SAMPLE_BYTES, bits: "16:14", access: RO, reset: ceil(DynamicRange_g / 8), description: Bytes per sample container in the SDUs}
+      - {name: RUNTIME_PARAMS, bits: "19", access: RO, reset: RuntimeParams_g, description: "Runtime parameters: user-defined data, M, the weight update and the entropy coder parameters (NEXT_SAMPLES to NEXT_BLOCK)"}
       - {name: RUNTIME_CONFIG, bits: "18", access: RO, reset: RuntimeConfig_g, description: "Runtime configuration of the image dimensions and error limit values (NEXT_X to NEXT_LIMITS, CONTROL, STATUS)"}
       - {name: SPECULATION, bits: "17", access: RO, reset: Speculation_g, description: Speculative weight loop of the predictor}
 
@@ -58,7 +59,7 @@ registers:
     offset: 0x014
     description: Samples and user-defined data
     fields:
-      - {name: USER_DATA, bits: "15:8", access: RO, reset: UserData_g, description: User-Defined Data field of the header}
+      - {name: USER_DATA, bits: "15:8", access: RO, reset: UserData_g, description: "User-Defined Data field of the header; with the runtime parameters of the last image that started"}
       - {name: SIGNED, bits: "6", access: RO, reset: SignedSamples_g, description: "Sample type: '1' signed (two's complement), '0' unsigned"}
       - {name: DYNAMIC_RANGE, bits: "5:0", access: RO, reset: DynamicRange_g, description: "Dynamic range D in bits, 2 to 32"}
 
@@ -66,7 +67,7 @@ registers:
     offset: 0x018
     description: "Sample encoding order (CCSDS 5.4.2)"
     fields:
-      - {name: SUB_FRAME_DEPTH, bits: "24:8", access: RO, reset: SubFrameDepth_g, description: "Sub-frame interleaving depth M, 1 to 65536 in BI order (with the runtime configuration min(SubFrameDepth_g, NZ) of the last image that started); 0 in BSQ order"}
+      - {name: SUB_FRAME_DEPTH, bits: "24:8", access: RO, reset: SubFrameDepth_g, description: "Sub-frame interleaving depth M, 1 to 65536 in BI order (with the runtime configuration min(SubFrameDepth_g, NZ) of the last image that started, with the runtime parameters its M); 0 in BSQ order"}
       - {name: ENCODING, bits: "0", access: RO, reset: EncodingOrder_g, description: "Sample encoding order: '0' BI, '1' BSQ"}
 
   - name: CODER
@@ -92,7 +93,7 @@ registers:
 
   - name: WEIGHTS
     offset: 0x024
-    description: "Weights of the predictor (CCSDS 5.3.3.2)"
+    description: "Weights of the predictor (CCSDS 5.3.3.2); VMAX, VMIN and UPDATE_INTERVAL with the runtime parameters of the last image that started"
     fields:
       - {name: INIT_RESOLUTION, bits: "30:26", access: RO, reset: WeightInitResolution_g, description: "Weight initialisation resolution, 0 to 22; 0 with default weights"}
       - {name: CUSTOM_INIT, bits: "25", access: RO, reset: CustomWeights_g, description: Custom weight initialisation}
@@ -104,7 +105,7 @@ registers:
 
   - name: ADAPTIVE
     offset: 0x028
-    description: "Sample-adaptive or hybrid entropy coder (CCSDS 5.3.4.2, 5.3.4.3); zero with the block-adaptive coder"
+    description: "Sample-adaptive or hybrid entropy coder (CCSDS 5.3.4.2, 5.3.4.3); zero with the block-adaptive coder; with the runtime parameters the values of the last image that started (ACCU_INIT only with an accumulator initialisation constant)"
     fields:
       - {name: ACCU_INIT, bits: "19:16", access: RO, reset: AccuInit_g, description: "Accumulator initialisation constant, 15 when band-dependent (sample-adaptive coder; 0 with the hybrid coder)"}
       - {name: INITIAL_COUNT, bits: "15:12", access: RO, reset: InitialCountExp_g, description: "Initial count exponent, 1 to 8"}
@@ -113,7 +114,7 @@ registers:
 
   - name: BLOCK
     offset: 0x02C
-    description: "Block-adaptive entropy coder (CCSDS 5.3.4.4); zero with the other coders"
+    description: "Block-adaptive entropy coder (CCSDS 5.3.4.4); zero with the other coders; REF_INTERVAL with the runtime parameters of the last image that started"
     fields:
       - {name: REF_INTERVAL, bits: "20:8", access: RO, reset: RefInterval_g, description: "Reference sample interval, 1 to 4096"}
       - {name: RESTRICTED, bits: "7", access: RO, reset: RestrictedCodes_g, description: Restricted code options}
@@ -159,7 +160,7 @@ registers:
     offset: 0x060
     description: "Runtime configuration: commands (zero without the runtime configuration)"
     fields:
-      - {name: COMMIT, bits: "0", access: W1, reset: 0, description: "Checks NEXT_X to NEXT_LIMITS and, when every value is in range, passes them to the core for the next image start"}
+      - {name: COMMIT, bits: "0", access: W1, reset: 0, description: "Checks NEXT_X to NEXT_LIMITS (with the runtime parameters also NEXT_SAMPLES to NEXT_BLOCK) and, when every value is in range, passes them to the core for the next image start"}
 
   - name: STATUS
     offset: 0x064
@@ -199,3 +200,38 @@ registers:
     fields:
       - {name: REL, bits: "31:16", access: RO, reset: RelErrorLimits_g, description: Relative error limit value}
       - {name: ABS, bits: "15:0", access: RO, reset: AbsErrorLimits_g, description: Absolute error limit value}
+
+  - name: NEXT_SAMPLES
+    offset: 0x07C
+    description: "Runtime parameters: user-defined data of the next images (zero without the runtime parameters)"
+    fields:
+      - {name: USER_DATA, bits: "15:8", access: RW, reset: UserData_g, description: "User-Defined Data field of the header, 0 to 255"}
+
+  - name: NEXT_ORDER
+    offset: 0x080
+    description: "Runtime parameters: sub-frame interleaving depth of the next images (zero without the runtime parameters and in BSQ order)"
+    fields:
+      - {name: SUB_FRAME_DEPTH, bits: "24:8", access: RW, reset: SubFrameDepth_g, description: "Sub-frame interleaving depth M, 1 to min(SubFrameDepth_g, NZ of NEXT_Z)"}
+
+  - name: NEXT_WEIGHTS
+    offset: 0x084
+    description: "Runtime parameters: weight update scaling exponent parameters of the next images (zero without the runtime parameters)"
+    fields:
+      - {name: VMAX, bits: "21:17", access: RW, reset: WeightUpdateVmax_g, description: "Final weight update scaling exponent vmax, VMIN to 9 (two's complement)"}
+      - {name: VMIN, bits: "16:12", access: RW, reset: WeightUpdateVmin_g, description: "Initial weight update scaling exponent vmin, -6 to 9 (two's complement)"}
+      - {name: UPDATE_INTERVAL, bits: "11:8", access: RW, reset: WeightUpdateInterval_g, description: "Weight update scaling exponent change interval exponent, 4 to 11"}
+
+  - name: NEXT_ADAPTIVE
+    offset: 0x088
+    description: "Runtime parameters: sample-adaptive or hybrid entropy coder parameters of the next images (zero without the runtime parameters and with the block-adaptive coder)"
+    fields:
+      - {name: ACCU_INIT, bits: "19:16", access: RW, reset: AccuInit_g, description: "Accumulator initialisation constant K, 0 to min(D - 2, 14) (sample-adaptive coder with a constant; zero otherwise)"}
+      - {name: INITIAL_COUNT, bits: "15:12", access: RW, reset: InitialCountExp_g, description: "Initial count exponent, 1 to min(8, RescaleCounterSize_g - 1); with the hybrid coder at least the smallest value for which every initial accumulator is below 2^(D + gamma0)"}
+      - {name: RESCALE_SIZE, bits: "11:8", access: RW, reset: RescaleCounterSize_g, description: "Rescaling counter size, max(4, INITIAL_COUNT + 1) to RescaleCounterSize_g"}
+      - {name: UNARY_LIMIT, bits: "5:0", access: RW, reset: UnaryLimit_g, description: "Unary length limit, 8 to 32"}
+
+  - name: NEXT_BLOCK
+    offset: 0x08C
+    description: "Runtime parameters: block-adaptive entropy coder parameter of the next images (zero without the runtime parameters and with the other coders)"
+    fields:
+      - {name: REF_INTERVAL, bits: "20:8", access: RW, reset: RefInterval_g, description: "Reference sample interval, 1 to RefInterval_g"}

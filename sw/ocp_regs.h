@@ -10,7 +10,7 @@
 #define OCP_REGS_H
 
 /* Identification */
-#define OCP_REGMAP_ID 0x4F435002u
+#define OCP_REGMAP_ID 0x4F435003u
 
 /* Register addresses */
 #define OCP_ID                0x000u
@@ -38,6 +38,11 @@
 #define OCP_NEXT_Z            0x070u
 #define OCP_NEXT_LIMITS       0x074u
 #define OCP_LIMITS            0x078u
+#define OCP_NEXT_SAMPLES      0x07Cu
+#define OCP_NEXT_ORDER        0x080u
+#define OCP_NEXT_WEIGHTS      0x084u
+#define OCP_NEXT_ADAPTIVE     0x088u
+#define OCP_NEXT_BLOCK        0x08Cu
 
 /* Fields: position (SHIFT) and mask after the shift (MASK); fields with a generic width have no mask */
 
@@ -52,6 +57,8 @@
 #define OCP_GENERICS_OUT_BYTES_MASK         0xFu
 #define OCP_GENERICS_SAMPLE_BYTES_SHIFT     14u
 #define OCP_GENERICS_SAMPLE_BYTES_MASK      0x7u
+#define OCP_GENERICS_RUNTIME_PARAMS_SHIFT   19u
+#define OCP_GENERICS_RUNTIME_PARAMS_MASK    0x1u
 #define OCP_GENERICS_RUNTIME_CONFIG_SHIFT   18u
 #define OCP_GENERICS_RUNTIME_CONFIG_MASK    0x1u
 #define OCP_GENERICS_SPECULATION_SHIFT      17u
@@ -177,6 +184,31 @@
 #define OCP_LIMITS_REL_MASK  0xFFFFu
 #define OCP_LIMITS_ABS_SHIFT 0u
 #define OCP_LIMITS_ABS_MASK  0xFFFFu
+
+#define OCP_NEXT_SAMPLES_USER_DATA_SHIFT 8u
+#define OCP_NEXT_SAMPLES_USER_DATA_MASK  0xFFu
+
+#define OCP_NEXT_ORDER_SUB_FRAME_DEPTH_SHIFT 8u
+#define OCP_NEXT_ORDER_SUB_FRAME_DEPTH_MASK  0x1FFFFu
+
+#define OCP_NEXT_WEIGHTS_VMAX_SHIFT            17u
+#define OCP_NEXT_WEIGHTS_VMAX_MASK             0x1Fu
+#define OCP_NEXT_WEIGHTS_VMIN_SHIFT            12u
+#define OCP_NEXT_WEIGHTS_VMIN_MASK             0x1Fu
+#define OCP_NEXT_WEIGHTS_UPDATE_INTERVAL_SHIFT 8u
+#define OCP_NEXT_WEIGHTS_UPDATE_INTERVAL_MASK  0xFu
+
+#define OCP_NEXT_ADAPTIVE_ACCU_INIT_SHIFT     16u
+#define OCP_NEXT_ADAPTIVE_ACCU_INIT_MASK      0xFu
+#define OCP_NEXT_ADAPTIVE_INITIAL_COUNT_SHIFT 12u
+#define OCP_NEXT_ADAPTIVE_INITIAL_COUNT_MASK  0xFu
+#define OCP_NEXT_ADAPTIVE_RESCALE_SIZE_SHIFT  8u
+#define OCP_NEXT_ADAPTIVE_RESCALE_SIZE_MASK   0xFu
+#define OCP_NEXT_ADAPTIVE_UNARY_LIMIT_SHIFT   0u
+#define OCP_NEXT_ADAPTIVE_UNARY_LIMIT_MASK    0x3Fu
+
+#define OCP_NEXT_BLOCK_REF_INTERVAL_SHIFT 8u
+#define OCP_NEXT_BLOCK_REF_INTERVAL_MASK  0x1FFFu
 
 /* Reset values of the registers whose fields all have a fixed reset value */
 #define OCP_IMAGES_DONE_RESET       0x00000000u

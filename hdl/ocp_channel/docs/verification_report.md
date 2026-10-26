@@ -13,7 +13,7 @@ the code coverage is in [coverage.md](../../../docs/coverage.md).
 | `test_errors` (TC-CH-02) | 7 | 7 |
 | `test_ecc` (TC-CH-03) | 1 (two memories) | 1 |
 | `test_reset` (TC-CH-04) | 1 | 1 |
-| `test_runtime` (TC-CH-07) | 1 (rc04) | 1 |
+| `test_runtime` (TC-CH-07, TC-CH-08) | 2 (rc04; rp01 with the runtime parameters) | 2 |
 | `lint/synth_check.py` (TC-CH-05) | 8 configurations synthesize, `OutStreamWidth_g` = 24 stops the elaboration | 9 |
 
 ## 2. Summary
@@ -33,7 +33,10 @@ With the runtime configuration (rc04, TC-CH-07) the configurations reach the cor
 `ocp_mib`: a configuration committed while the image before it is compressed applies to the next image, an invalid
 configuration is rejected with CFG_ERROR and the committed one stays, every packet equals the reference model for the
 configuration of its image, and after every image the active registers show that configuration and CFG_PENDING shows
-whether a committed configuration still waits.
+whether a committed configuration still waits. With the runtime parameters (rp01, TC-CH-08) the same sequence commits
+the parameters of every image through NEXT_SAMPLES to NEXT_BLOCK with its dimensions: every packet equals the reference
+model for the dimensions, limits and parameters of its image, and after every image the parameter fields of SAMPLES
+to ADAPTIVE show those of the image.
 
 ## 3. Generic ranges
 

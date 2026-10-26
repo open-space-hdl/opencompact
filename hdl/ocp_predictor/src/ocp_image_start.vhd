@@ -36,6 +36,8 @@ entity ocp_image_start is
         -- Encoding order and sub-frame interleaving depth of the configuration
         Bsq_g           : boolean                   := false;
         SubFrameDepth_g : positive range 1 to 65536 := 4;
+        -- M of every image from In_M (runtime parameters) instead of min(SubFrameDepth_g, NZ)
+        RuntimeM_g      : boolean                   := false;
         -- Predictor: number of prediction bands, sample representatives equal to the samples, the
         -- previous sample of the band enters the local sum or the directional differences, the
         -- sample representatives of the previous band are used
@@ -57,6 +59,8 @@ entity ocp_image_start is
         In_XSize    : in    std_logic_vector(16 downto 0);
         In_YSize    : in    std_logic_vector(16 downto 0);
         In_ZSize    : in    std_logic_vector(16 downto 0);
+        -- M of the image (RuntimeM_g, 1 to min(SubFrameDepth_g, NZ)), taken with Start
+        In_M        : in    std_logic_vector(16 downto 0) := (others => '0');
         -- Issue conditions of the image, valid from the clock cycle of Done (a pulse) until the
         -- next Start
         Done        : out   std_logic;
@@ -136,8 +140,10 @@ begin
                     Nx_v := unsigned(In_XSize);
                     Ny_v := unsigned(In_YSize);
                     Nz_v := unsigned(In_ZSize);
-                    -- M = min(sub-frame interleaving depth, NZ); BSQ: M is not used
-                    if Nz_v < SubFrameDepth_g then
+                    -- M = min(sub-frame interleaving depth, NZ) or the M of the image; BSQ: M is not used
+                    if RuntimeM_g then
+                        M_v := unsigned(In_M);
+                    elsif Nz_v < SubFrameDepth_g then
                         M_v := Nz_v;
                     else
                         M_v := to_unsigned(SubFrameDepth_g, 17);
@@ -145,8 +151,12 @@ begin
                     v.M       := M_v;
                     v.Gap1    := toSl(Bsq_g or M_v = 1);
                     v.RunRows := toSl(Bsq_g or Nz_v = 1);
-                    v.MLtZ    := toSl(Nz_v > SubFrameDepth_g);
-                    v.Xm1     := sat(Nx_v - 1);
+                    if RuntimeM_g then
+                        v.MLtZ := toSl(M_v < Nz_v);
+                    else
+                        v.MLtZ := toSl(Nz_v > SubFrameDepth_g);
+                    end if;
+                    v.Xm1 := sat(Nx_v - 1);
                     if Bsq_g then
                         v.A := sat(Nx_v);
                         v.B := sat(Ny_v);

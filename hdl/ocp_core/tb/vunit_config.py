@@ -14,6 +14,8 @@ ocp_core_tb:
 - test_framing: images with an early or a missing In_Last between correct images, then resets at random times, for
   the configurations of FRAMING (every encoding order and coder, the stride order, periodic error limits, all
   interface widths, some with back pressure)
+- test_runtime, test_runtime_timing, test_runtime_range, test_runtime_queue: the runtime configurations (RUNTIME,
+  RuntimeConfig_g) and the runtime parameter configurations (RUNTIME_PARAMS, RuntimeParams_g)
 
 Every configuration of test_golden, test_ecc and test_reset also runs with the image framing (UseInLast_g, suffix
 _last): In_Last on the last sample of every image; without it In_Last is random and ignored.
@@ -103,16 +105,23 @@ def runtime_generics(name, cfg, rt_list="runtime"):
     return gen
 
 
+def runtime_dims(name, gen):
+    """Dimensions (nx, ny, nz) taken for every image of runtime.txt; with the runtime parameters in BI order also
+    the M taken (column 21: after the driven and taken configuration and the driven parameters)."""
+    seq = [line.split() for line in (ROOT / "tb" / "golden" / name / "runtime.txt").read_text().splitlines()]
+    with_m = gen.get("RuntimeParams_g", False) and gen["EncodingOrder_g"] == "BI"
+    return [tuple(int(v) for v in values[5:8]) + ((int(values[21]),) if with_m else ()) for values in seq]
+
+
 def runtime_starts(name, gen):
     """Acceptance cycles of the first sample of every image of runtime.txt relative to the first (throughput
     model)."""
-    seq = [line.split() for line in (ROOT / "tb" / "golden" / name / "runtime.txt").read_text().splitlines()]
-    dims = [tuple(int(v) for v in values[5:8]) for values in seq]
+    dims = runtime_dims(name, gen)
     cycles = ocp_throughput.runtime_accept_cycles(gen, dims)
     starts, k = [], 0
-    for nx, ny, nz in dims:
+    for dim in dims:
         starts.append(cycles[k] - cycles[0])
-        k += nx * ny * nz
+        k += dim[0] * dim[1] * dim[2]
     return ",".join(str(v) for v in starts)
 
 
@@ -180,6 +189,22 @@ def configure(lib):
     queue = tb.test("test_runtime_queue")
     for name, cfg in ocp_configs.queue_configs().items():
         add(queue, name, runtime_generics(name, cfg, "queue"))
+
+    # Runtime parameters: the image sequences with the parameters of every image, back to back and with input gaps
+    # and output stalls (TC-CO-59), the range test (TC-CO-60), the queue test (TC-CO-61)
+    for name, cfg in ocp_configs.RUNTIME_PARAMS.items():
+        gen = dict(runtime_generics(name, cfg), RuntimeParams_g=True)
+        add(runtime, name, dict(gen, ExpStarts_g=runtime_starts(name, gen)))
+        add(runtime, name + "_bp", dict(gen, InGapPct_g=30, OutStallPct_g=60))
+        lines = (ROOT / "tb" / "golden" / name / "range.txt").read_text().splitlines()
+        add(rng, name, dict(gen, RtList_g="range", RtImages_g=len(lines)))
+        if name in ocp_configs.RUNTIME_PARAMS_QUEUE:
+            add(queue, name, dict(runtime_generics(name, cfg, "queue"), RuntimeParams_g=True))
+        # The output held after the header and some body bytes of a larger first image: the queue fills behind the
+        # read pointer of the sample-adaptive or the block-adaptive coder while the header pointer has passed it
+        if name in ocp_configs.RUNTIME_PARAMS_QUEUE_HOLD:
+            gen = dict(runtime_generics(name, cfg, "queuehold"), RuntimeParams_g=True)
+            add(queue, name + "_hold", dict(gen, QueueHoldBytes_g=gen["HeaderBytes_g"] + ocp_configs.QUEUE_HOLD_BODY))
 
     framing = tb.test("test_framing")
     for name, width, bp in FRAMING:

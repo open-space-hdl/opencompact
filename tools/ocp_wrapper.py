@@ -51,6 +51,12 @@ def wrapper(cfg, name="ocp_synth_top", out_width=OUT_WIDTH, use_in_last=False, e
                      ("Cfg_AbsLimit", "in", 16), ("Cfg_RelLimit", "in", 16), ("Cfg_Taken", "out", 1),
                      ("Act_XSize", "out", 17), ("Act_YSize", "out", 17), ("Act_ZSize", "out", 17),
                      ("Act_AbsLimit", "out", 16), ("Act_RelLimit", "out", 16)]
+        # Runtime parameters: their inputs and outputs as well
+        if gen.get("RuntimeParams_g"):
+            widths = [("UserData", 8), ("M", 17), ("WeightInterval", 4), ("WeightVmin", 5), ("WeightVmax", 5),
+                      ("UnaryLimit", 6), ("InitCountExp", 4), ("RescaleSize", 4), ("AccuInit", 4),
+                      ("RefInterval", 13)]
+            cfg_ports += [("Cfg_" + n, "in", w) for n, w in widths] + [("Act_" + n, "out", w) for n, w in widths]
         for n, direction, w in cfg_ports:
             typ = "std_logic" if w == 1 else "std_logic_vector({} downto 0)".format(w - 1)
             ports += ";\n        {:<14} : {:<5} {}".format(n, direction, typ)

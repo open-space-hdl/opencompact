@@ -89,6 +89,8 @@ detected.
 | `Cfg_AbsLimit`, `Cfg_RelLimit` | in | With `RuntimeConfig_g`: band-independent absolute and relative error limit values of the next image (16 bits, 0 to 2^DA - 1 and 2^DR - 1) |
 | `Cfg_Taken` | out | With `RuntimeConfig_g`: pulse in the clock cycle in which the core takes the configuration inputs for an image |
 | `Act_XSize`, `Act_YSize`, `Act_ZSize`, `Act_AbsLimit`, `Act_RelLimit` | out | With `RuntimeConfig_g`: the values the core took for the last image, after the range limitation (17 and 16 bits) |
+| `Cfg_UserData`, `Cfg_M`, `Cfg_WeightInterval`, `Cfg_WeightVmin`, `Cfg_WeightVmax`, `Cfg_UnaryLimit`, `Cfg_InitCountExp`, `Cfg_RescaleSize`, `Cfg_AccuInit`, `Cfg_RefInterval` | in | With `RuntimeParams_g`: the runtime parameters of the next image (8, 17, 4, 5, 5, 6, 4, 4, 4, 13 bits; specification, table 1) |
+| `Act_UserData` to `Act_RefInterval` | out | With `RuntimeParams_g`: the runtime parameters the core took for the last image, after the range limitation (zero for a parameter not in use) |
 
 ## 6. Runtime configuration
 

@@ -37,6 +37,8 @@ ECC = "c37_block_d32_custom"
 RESET = "r09_random"
 # Runtime configuration (TC-CH-07): BI with sub-frames, absolute and relative error limits
 RUNTIME = ["rc04_bi_m4_sample_both"]
+# Runtime parameters (TC-CH-08): the same configuration with the parameters of every image
+RUNTIME_PARAMS = ["rp01_bi_m4_sample"]
 
 
 def configure(lib):
@@ -66,4 +68,13 @@ def configure(lib):
         gen.update({"GoldenDir_g": (ROOT / "tb" / "golden" / name).as_posix(), "RuntimeConfig_g": True,
                     "HeaderBytes_g": len(ocp_model.header(cfg)), "InStreamWidth_g": 64, "OutWidth_g": 32,
                     "OutStreamWidth_g": 64})
+        tb.test("test_runtime").add_config(name=name, generics=gen)
+
+    # Runtime parameters through the AXI4-Lite port (TC-CH-08)
+    for name in RUNTIME_PARAMS:
+        cfg = ocp_configs.RUNTIME_PARAMS[name]
+        gen = ocp_generics.generics(cfg)
+        gen.update({"GoldenDir_g": (ROOT / "tb" / "golden" / name).as_posix(), "RuntimeConfig_g": True,
+                    "RuntimeParams_g": True, "HeaderBytes_g": len(ocp_model.header(cfg)), "InStreamWidth_g": 64,
+                    "OutWidth_g": 32, "OutStreamWidth_g": 64})
         tb.test("test_runtime").add_config(name=name, generics=gen)

@@ -41,28 +41,33 @@ entity ocp_block_adaptive_coder is
         BlockSize_g       : positive                 := 16;
         RestrictedCodes_g : boolean                  := false;
         RefInterval_g     : positive range 1 to 4096 := 4096;
-        RamStyle_g        : string                   := "auto"
+        RamStyle_g        : string                   := "auto";
+        -- Runtime parameters: the reference sample interval of every item from In_RefInterval
+        -- (RefInterval_g is the maximum)
+        RuntimeParams_g   : boolean                  := false
     );
     port (
-        Clk           : in    std_logic;
-        Rst           : in    std_logic;
+        Clk            : in    std_logic;
+        Rst            : in    std_logic;
         -- Entropy coder input sequence
-        In_Valid      : in    std_logic;
-        In_Ready      : out   std_logic;
-        In_Data       : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
-        In_Last       : in    std_logic;
+        In_Valid       : in    std_logic;
+        In_Ready       : out   std_logic;
+        In_Data        : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
+        In_Last        : in    std_logic;
+        -- Runtime parameters (RuntimeParams_g): r of the image of the item (1 to RefInterval_g)
+        In_RefInterval : in    std_logic_vector(12 downto 0) := (others => '0');
         -- Codewords
-        Cw_Valid      : out   std_logic;
-        Cw_Ready      : in    std_logic;
-        Cw_Data       : out   std_logic_vector(CwWidth_c - 1 downto 0);
-        Cw_Length     : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Cw_Last       : out   std_logic;
+        Cw_Valid       : out   std_logic;
+        Cw_Ready       : in    std_logic;
+        Cw_Data        : out   std_logic_vector(CwWidth_c - 1 downto 0);
+        Cw_Length      : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Cw_Last        : out   std_logic;
         -- Memory errors (pulses)
-        Ecc_Sec       : out   std_logic;
-        Ecc_Ded       : out   std_logic;
+        Ecc_Sec        : out   std_logic;
+        Ecc_Ded        : out   std_logic;
         -- Error injection into the next write of the codeword buffer: a single or a double bit error
-        ErrInj_Buffer : in    std_logic := '0';
-        ErrInj_Double : in    std_logic := '0'
+        ErrInj_Buffer  : in    std_logic                     := '0';
+        ErrInj_Double  : in    std_logic                     := '0'
     );
 end entity;
 
@@ -147,6 +152,12 @@ architecture rtl of ocp_block_adaptive_coder is
         AllZero  : std_logic;
         Prev     : unsigned(N_c - 1 downto 0);
         Final    : std_logic;
+        -- Runtime parameters: r of the block in collection and of the blocks in the selection stages (no bits
+        -- without them)
+        CRef     : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
+        S1Ref    : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
+        S2Ref    : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
+        S3Ref    : natural range toInt(RuntimeParams_g) to RefInterval_g * toInt(RuntimeParams_g);
         -- Selection of the shortest option (three stages)
         S1Valid  : std_logic;
         S1Bank   : natural range 0 to Banks_c - 1;
@@ -283,6 +294,7 @@ begin
         variable Per_v    : natural range 1 to Lanes_c;
         variable ZC_v     : natural range 0 to 2 ** 15 - 1;
         variable ZD_v     : natural range 0 to 2 ** 15 - 1;
+        variable RefEnd_v : boolean;
     begin
         v := r;
 
@@ -306,6 +318,9 @@ begin
                     Val_v    := resize(unsigned(In_Data), N_c);
                     Accept_v := true;
                     v.Final  := In_Last;
+                    if RuntimeParams_g then
+                        v.CRef := to_integer(unsigned(In_RefInterval));
+                    end if;
                 end if;
             end if;
         end if;
@@ -336,6 +351,7 @@ begin
                 v.S1Bank            := r.CBank;
                 v.S1Zero            := v.AllZero;
                 v.S1Final           := v.Final;
+                v.S1Ref             := v.CRef;
                 v.S1SumK            := v.SumK;
                 v.S1SumSe           := v.SumSe;
                 v.BankFull(r.CBank) := '1';
@@ -371,6 +387,7 @@ begin
             v.S2Bank  := r.S1Bank;
             v.S2Zero  := r.S1Zero;
             v.S2Final := r.S1Final;
+            v.S2Ref   := r.S1Ref;
             v.S2Cand  := reduceTree(Cand_v, TreeA_c);
             v.S1Valid := '0';
         end if;
@@ -380,6 +397,7 @@ begin
             v.S3Bank  := r.S2Bank;
             v.S3Zero  := r.S2Zero;
             v.S3Final := r.S2Final;
+            v.S3Ref   := r.S2Ref;
             v.S3Cand  := reduceTree(r.S2Cand, TreeL_c - TreeA_c);
             v.S2Valid := '0';
         end if;
@@ -403,8 +421,15 @@ begin
             v.ZA      := ZC_v;
             v.ZB      := ZD_v;
             v.S3Valid := '0';
-            SegEnd_v  := (r.BlkInRef mod 64) = 63 or r.BlkInRef = RefInterval_g - 1 or r.S3Final = '1';
-            if r.BlkInRef = RefInterval_g - 1 or r.S3Final = '1' then
+            -- End of the reference sample interval: the generic or r of the image of the block
+            if RuntimeParams_g then
+                SegEnd_v := (r.BlkInRef mod 64) = 63 or r.BlkInRef = r.S3Ref - 1 or r.S3Final = '1';
+                RefEnd_v := r.BlkInRef = r.S3Ref - 1 or r.S3Final = '1';
+            else
+                SegEnd_v := (r.BlkInRef mod 64) = 63 or r.BlkInRef = RefInterval_g - 1 or r.S3Final = '1';
+                RefEnd_v := r.BlkInRef = RefInterval_g - 1 or r.S3Final = '1';
+            end if;
+            if RefEnd_v then
                 v.BlkInRef := 0;
             else
                 v.BlkInRef := r.BlkInRef + 1;

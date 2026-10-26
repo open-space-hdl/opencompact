@@ -81,50 +81,59 @@ entity ocp_predictor is
         RamStyle_g             : string                    := "auto";
         -- Image dimensions and band-independent error limit values of every image from the
         -- configuration inputs; XSize_g, YSize_g and ZSize_g are the maxima
-        RuntimeConfig_g        : boolean                   := false
+        RuntimeConfig_g        : boolean                   := false;
+        -- Runtime parameters (with RuntimeConfig_g): M (BI order, SubFrameDepth_g is the maximum) and the
+        -- weight update parameters of every image from the configuration inputs
+        RuntimeParams_g        : boolean                   := false
     );
     port (
-        Clk            : in    std_logic;
-        Rst            : in    std_logic;
+        Clk                : in    std_logic;
+        Rst                : in    std_logic;
         -- Image samples in the input order; In_End with a sample that ends its image early (the sample
         -- is the last item of the image, the next sample starts a new image)
-        In_Valid       : in    std_logic;
-        In_Ready       : out   std_logic;
-        In_Data        : in    std_logic_vector(DynamicRange_g - 1 downto 0);
-        In_End         : in    std_logic                     := '0';
+        In_Valid           : in    std_logic;
+        In_Ready           : out   std_logic;
+        In_Data            : in    std_logic_vector(DynamicRange_g - 1 downto 0);
+        In_End             : in    std_logic                     := '0';
         -- Error limit values for periodic error limit updating (entropy coder input order)
-        Lim_Valid      : in    std_logic                     := '0';
-        Lim_Ready      : out   std_logic;
-        Lim_Data       : in    std_logic_vector(15 downto 0) := (others => '0');
+        Lim_Valid          : in    std_logic                     := '0';
+        Lim_Ready          : out   std_logic;
+        Lim_Data           : in    std_logic_vector(15 downto 0) := (others => '0');
         -- Runtime configuration (RuntimeConfig_g): NX, NY, NZ (1 to the maxima) and the error limit
         -- values of the next image, taken with its first sample (Cfg_Take, a pulse in the clock cycle in
         -- which the first sample is accepted); while Cfg_Ready is '0' no first sample is accepted
-        Cfg_Ready      : in    std_logic                     := '1';
-        Cfg_XSize      : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_YSize      : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_ZSize      : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_AbsLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
-        Cfg_RelLimit   : in    std_logic_vector(15 downto 0) := (others => '0');
-        Cfg_Take       : out   std_logic;
+        Cfg_Ready          : in    std_logic                     := '1';
+        Cfg_XSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_YSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_ZSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_AbsLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_RelLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        -- Runtime parameters (RuntimeParams_g), taken with the configuration: M (1 to min(SubFrameDepth_g,
+        -- NZ)), log2 t_inc (4 to 11), vmin and vmax (two's complement, -6 <= vmin <= vmax <= 9)
+        Cfg_M              : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_WeightInterval : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_WeightVmin     : in    std_logic_vector(4 downto 0)  := (others => '0');
+        Cfg_WeightVmax     : in    std_logic_vector(4 downto 0)  := (others => '0');
+        Cfg_Take           : out   std_logic;
         -- Pulse: the first item (sample or error limit value) of an image is accepted
-        Img_Start      : out   std_logic;
+        Img_Start          : out   std_logic;
         -- Entropy coder input sequence
-        Out_Valid      : out   std_logic;
-        Out_Ready      : in    std_logic;
-        Out_Data       : out   std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
-        Out_Kind       : out   std_logic_vector(1 downto 0);
-        Out_Band       : out   std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
-        Out_First      : out   std_logic;
-        Out_Init       : out   std_logic;
-        Out_Last       : out   std_logic;
+        Out_Valid          : out   std_logic;
+        Out_Ready          : in    std_logic;
+        Out_Data           : out   std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
+        Out_Kind           : out   std_logic_vector(1 downto 0);
+        Out_Band           : out   std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
+        Out_First          : out   std_logic;
+        Out_Init           : out   std_logic;
+        Out_Last           : out   std_logic;
         -- Memory errors (pulses): corrected single error, detected double error
-        Ecc_Sec        : out   std_logic;
-        Ecc_Ded        : out   std_logic;
+        Ecc_Sec            : out   std_logic;
+        Ecc_Ded            : out   std_logic;
         -- Error injection into the next write of memory ErrInj_Channel (0 to 11): a single (corrected)
         -- or a double (detected) bit error
-        ErrInj_Channel : in    std_logic_vector(3 downto 0)  := (others => '0');
-        ErrInj_Double  : in    std_logic                     := '0';
-        ErrInj_Valid   : in    std_logic                     := '0'
+        ErrInj_Channel     : in    std_logic_vector(3 downto 0)  := (others => '0');
+        ErrInj_Double      : in    std_logic                     := '0';
+        ErrInj_Valid       : in    std_logic                     := '0'
     );
 end entity;
 
@@ -294,7 +303,7 @@ architecture rtl of ocp_predictor is
     -- per pixel; weight vectors per band
     constant BandSlots_c : positive := sel(Bsq_c, 2, maximum(ZSize_g, 2));
     constant SrDepth_c   : positive := maximum(sel(Bsq_c, 3 * XSize_g, ZSize_g * XSize_g), 2);
-    constant DiffRam_c   : boolean  := P_c > 0 and (Bsq_c or M_c < ZSize_g);
+    constant DiffRam_c   : boolean  := P_c > 0 and (Bsq_c or M_c < ZSize_g or (RuntimeParams_g and ZSize_g > 1));
     constant DiffDepth_c : positive := maximum(sel(Bsq_c, XSize_g * YSize_g, XSize_g), 2);
     constant DiffBits_c  : positive := maximum(P_c, 1) * DWs_c;
     constant WBits_c     : positive := C1_c * WW_c;
@@ -700,6 +709,10 @@ architecture rtl of ocp_predictor is
         Nx       : unsigned(XW_c - 1 downto 0);
         XLast    : std_logic;
         RunRows  : std_logic;
+        -- Runtime parameters: log2 t_inc, vmin and vmax of the image (no bits without them)
+        TInc     : natural range 0 to 15 * toInt(RuntimeParams_g);
+        Vmin     : integer range -16 * toInt(RuntimeParams_g) to 15 * toInt(RuntimeParams_g);
+        Vmax     : integer range -16 * toInt(RuntimeParams_g) to 15 * toInt(RuntimeParams_g);
     end record;
 
     type ItemArr_t is array (0 to NSt_c - 1) of Item_r;
@@ -786,6 +799,10 @@ architecture rtl of ocp_predictor is
         LFix     : natural range 0 to 255;
         LCross   : natural range 0 to 255;
         RunRows  : std_logic;
+        -- Runtime parameters of the image at the issue stage (no bits without them)
+        CurTInc  : natural range 0 to 15 * toInt(RuntimeParams_g);
+        CurVmin  : integer range -16 * toInt(RuntimeParams_g) to 15 * toInt(RuntimeParams_g);
+        CurVmax  : integer range -16 * toInt(RuntimeParams_g) to 15 * toInt(RuntimeParams_g);
     end record;
 
     signal r, r_next : TwoProcess_r;
@@ -1189,6 +1206,11 @@ begin
                         v.CurZMax  := resize(unsigned(Cfg_ZSize) - 1, ZW_c);
                         v.AbsConst := unsigned(Cfg_AbsLimit);
                         v.RelConst := unsigned(Cfg_RelLimit);
+                        if RuntimeParams_g then
+                            v.CurTInc := to_integer(unsigned(Cfg_WeightInterval));
+                            v.CurVmin := to_integer(signed(Cfg_WeightVmin));
+                            v.CurVmax := to_integer(signed(Cfg_WeightVmax));
+                        end if;
                     end if;
                 end if;
             end if;
@@ -1246,6 +1268,9 @@ begin
                     O_v.Nx       := r.CurNx;
                     O_v.XLast    := toSl(XLast_v);
                     O_v.RunRows  := toSl(RunRows_v);
+                    O_v.TInc     := r.CurTInc;
+                    O_v.Vmin     := r.CurVmin;
+                    O_v.Vmax     := r.CurVmax;
                     if Bsq_c then
                         O_v.Last := toSl(ZLast_v and YLast_v and XLast_v);
                     else
@@ -1525,13 +1550,25 @@ begin
         else
             Tm_v := signed('0' & Inp1_i.T) - XSize_g;
         end if;
-        Tm_v := shift_right(Tm_v, WeightUpdateInterval_g);
-        if Tm_v < 0 then
-            Rho_v := WeightUpdateVmin_g;
-        elsif Tm_v > WeightUpdateVmax_g - WeightUpdateVmin_g then
-            Rho_v := WeightUpdateVmax_g;
+        if RuntimeParams_g then
+            -- The parameters of the image of the item (PR-RP-02)
+            Tm_v := shift_right(Tm_v, Inp1_i.TInc);
+            if Tm_v < 0 then
+                Rho_v := Inp1_i.Vmin;
+            elsif Tm_v > Inp1_i.Vmax - Inp1_i.Vmin then
+                Rho_v := Inp1_i.Vmax;
+            else
+                Rho_v := Inp1_i.Vmin + to_integer(Tm_v);
+            end if;
         else
-            Rho_v := WeightUpdateVmin_g + to_integer(Tm_v);
+            Tm_v := shift_right(Tm_v, WeightUpdateInterval_g);
+            if Tm_v < 0 then
+                Rho_v := WeightUpdateVmin_g;
+            elsif Tm_v > WeightUpdateVmax_g - WeightUpdateVmin_g then
+                Rho_v := WeightUpdateVmax_g;
+            else
+                Rho_v := WeightUpdateVmin_g + to_integer(Tm_v);
+            end if;
         end if;
         Out1_o.Rho := Rho_v + D_c - Om_c;
 
@@ -2242,6 +2279,11 @@ begin
                     r.LCross  <= LcrossMax_c;
                     r.RunRows <= toSl(RunRows_c);
                 end if;
+                if RuntimeParams_g then
+                    r.CurTInc <= WeightUpdateInterval_g;
+                    r.CurVmin <= WeightUpdateVmin_g;
+                    r.CurVmax <= WeightUpdateVmax_g;
+                end if;
             end if;
         end if;
     end process;
@@ -2257,6 +2299,7 @@ begin
             generic map (
                 Bsq_g           => Bsq_c,
                 SubFrameDepth_g => SubFrameDepth_g,
+                RuntimeM_g      => RuntimeParams_g,
                 PredBands_g     => P_c,
                 RepIsSample_g   => RepIsSample_c,
                 WUsed_g         => WUsed_c,
@@ -2272,6 +2315,7 @@ begin
                 In_XSize    => Cfg_XSize,
                 In_YSize    => Cfg_YSize,
                 In_ZSize    => Cfg_ZSize,
+                In_M        => Cfg_M,
                 Done        => SeqDone,
                 Out_M       => SeqM,
                 Out_Gap1    => open,

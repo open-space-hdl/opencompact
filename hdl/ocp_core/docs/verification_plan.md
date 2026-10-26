@@ -73,9 +73,10 @@ Every image of a sequence draws the user-defined data, the weight update paramet
 (seeded): the first image takes every parameter at the high bound of its range, the second at the low bound, the
 others random values, in rp03 r up to twice the blocks of the image in half of them; a last image of the maximum
 dimensions has log2 t_inc 4 and vmin = vmax = -6, so that the weight update scaling exponent reaches the vmax of the
-image from t = NX + 16 on, and r = 2. The inputs of parameters not in use carry random values. The dimensions and error limit values
-vary as in section 2a. The golden data (`python tools/golden.py --runtime rp01_bi_m4_sample rp02_bi_mnz_hybrid
-rp03_bsq_block`) holds per image the driven and the taken values of the configuration and of the parameters.
+image from t = NX + 16 on, and r = 2. The inputs of parameters not in use carry random values. The dimensions and
+error limit values vary as in section 2a. The golden data (`python tools/golden.py --runtime rp01_bi_m4_sample
+rp02_bi_mnz_hybrid rp03_bsq_block`) holds per image the driven and the taken values of the configuration and of
+the parameters.
 
 ## 3. Test cases
 

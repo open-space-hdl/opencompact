@@ -18,9 +18,9 @@ it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests 
 | `ocp_core_tb` `test_runtime_timing` (TC-CO-53) | 2 (rc01, rc04), each also with `UseInLast_g` | 4 |
 | `ocp_core_tb` `test_runtime_range` (TC-CO-57) | 2 (rc04, rc05), each also with `UseInLast_g` | 4 |
 | `ocp_core_tb` `test_runtime_queue` (TC-CO-58) | 3 (rc03, rc05 and rq06, rc05 with 128 bands, a configuration of this test only), each also with `UseInLast_g` | 6 |
-| `ocp_core_tb` `test_runtime` (TC-CO-59) | 6 (rp01 to rp03, sequences of 20 images with their own runtime parameters, each also with back pressure), each also with `UseInLast_g` | 12 |
+| `ocp_core_tb` `test_runtime` (TC-CO-59) | 6 (rp01 to rp03, sequences of 21 images with their own runtime parameters, each also with back pressure), each also with `UseInLast_g` | 12 |
 | `ocp_core_tb` `test_runtime_range` (TC-CO-60) | 3 (rp01 to rp03, 46, 44 and 21 images), each also with `UseInLast_g` | 6 |
-| `ocp_core_tb` `test_runtime_queue` (TC-CO-61) | 3 (rp01 to rp03), each also with `UseInLast_g` | 6 |
+| `ocp_core_tb` `test_runtime_queue` (TC-CO-61) | 5 (rp01 to rp03; rp01 and rp03 also with the output held after the header of a larger first image, `_hold`), each also with `UseInLast_g` | 10 |
 | `ocp_bit_packer_tb` `test_random` | 30 | 30 |
 | `ocp_bit_packer_tb` `test_byte_order` | 5 | 5 |
 | `ocp_core_tb` `test_golden` with the CCSDS test data set | 300 (75 of them with back pressure), each also with `UseInLast_g` | 600 |
@@ -70,17 +70,21 @@ configurations wait, behind the header pointer (rc03, rc05) or behind the pointe
 whose first image has a tail longer than the codeword buffers), and no image or configuration is lost (TC-CO-58). With
 `RuntimeConfig_g` false every existing test passes on the unchanged golden data (TC-CO-55; resources in section 5).
 
-With the runtime parameters (`RuntimeParams_g` true) every image of the sequences of 20 images of rp01 to rp03 equals
+With the runtime parameters (`RuntimeParams_g` true) every image of the sequences of 21 images of rp01 to rp03 equals
 byte by byte the compressed image of `ocp_model` for its dimensions, error limit values and runtime parameters, the
 first image with every parameter at the high bound of its range, the second at the low bound, also with input gaps
-and output stalls and with the image framing; its header, decoded by the header parser of `ocp_model`, carries the
+and output stalls and with the image framing, and the last image with vmin = vmax = -6 reaches the clip of the weight
+update scaling exponent at the vmax of the image; its header, decoded by the header parser of `ocp_model`, carries the
 parameters, and the `Act_` outputs show them; without back pressure the first sample of every image is accepted in
 the cycle of the throughput model with the M of the image (TC-CO-59). Parameters outside their ranges, alone and
 together, are taken as the values limited in the order of CO-RP-02, among them gamma0 = 1 in rp02, below the lower
-bound 2 that its initial accumulators set (TC-CO-60). With the output held, the queue fills behind the read pointer of
-the sample-adaptive (rp01) and the block-adaptive coder (rp03) and behind the tail pointer of the hybrid coder (rp02),
-and every image keeps its parameters (TC-CO-61). With `RuntimeParams_g` false the tests of rc01 to rc05 pass on their
-unchanged golden data, and the netlists keep the registers and the logic of version 0.2.0 (TC-CO-62, section 7).
+bound 2 that its initial accumulators set (TC-CO-60). With the output held, every image keeps its parameters while
+16 configurations wait (TC-CO-61): behind the tail pointer of the hybrid coder (rp02), and, with the output held only
+after the header of a larger first image, behind the read pointer of the sample-adaptive (rp01) and the
+block-adaptive coder (rp03), where exactly 16 images are taken before the stall. In rp03 constant bands give runs of
+all-zeros blocks, which end at the reference sample interval r of the image. With `RuntimeParams_g` false the tests
+of rc01 to rc05 pass on their unchanged golden data, and the netlists keep the registers and the logic of version
+0.2.0 (TC-CO-62, section 7).
 rp01 to rp03 synthesize, and `RuntimeParams_g` without `RuntimeConfig_g` and a hybrid configuration without a valid
 gamma0 stop the elaboration with their message (TC-CO-64). The elaboration checks for every value of every parameter
 range that decoding its header field encoding gives the value back (TC-CO-63; a mutation of the decoding stops every
@@ -328,3 +332,67 @@ The register bits are equal, and no source file has a different number of operat
 slices of constant signals: the runtime parameters of the generics (and the entry of a queue without parameter
 fields) on the new inputs of the predictor, the header generator and the entropy coder, which these units do not read
 with the generic false, and one truncation of the constant read pointer of the coders. They carry no logic.
+
+## 8. Mutations of the runtime parameters
+
+One mutation per new decision path of the runtime parameters, each applied once to the RTL in a separate worktree;
+before the mutations the tests of every group passed on the unchanged RTL. Every mutation makes its test fail with
+the check named. 46 mutations were caught by the tests of the first version of this change; the other five (the
+queue-full condition of the coder read pointer, vmax of the image, the M < NZ flag of the sequencer and both r
+mutations of the block-adaptive coder) were missed and are caught by the tests added for them: the queue test with
+the output held after the header of a larger first image, the last image of every parameter sequence (vmin = vmax =
+-6, log2 t_inc 4, r = 2), rp03 with constant bands and small r, and the sweep of c01 with every M.
+
+| Unit | Mutation | Test | Result |
+| --- | --- | --- | --- |
+| `ocp_core` | Lower bound of log2 t_inc 5 instead of 4 | rp01 `test_runtime_range` | `Act_WeightInterval` of the image |
+| `ocp_core` | Lower bound of vmin -5 instead of -6 | rp01 `test_runtime_range` | `Act_WeightVmin` |
+| `ocp_core` | vmax limited against -6 instead of the limited vmin | rp01 `test_runtime_range` | `Act_WeightVmax` |
+| `ocp_core` | Upper bound of Umax 31 instead of 32 | rp01 `test_runtime_range` | `Act_UnaryLimit` |
+| `ocp_core` | Upper bound of gamma0 min(7, ...) instead of min(8, ...) | rp01 `test_runtime_range` | `Act_InitCountExp` |
+| `ocp_core` | Lower bound of gamma0 1 instead of the bound from the initial accumulators | rp02 `test_runtime_range` | `Act_InitCountExp` (1 instead of 2) |
+| `ocp_core` | gamma\* limited against the driven instead of the limited gamma0 | rp01 `test_runtime_range` | `Act_RescaleSize` |
+| `ocp_core` | Upper bound of gamma\* one below `RescaleCounterSize_g` | rp01 `test_runtime_range` | `Act_RescaleSize` |
+| `ocp_core` | Upper bound of K 13 instead of min(D - 2, 14) | rp01 `test_runtime_range` | `Act_AccuInit` |
+| `ocp_core` | Upper bound of r one below `RefInterval_g` | rp03 `test_runtime_range` | `Act_RefInterval` |
+| `ocp_core` | Lower bound of M 2 instead of 1 | rp01 `test_runtime_range` | `Act_M` |
+| `ocp_core` | M limited against the driven instead of the limited NZ | rp01 `test_runtime_range` | Range of M exceeded (GHDL bound check) |
+| `ocp_core` | Coder read pointer never moves on | rp01 `test_runtime` | Byte mismatch of the second image |
+| `ocp_core` | Queue full one entry later for the coder read pointer | rp01, rp03 `test_runtime_queue` `_hold` | 17 images taken before the stall instead of 16 |
+| `ocp_core` | Active parameters not taken | rp01 `test_runtime` | `Act_UserData` |
+| `ocp_pkg` | Decoding of the value 2^bits gives 2^bits - 1 | rp03 `test_runtime` (every elaboration) | Elaboration assertion of CO-RP-05 |
+| `ocp_header` | User-defined data not placed | rp01 `test_runtime` | Header byte 0 |
+| `ocp_header` | M not placed | rp01 `test_runtime` | Header byte 9 |
+| `ocp_header` | vmax not placed | rp01 `test_runtime` | Header byte 15 |
+| `ocp_header` | gamma\* not placed | rp02 `test_runtime` | Header byte 23 |
+| `ocp_header` | K not placed | rp01 `test_runtime` | Header byte 24 |
+| `ocp_header` | r not placed | rp03 `test_runtime` | Header byte 20 |
+| `ocp_predictor` | log2 t_inc of the generic instead of the item | rp01 `test_runtime` | Byte mismatch in the body |
+| `ocp_predictor` | vmin of the generic instead of the item | rp01 `test_runtime` | Byte mismatch in the body |
+| `ocp_predictor` | vmax of the generic instead of the item in the clip | rp01 `test_runtime` | Byte mismatch in the body of the last image |
+| `ocp_predictor` | No memory of the local differences of the previous sub-frame without M < `ZSize_g` | rp02 `test_runtime` | Byte mismatch in the body |
+| `ocp_image_start` | M of the image not taken (min(`SubFrameDepth_g`, NZ)) | rp01, rp02 `test_sweep` | Out_M |
+| `ocp_image_start` | M < NZ replaced by NZ > `SubFrameDepth_g` | c01 `test_sweep` with every M | Distance to the previous band |
+| Sample-adaptive coder | Initial accumulator of the generics | rp01 `test_runtime` | Byte mismatch in the body |
+| Sample-adaptive coder | Initial count of the generic gamma0 | rp01 `test_runtime` | Byte mismatch in the body |
+| Sample-adaptive coder | Rescaling threshold of the generic gamma\* | rp01 `test_runtime` | Byte mismatch in the body |
+| Sample-adaptive coder | Umax of the generic | rp01 `test_runtime` | Byte mismatch in the body |
+| Sample-adaptive coder | First factor of the initial accumulator of K = 4 for every K | rp01 `test_runtime` | Byte mismatch in the body |
+| Hybrid coder | Umax of the generic | rp02 `test_runtime` | Byte mismatch in the body |
+| Hybrid coder | Initial count of the generic gamma0 | rp02 `test_runtime` | Byte mismatch in the body |
+| Hybrid coder | Rescaling threshold of the generic gamma\* | rp02 `test_runtime` | Byte mismatch in the body |
+| Hybrid coder | Final accumulators of the tail with the width of the generic gamma\* | rp02 `test_runtime` | Byte mismatch in the tail |
+| Block-adaptive coder | Reference sample interval of the generic instead of the block | rp03 `test_runtime` | Byte mismatch in the body |
+| Block-adaptive coder | r of the item not taken | rp03 `test_runtime` | Byte mismatch in the body |
+| `ocp_mib` | Upper bound of log2 t_inc 12 | rp01 to rp03 `test_runtime_params` | STATUS after log2 t_inc 12 |
+| `ocp_mib` | vmax checked against -6 instead of the pending vmin | rp01 to rp03 `test_runtime_params` | STATUS after vmax below vmin |
+| `ocp_mib` | M not checked against the pending NZ | rp01 to rp03 `test_runtime_params` | STATUS after M 2 with NZ 1 |
+| `ocp_mib` | Upper bound of Umax 33 | rp01 to rp03 `test_runtime_params` | STATUS after Umax 33 |
+| `ocp_mib` | Lower bound of gamma0 1 instead of the bound from the initial accumulators | rp01 to rp03 `test_runtime_params` | STATUS after gamma0 below its lower bound (rp02) |
+| `ocp_mib` | gamma\* not checked against the pending gamma0 | rp01 to rp03 `test_runtime_params` | STATUS after gamma\* = gamma0 |
+| `ocp_mib` | Upper bound of K 15 | rp01 to rp03 `test_runtime_params` | STATUS after K above min(D - 2, 14) |
+| `ocp_mib` | Lower bound of r not checked | rp01 to rp03 `test_runtime_params` | STATUS after r 0 |
+| `ocp_mib` | COMMIT without the check of the parameters | rp01 to rp03 `test_runtime_params` | STATUS after vmin -7 |
+| `ocp_mib` | M written in BSQ order | rp01 to rp03 `test_runtime_params` | Readback of NEXT_ORDER in rp03 |
+| `ocp_mib` | Parameters not committed | rp01 to rp03 `test_runtime_params` | `Cfg_UserData` after a valid COMMIT |
+| `ocp_mib` | SAMPLES.USER_DATA not read from `Act_UserData` | rp01 to rp03 `test_runtime_params` | SAMPLES |

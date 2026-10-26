@@ -12,8 +12,8 @@ it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests 
 | --- | --- | --- |
 | `ocp_predictor_tb` | 75 (62 configurations, 5 of them also with back pressure, 3 also with strong output stalls, 5 also without the speculative weight loop) | 75 |
 | `ocp_predictor_tb` `test_runtime` (TC-PR-41) | 10 (rc01 to rc05, sequences of 20 images, each also with back pressure) | 10 |
-| `ocp_predictor_tb` `test_runtime` (TC-PR-42) | 6 (rp01 to rp03, sequences of 20 images with their own M and weight update parameters, each also with back pressure) | 6 |
-| `ocp_image_start_tb` `test_sweep` (TC-PR-40) | 13 (the latencies and flags of rc01 to rc05 and of c03, c04, c05, c28 and c30, which cover the other combinations of order, sample representatives and local sums, and of c03 without prediction bands; rp01 and rp02 with every M of an image on `In_M`) | 13 |
+| `ocp_predictor_tb` `test_runtime` (TC-PR-42) | 6 (rp01 to rp03, sequences of 21 images with their own M and weight update parameters, each also with back pressure) | 6 |
+| `ocp_image_start_tb` `test_sweep` (TC-PR-40) | 14 (the latencies and flags of rc01 to rc05 and of c03, c04, c05, c28 and c30, which cover the other combinations of order, sample representatives and local sums, and of c03 without prediction bands; rp01, rp02 and c01 in lossless BIP order with every M of an image on `In_M`) | 14 |
 | `ocp_predictor_tb` with the CCSDS test data set | 375 (300 test vectors, 75 of them also with back pressure) | 375 |
 
 ## 2. Summary
@@ -39,7 +39,8 @@ that of the reference model for the M and the weight update parameters of the im
 ranges, also while two images with different parameters share the pipeline; without back pressure the input cycles
 and the image-start cycles equal the throughput model with the M of every image (TC-PR-42). The image-start sequencer
 gives the issue conditions of the elaboration function for every M from 1 to min(`SubFrameDepth_g`, NZ) given on
-`In_M` (rp01: 6674 image starts, rp02: 39698).
+`In_M` (rp01: 6674 image starts, rp02: 39698), also in lossless BIP order (c01), where the distance of the local
+differences of the previous sub-frame decides with M < NZ.
 
 Findings:
 

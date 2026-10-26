@@ -10,13 +10,15 @@ cover every option of CCSDS 123.0-B-2, and of 24 random configurations identical
 GHDL and in QuestaSim, at up to one sample per clock cycle, and reproduces the compressed images of 300 vectors of the
 CCSDS test data set. Unit testbenches verify the predictor, the entropy coders and the bit packer; error injection
 reaches every memory; resets at random times are followed by correct images; images with an early or a missing
-image end marker are flagged and followed by correct images (image framing); code coverage is closed or justified
-([coverage](coverage.md)). The core is not tested on hardware and has no flight heritage. The
+image end marker are flagged and followed by correct images (image framing); with the runtime configuration and the
+runtime parameters, sequences of images with their own dimensions, error limit values and parameters equal the
+reference model; code coverage is closed or justified ([coverage](coverage.md)). The core is not tested on hardware
+and has no flight heritage. The
 [TRL page](https://openspacehdl.org/trl/) explains what the levels mean for an IP core.
 
 | Next level | What is needed | State |
 | --- | --- | --- |
-| TRL 4 | Synthesis with timing closure on a target FPGA and a hardware test with images compressed on the FPGA and decompressed by the CNES reference software; hardware test plan and report | Open: synthesis, place and route at 100 MHz on PolarFire for eleven configurations ([user guide](user_guide.md#8-resources-and-performance)); hardware test open |
+| TRL 4 | Hardware test of a reference system of the family that contains the core (spfi_compress on the VCK190 is the first): synthesis with timing closure of the system, images compressed by the core on the FPGA and, as a step of the system test, decompressed by the CNES reference software; hardware test plan and report of the system | Open: the first hardware test is spfi_compress with this version and OpenFibre 0.1.4; synthesis, place and route of the core alone at 100 MHz on PolarFire for eleven configurations ([user guide](user_guide.md#8-resources-and-performance)) |
 | TRL 5 | Single-event effects test (beam test) on a radiation-tolerant FPGA with the core in operation | Open |
 
 ## Modules

@@ -46,7 +46,7 @@ def test_every_case_has_golden_data():
 def test_javascript_equals_python(tmp_path):
     names = sorted(CASES)
     (tmp_path / "generics.json").write_text(json.dumps([CASES[n] for n in names]), encoding="utf-8")
-    res = subprocess.run(["node", str(TOOLS / "estimate" / "cli.mjs"), str(tmp_path / "generics.json")],
+    res = subprocess.run(["node", str(TOOLS / "tests" / "estimate_runner.mjs"), str(tmp_path / "generics.json")],
                          capture_output=True, text=True, check=True, stdin=subprocess.DEVNULL)
     js = json.loads(res.stdout)
     for name, out in zip(names, js):

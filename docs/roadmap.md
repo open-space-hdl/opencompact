@@ -18,7 +18,7 @@ and has no flight heritage. The
 
 | Next level | What is needed | State |
 | --- | --- | --- |
-| TRL 4 | Hardware test of a reference system of the family that contains the core (spfi_compress on the VCK190 is the first): synthesis with timing closure of the system, images compressed by the core on the FPGA and, as a step of the system test, decompressed by the CNES reference software; hardware test plan and report of the system | Open: the first hardware test is spfi_compress with this version and OpenFibre 0.1.4; synthesis, place and route of the core alone at 100 MHz on PolarFire for eleven configurations ([user guide](user_guide.md#8-resources-and-performance)) |
+| TRL 4 | Hardware test of a reference system of the family that contains the core (spfi_compress on the VCK190 is the first): synthesis with timing closure of the system; images compressed by the core on the FPGA equal to the compressed images of the reference model (`tools/ocp_model.py`) and, as a step of the system test, decompressed by the decoder of the reference model, validated against the CNES reference software, and compared with the input images (identical when lossless, within the error limits when near-lossless); hardware test plan and report of the system | Open: the first hardware test is spfi_compress with this version and OpenFibre 0.1.4; synthesis, place and route of the core alone at 100 MHz on PolarFire for eleven configurations ([user guide](user_guide.md#8-resources-and-performance)) |
 | TRL 5 | Single-event effects test (beam test) on a radiation-tolerant FPGA with the core in operation | Open |
 
 ## Modules

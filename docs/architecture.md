@@ -307,6 +307,12 @@ section 10 is checked by `tools/compliance.py`.
   randomly configured images (TestVectors-B2, Test1-20181021): the model reproduces all 6474 compressed images of the
   set, 347 with the sample-adaptive, 223 with the hybrid and 5904 with the block-adaptive coder. The model provides
   the entropy coder input sequence for the unit testbench of the predictor.
+- The decoder of the reference model (`ocp_model.decompress`, user guide section 11) reconstructs every image of the
+  CCSDS test data set from its compressed image: the 4908 lossless images exactly, the 1566 near-lossless images
+  within the maximum error of every sample and bit for bit as the CNES reference decoder does
+  (`tools/check_model_testvectors.py --decode`). The tests in `tools/tests` (pytest, in the CI) check it against the
+  golden data of the regression and against the images that the CNES decoder reconstructs from the golden compressed
+  images of the 27 near-lossless configurations (`tools/tests/golden_decoded/`).
 - The test images are synthetic and deterministic: scenes of three materials with smooth spectra, edges and noise,
   push-broom stripes, flat low-entropy images and uncorrelated noise.
 - Random configurations (`random_config` of `tools/ocp_configs.py`) draw every parameter of the standard in its range;

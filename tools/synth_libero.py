@@ -6,7 +6,9 @@
 
 Usage: python tools/synth_libero.py --config <configuration> [--family F --die D --package P] [--clk-mhz F] [--impl]
        [--in-last]
-Writes libero_out/<configuration>/ (synthesis top level of the configuration, Tcl script, project and reports) and
+The configuration is one of tools/ocp_configs.py or of the synthesis sweep of the resource model (SWEEP of
+tools/ocp_estimate.py). Writes libero_out/<configuration>/ (synthesis top level of the configuration, Tcl script,
+project and reports) and
 runs Libero in batch mode (`libero` must be on the PATH, for example Libero_SoC/Designer/bin). With --in-last the core
 has the image framing (UseInLast_g) and the results go to libero_out/<configuration>_last/.
 """
@@ -21,6 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import ocp_configs  # noqa: E402
+import ocp_estimate  # noqa: E402
 import ocp_wrapper  # noqa: E402
 
 OLO_AREAS = ("base", "ft")
@@ -100,7 +103,15 @@ def main():
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
-    top = ocp_wrapper.wrapper(ocp_configs.CONFIGS[args.config], use_in_last=args.in_last)
+    # A configuration of the regression or of the synthesis sweep of the resource model (tools/ocp_estimate.py)
+    if args.config in ocp_configs.CONFIGS:
+        cfg, extra = ocp_configs.CONFIGS[args.config], {}
+    elif args.config in ocp_estimate.SWEEP:
+        cfg, extra = ocp_estimate.SWEEP[args.config]
+    else:
+        parser.error(f"unknown configuration {args.config}")
+    top = ocp_wrapper.wrapper(cfg, out_width=extra.get("OutWidth_g", ocp_wrapper.OUT_WIDTH), use_in_last=args.in_last,
+                              extra=extra)
     (out / "ocp_synth_top.vhd").write_text(top, encoding="utf-8")
     script = out / "synth.tcl"
     script.write_text(tcl(out, args.device, args.clk_mhz, args.impl), encoding="utf-8")

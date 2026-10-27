@@ -92,6 +92,94 @@ def ram_bits(g):
     return sum(m["depth"] * m["width"] for m in mems), sum(m["depth"] * m["codeword"] for m in mems)
 
 
+def _reg(d, om):
+    """Register size R at the lower bound of CCSDS 4.7.1: max(32, D + Omega + 2)."""
+    return max(32, d + om + 2)
+
+
+def _base_a(**kw):
+    """BIP, lossless, full prediction with P = 3, sample-adaptive coder (like c01)."""
+    c = dict(large_n_x=32, large_n_y=12, large_n_z=16, large_d=16, large_m=16, large_b=4, large_p=3, large_omega=13,
+             log_two_t_inc=6, v_min=-1, v_max=3, large_u_max=18, gamma_star=6, gamma_0=1, k_prime_prime_vector=[4])
+    c.update(kw)
+    c.setdefault("large_r", _reg(c["large_d"], c["large_omega"]))
+    return ocp_configs.cfg(**c)
+
+
+def _base_b(**kw):
+    """BSQ, near-lossless with an absolute error limit, full prediction with P = 3, block-adaptive coder (J = 16)."""
+    c = dict(large_n_x=32, large_n_y=12, large_n_z=8, large_d=16, sample_encoding_order=1, large_m=0, large_b=4,
+             large_p=3, large_omega=13, log_two_t_inc=6, v_min=-1, v_max=3, quantizer_fidelity_control_method=1,
+             large_d_large_a=6, a_vector=[4], entropy_coder_type=2, large_j=16, r=64)
+    c.update(kw)
+    c.setdefault("large_r", _reg(c["large_d"], c["large_omega"]))
+    return ocp_configs.cfg(**c)
+
+
+def _base_c(**kw):
+    """BIP with M = NZ, near-lossless with an absolute error limit, full prediction with P = 3 (stride order),
+    hybrid coder."""
+    c = dict(large_n_x=12, large_n_y=6, large_n_z=24, large_d=16, large_m=24, large_b=4, large_p=3, large_omega=13,
+             log_two_t_inc=5, v_min=-1, v_max=3, quantizer_fidelity_control_method=1, large_d_large_a=4,
+             a_vector=[2], entropy_coder_type=1, large_u_max=16, gamma_star=6, gamma_0=1,
+             hybrid_initial_accumulator=[100])
+    c.update(kw)
+    c.setdefault("large_r", _reg(c["large_d"], c["large_omega"]))
+    return ocp_configs.cfg(**c)
+
+
+def _sweep():
+    """Configurations of the synthesis sweep of the resource model: name -> (configuration, further generics of
+    ocp_core). Three base configurations, each parameter varied alone, and the configurations of user guide section
+    8.2."""
+    s = {"sa_base": (_base_a(), {}), "sb_base": (_base_b(), {}), "sc_base": (_base_c(), {})}
+    for d in (8, 12, 24, 32):
+        s[f"sa_d{d}"] = (_base_a(large_d=d), {})
+    for om in (4, 10, 19):
+        s[f"sa_om{om}"] = (_base_a(large_omega=om), {})
+    for p in (0, 1, 7, 15):
+        s[f"sa_p{p}"] = (_base_a(large_p=p), {})
+    s["sa_p3_reduced"] = (_base_a(prediction_mode=1), {})
+    s["sa_narrow_neighbor"] = (_base_a(local_sum_type=1), {})
+    s["sa_wide_column"] = (_base_a(local_sum_type=2), {})
+    s["sa_bi_m4"] = (_base_a(large_m=4), {})
+    s["sa_bil"] = (_base_a(large_m=1), {})
+    s["sa_bsq"] = (_base_a(sample_encoding_order=1, large_m=0), {})
+    s["sa_hybrid"] = (_base_a(entropy_coder_type=1, hybrid_initial_accumulator=[100]), {})
+    for j in (8, 16, 32, 64):
+        s[f"sa_block_j{j}"] = (_base_a(entropy_coder_type=2, large_j=j, r=64), {})
+    s["sa_out8"] = (_base_a(), {"OutWidth_g": 8})
+    s["sa_out64"] = (_base_a(), {"OutWidth_g": 64})
+    s["sa_large"] = (_base_a(large_n_x=128, large_n_y=64, large_n_z=64, large_m=64), {})
+    s["sa_small"] = (_base_a(large_n_x=8, large_n_y=8, large_n_z=4, large_m=4), {})
+    s["sa_runtime"] = (_base_a(), {"RuntimeConfig_g": True})
+    s["sa_runtime_params"] = (_base_a(), {"RuntimeConfig_g": True, "RuntimeParams_g": True})
+    # Speculative weight loop: BSQ, lossless, reduced prediction with narrow local sums (like c25)
+    spec = _base_a(sample_encoding_order=1, large_m=0, prediction_mode=1, local_sum_type=1, large_n_z=6)
+    s["sa_spec"] = (spec, {})
+    s["sa_nospec"] = (spec, {"Speculation_g": False})
+    s["sb_lossless"] = (_base_b(quantizer_fidelity_control_method=0), {})
+    s["sb_rel"] = (_base_b(quantizer_fidelity_control_method=2, large_d_large_r=8, r_vector=[30]), {})
+    s["sb_both"] = (_base_b(quantizer_fidelity_control_method=3, large_d_large_r=8, r_vector=[30]), {})
+    s["sb_sample_adaptive"] = (_base_b(entropy_coder_type=0, large_u_max=18, gamma_star=6, gamma_0=1,
+                                       k_prime_prime_vector=[4]), {})
+    s["sb_runtime_params"] = (_base_b(), {"RuntimeConfig_g": True, "RuntimeParams_g": True})
+    # Periodic error limit updating: BI with M < NZ (no stride order)
+    s["sb_bi_periodic"] = (_base_b(sample_encoding_order=0, large_m=4, periodic_updating_flag=1, u=1), {})
+    for nz in (6, 48):
+        s[f"sc_nz{nz}"] = (_base_c(large_n_z=nz, large_m=nz), {})
+    s["sc_sample_adaptive"] = (_base_c(entropy_coder_type=0, k_prime_prime_vector=[4]), {})
+    s["sc_reps"] = (_base_c(sample_representative_flag=1, large_theta=4, phi_vector=[3], psi_vector=[2]), {})
+    for name in ("c01_lossless_bip", "c03_lossless_bsq_narrow", "c04_near_abs_hybrid", "c06_near_both_block",
+                 "c11_wide_d32", "c20_hybrid_d28", "c25_tp_bsq_lossless", "c26_tp_bil_near_abs", "c27_tp_bip_full",
+                 "c29_tp_bip_near_stride", "c30_tp_bip_both_stride"):
+        s[name] = (ocp_configs.ALL[name], {})
+    return s
+
+
+SWEEP = _sweep()
+
+
 def check_cases():
     """The generics of ocp_core for the checks of the estimate (tools/tests, lint/memory_check.py): every
     configuration of tools/ocp_configs.py, the runtime configurations, the runtime parameter configurations, and
@@ -109,6 +197,10 @@ def check_cases():
     # configuration of the stride order has no stride buffers
     cases["c25_nospec"] = dict(ocp_generics.generics(ocp_configs.ALL["c25_tp_bsq_lossless"]), Speculation_g=False)
     cases["c29_runtime"] = dict(ocp_generics.generics(ocp_configs.ALL["c29_tp_bip_near_stride"]), **rt)
+    # The configurations of the synthesis sweep of the resource model
+    for name, (c, extra) in SWEEP.items():
+        if name not in cases:
+            cases[name] = dict(ocp_generics.generics(c), **extra)
     return cases
 
 

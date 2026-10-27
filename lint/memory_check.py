@@ -8,8 +8,9 @@ Synthesises ocp_core with GHDL for every case of ocp_estimate.check_cases() and 
 netlist: every variable mem_v_type (array (0 to N) of std_logic_vector (W downto 0)) of an entity of olo_base_ram_sdp,
 the RAM of olo_ft_ram_sdp and olo_ft_fifo_sync, with its instances counted through the hierarchy from the top level.
 The multiset of (depth, stored width) of every case must equal that of ocp_estimate.memories(). With --write the
-script writes the memories of the netlists to tools/tests/golden_memories.json, which the tests of the estimate
-(tools/tests/test_ocp_estimate.py) compare with the estimate; run it again after a change of the memories of the RTL.
+script writes the memories of the netlists to tools/tests/golden_memories.json (with names: those cases, merged into
+the file), which the tests of the estimate (tools/tests/test_ocp_estimate.py) compare with the estimate; run it again
+after a change of the memories of the RTL.
 
 Usage: python lint/memory_check.py [--write] [name ...]
 Uses the libraries compiled by the regression runner (run `python run.py --compile` first).
@@ -37,9 +38,11 @@ def netlist(name, generics, tmp):
     """GHDL netlist of ocp_core with the generics of a case (wrapper of tools/ocp_wrapper.py)."""
     work = Path(tmp) / name
     work.mkdir()
-    # The wrapper takes the generics of the case in place of those of the configuration
+    # The wrapper takes the generics of the case in place of those of the configuration; the interface width also
+    # sets its ports
     top = work / "ocp_synth_top.vhd"
-    top.write_text(ocp_wrapper.wrapper(ocp_configs.cfg(), out_width=32, extra=generics), encoding="utf-8")
+    top.write_text(ocp_wrapper.wrapper(ocp_configs.cfg(), out_width=generics.get("OutWidth_g", 32), extra=generics),
+                   encoding="utf-8")
     common = ["--std=08", "-frelaxed", f"-P{LIBS / 'olo'}", f"-P{LIBS / 'opencompact'}", f"--workdir={work}"]
     subprocess.run(["ghdl", "-a"] + common + [str(top)], check=True, stdin=subprocess.DEVNULL)
     res = subprocess.run(["ghdl", "--synth"] + common + ["ocp_synth_top"], capture_output=True, text=True,
@@ -105,10 +108,13 @@ def main():
                   ("" if ok else f"  netlist only {dict(got - est)}, estimate only {dict(est - got)}"), flush=True)
             golden.append({"name": name, "memories": sorted([d, w, k] for (d, w), k in got.items())})
     if write:
-        if names:
-            raise SystemExit("--write needs all cases")
-        GOLDEN.write_text(json.dumps(golden, indent=1) + "\n", encoding="utf-8", newline="\n")
-        print(f"wrote {GOLDEN.relative_to(ROOT)}")
+        # With names the entries of these cases replace or join those of the file; the file keeps only cases that
+        # exist
+        merged = {e["name"]: e for e in json.loads(GOLDEN.read_text(encoding="utf-8"))} if names else {}
+        merged.update({e["name"]: e for e in golden})
+        out = [merged[n] for n in sorted(merged) if n in cases]
+        GOLDEN.write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8", newline="\n")
+        print(f"wrote {GOLDEN.relative_to(ROOT)} ({len(out)} cases)")
     print(f"{len(golden)} cases, {fails} differ from the estimate")
     return 1 if fails else 0
 

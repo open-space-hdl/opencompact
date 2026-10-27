@@ -14,7 +14,7 @@ interfaces is a patch release.
   `ocp_resources.mjs` (the memories of `ocp_core` with their depths and widths, data bits and bits stored with ECC),
   with the Python counterpart `tools/ocp_estimate.py`. The stable functions are `headerBytes`, `imagePeriod`,
   `maxImageBytes` and `estimateResources`; they take the generics in the form of the Composer (VHDL literals). The
-  memory estimate equals the memories of the GHDL netlist of 119 configurations (`lint/memory_check.py`, in the CI),
+  memory estimate equals the memories of the GHDL netlist of 126 configurations (`lint/memory_check.py`, in the CI),
   and the JavaScript modules are checked against golden data of the Python models (`tools/ocp_estimate_golden.py
   --check`, `node --test`, TypeScript check of the JSDoc types, in the CI).
 

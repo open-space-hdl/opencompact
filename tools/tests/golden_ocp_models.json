@@ -23220,6 +23220,252 @@
    }
   },
   {
+   "name": "sa_spec_d24",
+   "generics": {
+    "XSize_g": 32,
+    "YSize_g": 12,
+    "ZSize_g": 6,
+    "DynamicRange_g": 24,
+    "SignedSamples_g": false,
+    "UserData_g": 0,
+    "EncodingOrder_g": "BSQ",
+    "SubFrameDepth_g": 1,
+    "OutputWordSize_g": 4,
+    "EntropyCoder_g": "SAMPLE_ADAPTIVE",
+    "SupTableCount_g": 0,
+    "SupTableData_g": "x\"00\"",
+    "PredictionBands_g": 3,
+    "PredictionMode_g": "REDUCED",
+    "LocalSum_g": "NARROW_NEIGHBOR",
+    "RegisterSize_g": 39,
+    "WeightResolution_g": 13,
+    "WeightUpdateInterval_g": 6,
+    "WeightUpdateVmin_g": -1,
+    "WeightUpdateVmax_g": 3,
+    "WeightExpOffsetsUsed_g": false,
+    "WeightExpOffsetTable_g": false,
+    "WeightExpOffsets_g": "(0 => 0)",
+    "CustomWeights_g": false,
+    "WeightInitTable_g": false,
+    "WeightInitResolution_g": 0,
+    "WeightInitValues_g": "(0 => 0)",
+    "Fidelity_g": "LOSSLESS",
+    "PeriodicUpdate_g": false,
+    "UpdatePeriodExp_g": 0,
+    "AbsBandDependent_g": false,
+    "AbsBitDepth_g": 1,
+    "AbsErrorLimits_g": "(0 => 0)",
+    "RelBandDependent_g": false,
+    "RelBitDepth_g": 1,
+    "RelErrorLimits_g": "(0 => 0)",
+    "SampleRepResolution_g": 0,
+    "DampingBandVarying_g": false,
+    "DampingTable_g": false,
+    "Damping_g": "(0 => 0)",
+    "OffsetBandVarying_g": false,
+    "OffsetTable_g": false,
+    "Offset_g": "(0 => 0)",
+    "UnaryLimit_g": 18,
+    "RescaleCounterSize_g": 6,
+    "InitialCountExp_g": 1,
+    "AccuInitBandVarying_g": false,
+    "AccuInitTable_g": false,
+    "AccuInit_g": "(0 => 4)",
+    "HybridAccuInit_g": "(0 => 0)",
+    "HybridAccuInitHigh_g": "(0 => 0)",
+    "BlockSize_g": 16,
+    "RestrictedCodes_g": false,
+    "RefInterval_g": 4096
+   },
+   "estimate": {
+    "ramBits": {
+     "data": 36465,
+     "stored": 40538
+    },
+    "memories": [
+     {
+      "name": "sample representatives of the line",
+      "channel": 0,
+      "depth": 96,
+      "width": 24,
+      "codeword": 30
+     },
+     {
+      "name": "previous sample representative",
+      "channel": 2,
+      "depth": 2,
+      "width": 24,
+      "codeword": 30
+     },
+     {
+      "name": "first sample representative of the line",
+      "channel": 3,
+      "depth": 2,
+      "width": 24,
+      "codeword": 30
+     },
+     {
+      "name": "central local differences",
+      "channel": 4,
+      "depth": 384,
+      "width": 81,
+      "codeword": 89
+     },
+     {
+      "name": "predictor output FIFO",
+      "channel": 8,
+      "depth": 32,
+      "width": 32,
+      "codeword": 39
+     },
+     {
+      "name": "coder statistics",
+      "channel": 12,
+      "depth": 7,
+      "width": 39,
+      "codeword": 46
+     },
+     {
+      "name": "codeword FIFO",
+      "channel": 13,
+      "depth": 16,
+      "width": 104,
+      "codeword": 112
+     }
+    ],
+    "lut": null,
+    "ff": null,
+    "fmaxMHz": null,
+    "notes": [
+     "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration of the regression. Stored bits include the SECDED check bits.",
+     "LUT, flip-flops and clock frequency: no model yet."
+    ]
+   }
+  },
+  {
+   "name": "sa_spec_p1",
+   "generics": {
+    "XSize_g": 32,
+    "YSize_g": 12,
+    "ZSize_g": 6,
+    "DynamicRange_g": 16,
+    "SignedSamples_g": false,
+    "UserData_g": 0,
+    "EncodingOrder_g": "BSQ",
+    "SubFrameDepth_g": 1,
+    "OutputWordSize_g": 4,
+    "EntropyCoder_g": "SAMPLE_ADAPTIVE",
+    "SupTableCount_g": 0,
+    "SupTableData_g": "x\"00\"",
+    "PredictionBands_g": 1,
+    "PredictionMode_g": "REDUCED",
+    "LocalSum_g": "NARROW_NEIGHBOR",
+    "RegisterSize_g": 32,
+    "WeightResolution_g": 13,
+    "WeightUpdateInterval_g": 6,
+    "WeightUpdateVmin_g": -1,
+    "WeightUpdateVmax_g": 3,
+    "WeightExpOffsetsUsed_g": false,
+    "WeightExpOffsetTable_g": false,
+    "WeightExpOffsets_g": "(0 => 0)",
+    "CustomWeights_g": false,
+    "WeightInitTable_g": false,
+    "WeightInitResolution_g": 0,
+    "WeightInitValues_g": "(0 => 0)",
+    "Fidelity_g": "LOSSLESS",
+    "PeriodicUpdate_g": false,
+    "UpdatePeriodExp_g": 0,
+    "AbsBandDependent_g": false,
+    "AbsBitDepth_g": 1,
+    "AbsErrorLimits_g": "(0 => 0)",
+    "RelBandDependent_g": false,
+    "RelBitDepth_g": 1,
+    "RelErrorLimits_g": "(0 => 0)",
+    "SampleRepResolution_g": 0,
+    "DampingBandVarying_g": false,
+    "DampingTable_g": false,
+    "Damping_g": "(0 => 0)",
+    "OffsetBandVarying_g": false,
+    "OffsetTable_g": false,
+    "Offset_g": "(0 => 0)",
+    "UnaryLimit_g": 18,
+    "RescaleCounterSize_g": 6,
+    "InitialCountExp_g": 1,
+    "AccuInitBandVarying_g": false,
+    "AccuInitTable_g": false,
+    "AccuInit_g": "(0 => 4)",
+    "HybridAccuInit_g": "(0 => 0)",
+    "HybridAccuInitHigh_g": "(0 => 0)",
+    "BlockSize_g": 16,
+    "RestrictedCodes_g": false,
+    "RefInterval_g": 4096
+   },
+   "estimate": {
+    "ramBits": {
+     "data": 11545,
+     "stored": 14818
+    },
+    "memories": [
+     {
+      "name": "sample representatives of the line",
+      "channel": 0,
+      "depth": 96,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "previous sample representative",
+      "channel": 2,
+      "depth": 2,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "first sample representative of the line",
+      "channel": 3,
+      "depth": 2,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "central local differences",
+      "channel": 4,
+      "depth": 384,
+      "width": 19,
+      "codeword": 25
+     },
+     {
+      "name": "predictor output FIFO",
+      "channel": 8,
+      "depth": 32,
+      "width": 24,
+      "codeword": 30
+     },
+     {
+      "name": "coder statistics",
+      "channel": 12,
+      "depth": 7,
+      "width": 31,
+      "codeword": 38
+     },
+     {
+      "name": "codeword FIFO",
+      "channel": 13,
+      "depth": 16,
+      "width": 104,
+      "codeword": 112
+     }
+    ],
+    "lut": null,
+    "ff": null,
+    "fmaxMHz": null,
+    "notes": [
+     "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration of the regression. Stored bits include the SECDED check bits.",
+     "LUT, flip-flops and clock frequency: no model yet."
+    ]
+   }
+  },
+  {
    "name": "sa_wide_column",
    "generics": {
     "XSize_g": 32,
@@ -23603,6 +23849,266 @@
    }
   },
   {
+   "name": "sb_bi_periodic_both",
+   "generics": {
+    "XSize_g": 32,
+    "YSize_g": 12,
+    "ZSize_g": 8,
+    "DynamicRange_g": 16,
+    "SignedSamples_g": false,
+    "UserData_g": 0,
+    "EncodingOrder_g": "BI",
+    "SubFrameDepth_g": 4,
+    "OutputWordSize_g": 4,
+    "EntropyCoder_g": "BLOCK_ADAPTIVE",
+    "SupTableCount_g": 0,
+    "SupTableData_g": "x\"00\"",
+    "PredictionBands_g": 3,
+    "PredictionMode_g": "FULL",
+    "LocalSum_g": "WIDE_NEIGHBOR",
+    "RegisterSize_g": 32,
+    "WeightResolution_g": 13,
+    "WeightUpdateInterval_g": 6,
+    "WeightUpdateVmin_g": -1,
+    "WeightUpdateVmax_g": 3,
+    "WeightExpOffsetsUsed_g": false,
+    "WeightExpOffsetTable_g": false,
+    "WeightExpOffsets_g": "(0 => 0)",
+    "CustomWeights_g": false,
+    "WeightInitTable_g": false,
+    "WeightInitResolution_g": 0,
+    "WeightInitValues_g": "(0 => 0)",
+    "Fidelity_g": "ABSOLUTE_RELATIVE",
+    "PeriodicUpdate_g": true,
+    "UpdatePeriodExp_g": 1,
+    "AbsBandDependent_g": false,
+    "AbsBitDepth_g": 6,
+    "AbsErrorLimits_g": "(0 => 4)",
+    "RelBandDependent_g": false,
+    "RelBitDepth_g": 8,
+    "RelErrorLimits_g": "(0 => 30)",
+    "SampleRepResolution_g": 0,
+    "DampingBandVarying_g": false,
+    "DampingTable_g": false,
+    "Damping_g": "(0 => 0)",
+    "OffsetBandVarying_g": false,
+    "OffsetTable_g": false,
+    "Offset_g": "(0 => 0)",
+    "UnaryLimit_g": 16,
+    "RescaleCounterSize_g": 6,
+    "InitialCountExp_g": 1,
+    "AccuInitBandVarying_g": false,
+    "AccuInitTable_g": false,
+    "AccuInit_g": "(0 => 3)",
+    "HybridAccuInit_g": "(0 => 0)",
+    "HybridAccuInitHigh_g": "(0 => 0)",
+    "BlockSize_g": 16,
+    "RestrictedCodes_g": false,
+    "RefInterval_g": 64
+   },
+   "estimate": {
+    "ramBits": {
+     "data": 10464,
+     "stored": 12952
+    },
+    "memories": [
+     {
+      "name": "sample representatives of the line",
+      "channel": 0,
+      "depth": 256,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "window of the previous line",
+      "channel": 1,
+      "depth": 8,
+      "width": 32,
+      "codeword": 39
+     },
+     {
+      "name": "previous sample representative",
+      "channel": 2,
+      "depth": 8,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "first sample representative of the line",
+      "channel": 3,
+      "depth": 8,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "central local differences",
+      "channel": 4,
+      "depth": 32,
+      "width": 57,
+      "codeword": 64
+     },
+     {
+      "name": "weights",
+      "channel": 5,
+      "depth": 8,
+      "width": 96,
+      "codeword": 104
+     },
+     {
+      "name": "predictor output FIFO",
+      "channel": 8,
+      "depth": 64,
+      "width": 25,
+      "codeword": 31
+     },
+     {
+      "name": "codeword FIFO",
+      "channel": 13,
+      "depth": 16,
+      "width": 104,
+      "codeword": 112
+     }
+    ],
+    "lut": null,
+    "ff": null,
+    "fmaxMHz": null,
+    "notes": [
+     "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration of the regression. Stored bits include the SECDED check bits.",
+     "LUT, flip-flops and clock frequency: no model yet."
+    ]
+   }
+  },
+  {
+   "name": "sb_bi_periodic_d24",
+   "generics": {
+    "XSize_g": 32,
+    "YSize_g": 12,
+    "ZSize_g": 8,
+    "DynamicRange_g": 24,
+    "SignedSamples_g": false,
+    "UserData_g": 0,
+    "EncodingOrder_g": "BI",
+    "SubFrameDepth_g": 4,
+    "OutputWordSize_g": 4,
+    "EntropyCoder_g": "BLOCK_ADAPTIVE",
+    "SupTableCount_g": 0,
+    "SupTableData_g": "x\"00\"",
+    "PredictionBands_g": 3,
+    "PredictionMode_g": "FULL",
+    "LocalSum_g": "WIDE_NEIGHBOR",
+    "RegisterSize_g": 39,
+    "WeightResolution_g": 13,
+    "WeightUpdateInterval_g": 6,
+    "WeightUpdateVmin_g": -1,
+    "WeightUpdateVmax_g": 3,
+    "WeightExpOffsetsUsed_g": false,
+    "WeightExpOffsetTable_g": false,
+    "WeightExpOffsets_g": "(0 => 0)",
+    "CustomWeights_g": false,
+    "WeightInitTable_g": false,
+    "WeightInitResolution_g": 0,
+    "WeightInitValues_g": "(0 => 0)",
+    "Fidelity_g": "ABSOLUTE",
+    "PeriodicUpdate_g": true,
+    "UpdatePeriodExp_g": 1,
+    "AbsBandDependent_g": false,
+    "AbsBitDepth_g": 6,
+    "AbsErrorLimits_g": "(0 => 4)",
+    "RelBandDependent_g": false,
+    "RelBitDepth_g": 1,
+    "RelErrorLimits_g": "(0 => 0)",
+    "SampleRepResolution_g": 0,
+    "DampingBandVarying_g": false,
+    "DampingTable_g": false,
+    "Damping_g": "(0 => 0)",
+    "OffsetBandVarying_g": false,
+    "OffsetTable_g": false,
+    "Offset_g": "(0 => 0)",
+    "UnaryLimit_g": 16,
+    "RescaleCounterSize_g": 6,
+    "InitialCountExp_g": 1,
+    "AccuInitBandVarying_g": false,
+    "AccuInitTable_g": false,
+    "AccuInit_g": "(0 => 3)",
+    "HybridAccuInit_g": "(0 => 0)",
+    "HybridAccuInitHigh_g": "(0 => 0)",
+    "BlockSize_g": 16,
+    "RestrictedCodes_g": false,
+    "RefInterval_g": 64
+   },
+   "estimate": {
+    "ramBits": {
+     "data": 14048,
+     "stored": 16632
+    },
+    "memories": [
+     {
+      "name": "sample representatives of the line",
+      "channel": 0,
+      "depth": 256,
+      "width": 24,
+      "codeword": 30
+     },
+     {
+      "name": "window of the previous line",
+      "channel": 1,
+      "depth": 8,
+      "width": 48,
+      "codeword": 55
+     },
+     {
+      "name": "previous sample representative",
+      "channel": 2,
+      "depth": 8,
+      "width": 24,
+      "codeword": 30
+     },
+     {
+      "name": "first sample representative of the line",
+      "channel": 3,
+      "depth": 8,
+      "width": 24,
+      "codeword": 30
+     },
+     {
+      "name": "central local differences",
+      "channel": 4,
+      "depth": 32,
+      "width": 81,
+      "codeword": 89
+     },
+     {
+      "name": "weights",
+      "channel": 5,
+      "depth": 8,
+      "width": 96,
+      "codeword": 104
+     },
+     {
+      "name": "predictor output FIFO",
+      "channel": 8,
+      "depth": 64,
+      "width": 33,
+      "codeword": 40
+     },
+     {
+      "name": "codeword FIFO",
+      "channel": 13,
+      "depth": 16,
+      "width": 104,
+      "codeword": 112
+     }
+    ],
+    "lut": null,
+    "ff": null,
+    "fmaxMHz": null,
+    "notes": [
+     "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration of the regression. Stored bits include the SECDED check bits.",
+     "LUT, flip-flops and clock frequency: no model yet."
+    ]
+   }
+  },
+  {
    "name": "sb_both",
    "generics": {
     "XSize_g": 32,
@@ -23905,6 +24411,130 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
+   },
+   "estimate": {
+    "ramBits": {
+     "data": 26944,
+     "stored": 30760
+    },
+    "memories": [
+     {
+      "name": "sample representatives of the line",
+      "channel": 0,
+      "depth": 96,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "previous sample representative",
+      "channel": 2,
+      "depth": 2,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "first sample representative of the line",
+      "channel": 3,
+      "depth": 2,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "central local differences",
+      "channel": 4,
+      "depth": 384,
+      "width": 57,
+      "codeword": 64
+     },
+     {
+      "name": "weights",
+      "channel": 5,
+      "depth": 2,
+      "width": 96,
+      "codeword": 104
+     },
+     {
+      "name": "predictor output FIFO",
+      "channel": 8,
+      "depth": 64,
+      "width": 25,
+      "codeword": 31
+     },
+     {
+      "name": "codeword FIFO",
+      "channel": 13,
+      "depth": 16,
+      "width": 104,
+      "codeword": 112
+     }
+    ],
+    "lut": null,
+    "ff": null,
+    "fmaxMHz": null,
+    "notes": [
+     "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration of the regression. Stored bits include the SECDED check bits.",
+     "LUT, flip-flops and clock frequency: no model yet."
+    ]
+   }
+  },
+  {
+   "name": "sb_runtime",
+   "generics": {
+    "XSize_g": 32,
+    "YSize_g": 12,
+    "ZSize_g": 8,
+    "DynamicRange_g": 16,
+    "SignedSamples_g": false,
+    "UserData_g": 0,
+    "EncodingOrder_g": "BSQ",
+    "SubFrameDepth_g": 1,
+    "OutputWordSize_g": 4,
+    "EntropyCoder_g": "BLOCK_ADAPTIVE",
+    "SupTableCount_g": 0,
+    "SupTableData_g": "x\"00\"",
+    "PredictionBands_g": 3,
+    "PredictionMode_g": "FULL",
+    "LocalSum_g": "WIDE_NEIGHBOR",
+    "RegisterSize_g": 32,
+    "WeightResolution_g": 13,
+    "WeightUpdateInterval_g": 6,
+    "WeightUpdateVmin_g": -1,
+    "WeightUpdateVmax_g": 3,
+    "WeightExpOffsetsUsed_g": false,
+    "WeightExpOffsetTable_g": false,
+    "WeightExpOffsets_g": "(0 => 0)",
+    "CustomWeights_g": false,
+    "WeightInitTable_g": false,
+    "WeightInitResolution_g": 0,
+    "WeightInitValues_g": "(0 => 0)",
+    "Fidelity_g": "ABSOLUTE",
+    "PeriodicUpdate_g": false,
+    "UpdatePeriodExp_g": 0,
+    "AbsBandDependent_g": false,
+    "AbsBitDepth_g": 6,
+    "AbsErrorLimits_g": "(0 => 4)",
+    "RelBandDependent_g": false,
+    "RelBitDepth_g": 1,
+    "RelErrorLimits_g": "(0 => 0)",
+    "SampleRepResolution_g": 0,
+    "DampingBandVarying_g": false,
+    "DampingTable_g": false,
+    "Damping_g": "(0 => 0)",
+    "OffsetBandVarying_g": false,
+    "OffsetTable_g": false,
+    "Offset_g": "(0 => 0)",
+    "UnaryLimit_g": 16,
+    "RescaleCounterSize_g": 6,
+    "InitialCountExp_g": 1,
+    "AccuInitBandVarying_g": false,
+    "AccuInitTable_g": false,
+    "AccuInit_g": "(0 => 3)",
+    "HybridAccuInit_g": "(0 => 0)",
+    "HybridAccuInitHigh_g": "(0 => 0)",
+    "BlockSize_g": 16,
+    "RestrictedCodes_g": false,
+    "RefInterval_g": 64,
+    "RuntimeConfig_g": true
    },
    "estimate": {
     "ramBits": {
@@ -24805,6 +25435,276 @@
       "depth": 48,
       "width": 57,
       "codeword": 64
+     },
+     {
+      "name": "coder statistics",
+      "channel": 12,
+      "depth": 25,
+      "width": 31,
+      "codeword": 38
+     },
+     {
+      "name": "codeword FIFO",
+      "channel": 13,
+      "depth": 16,
+      "width": 104,
+      "codeword": 112
+     }
+    ],
+    "lut": null,
+    "ff": null,
+    "fmaxMHz": null,
+    "notes": [
+     "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration of the regression. Stored bits include the SECDED check bits.",
+     "LUT, flip-flops and clock frequency: no model yet."
+    ]
+   }
+  },
+  {
+   "name": "sc_runtime",
+   "generics": {
+    "XSize_g": 12,
+    "YSize_g": 6,
+    "ZSize_g": 24,
+    "DynamicRange_g": 16,
+    "SignedSamples_g": false,
+    "UserData_g": 0,
+    "EncodingOrder_g": "BI",
+    "SubFrameDepth_g": 24,
+    "OutputWordSize_g": 4,
+    "EntropyCoder_g": "HYBRID",
+    "SupTableCount_g": 0,
+    "SupTableData_g": "x\"00\"",
+    "PredictionBands_g": 3,
+    "PredictionMode_g": "FULL",
+    "LocalSum_g": "WIDE_NEIGHBOR",
+    "RegisterSize_g": 32,
+    "WeightResolution_g": 13,
+    "WeightUpdateInterval_g": 5,
+    "WeightUpdateVmin_g": -1,
+    "WeightUpdateVmax_g": 3,
+    "WeightExpOffsetsUsed_g": false,
+    "WeightExpOffsetTable_g": false,
+    "WeightExpOffsets_g": "(0 => 0)",
+    "CustomWeights_g": false,
+    "WeightInitTable_g": false,
+    "WeightInitResolution_g": 0,
+    "WeightInitValues_g": "(0 => 0)",
+    "Fidelity_g": "ABSOLUTE",
+    "PeriodicUpdate_g": false,
+    "UpdatePeriodExp_g": 0,
+    "AbsBandDependent_g": false,
+    "AbsBitDepth_g": 4,
+    "AbsErrorLimits_g": "(0 => 2)",
+    "RelBandDependent_g": false,
+    "RelBitDepth_g": 1,
+    "RelErrorLimits_g": "(0 => 0)",
+    "SampleRepResolution_g": 0,
+    "DampingBandVarying_g": false,
+    "DampingTable_g": false,
+    "Damping_g": "(0 => 0)",
+    "OffsetBandVarying_g": false,
+    "OffsetTable_g": false,
+    "Offset_g": "(0 => 0)",
+    "UnaryLimit_g": 16,
+    "RescaleCounterSize_g": 6,
+    "InitialCountExp_g": 1,
+    "AccuInitBandVarying_g": false,
+    "AccuInitTable_g": false,
+    "AccuInit_g": "(0 => 3)",
+    "HybridAccuInit_g": "(0 => 100)",
+    "HybridAccuInitHigh_g": "(0 => 0)",
+    "BlockSize_g": 16,
+    "RestrictedCodes_g": false,
+    "RefInterval_g": 4096,
+    "RuntimeConfig_g": true
+   },
+   "estimate": {
+    "ramBits": {
+     "data": 12551,
+     "stored": 15614
+    },
+    "memories": [
+     {
+      "name": "sample representatives of the line",
+      "channel": 0,
+      "depth": 288,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "window of the previous line",
+      "channel": 1,
+      "depth": 24,
+      "width": 32,
+      "codeword": 39
+     },
+     {
+      "name": "previous sample representative",
+      "channel": 2,
+      "depth": 24,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "first sample representative of the line",
+      "channel": 3,
+      "depth": 24,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "weights",
+      "channel": 5,
+      "depth": 24,
+      "width": 96,
+      "codeword": 104
+     },
+     {
+      "name": "predictor output FIFO",
+      "channel": 8,
+      "depth": 64,
+      "width": 26,
+      "codeword": 32
+     },
+     {
+      "name": "coder statistics",
+      "channel": 12,
+      "depth": 25,
+      "width": 31,
+      "codeword": 38
+     },
+     {
+      "name": "codeword FIFO",
+      "channel": 13,
+      "depth": 16,
+      "width": 104,
+      "codeword": 112
+     }
+    ],
+    "lut": null,
+    "ff": null,
+    "fmaxMHz": null,
+    "notes": [
+     "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration of the regression. Stored bits include the SECDED check bits.",
+     "LUT, flip-flops and clock frequency: no model yet."
+    ]
+   }
+  },
+  {
+   "name": "sc_runtime_params",
+   "generics": {
+    "XSize_g": 12,
+    "YSize_g": 6,
+    "ZSize_g": 24,
+    "DynamicRange_g": 16,
+    "SignedSamples_g": false,
+    "UserData_g": 0,
+    "EncodingOrder_g": "BI",
+    "SubFrameDepth_g": 24,
+    "OutputWordSize_g": 4,
+    "EntropyCoder_g": "HYBRID",
+    "SupTableCount_g": 0,
+    "SupTableData_g": "x\"00\"",
+    "PredictionBands_g": 3,
+    "PredictionMode_g": "FULL",
+    "LocalSum_g": "WIDE_NEIGHBOR",
+    "RegisterSize_g": 32,
+    "WeightResolution_g": 13,
+    "WeightUpdateInterval_g": 5,
+    "WeightUpdateVmin_g": -1,
+    "WeightUpdateVmax_g": 3,
+    "WeightExpOffsetsUsed_g": false,
+    "WeightExpOffsetTable_g": false,
+    "WeightExpOffsets_g": "(0 => 0)",
+    "CustomWeights_g": false,
+    "WeightInitTable_g": false,
+    "WeightInitResolution_g": 0,
+    "WeightInitValues_g": "(0 => 0)",
+    "Fidelity_g": "ABSOLUTE",
+    "PeriodicUpdate_g": false,
+    "UpdatePeriodExp_g": 0,
+    "AbsBandDependent_g": false,
+    "AbsBitDepth_g": 4,
+    "AbsErrorLimits_g": "(0 => 2)",
+    "RelBandDependent_g": false,
+    "RelBitDepth_g": 1,
+    "RelErrorLimits_g": "(0 => 0)",
+    "SampleRepResolution_g": 0,
+    "DampingBandVarying_g": false,
+    "DampingTable_g": false,
+    "Damping_g": "(0 => 0)",
+    "OffsetBandVarying_g": false,
+    "OffsetTable_g": false,
+    "Offset_g": "(0 => 0)",
+    "UnaryLimit_g": 16,
+    "RescaleCounterSize_g": 6,
+    "InitialCountExp_g": 1,
+    "AccuInitBandVarying_g": false,
+    "AccuInitTable_g": false,
+    "AccuInit_g": "(0 => 3)",
+    "HybridAccuInit_g": "(0 => 100)",
+    "HybridAccuInitHigh_g": "(0 => 0)",
+    "BlockSize_g": 16,
+    "RestrictedCodes_g": false,
+    "RefInterval_g": 4096,
+    "RuntimeConfig_g": true,
+    "RuntimeParams_g": true
+   },
+   "estimate": {
+    "ramBits": {
+     "data": 13235,
+     "stored": 16382
+    },
+    "memories": [
+     {
+      "name": "sample representatives of the line",
+      "channel": 0,
+      "depth": 288,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "window of the previous line",
+      "channel": 1,
+      "depth": 24,
+      "width": 32,
+      "codeword": 39
+     },
+     {
+      "name": "previous sample representative",
+      "channel": 2,
+      "depth": 24,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "first sample representative of the line",
+      "channel": 3,
+      "depth": 24,
+      "width": 16,
+      "codeword": 22
+     },
+     {
+      "name": "central local differences",
+      "channel": 4,
+      "depth": 12,
+      "width": 57,
+      "codeword": 64
+     },
+     {
+      "name": "weights",
+      "channel": 5,
+      "depth": 24,
+      "width": 96,
+      "codeword": 104
+     },
+     {
+      "name": "predictor output FIFO",
+      "channel": 8,
+      "depth": 64,
+      "width": 26,
+      "codeword": 32
      },
      {
       "name": "coder statistics",

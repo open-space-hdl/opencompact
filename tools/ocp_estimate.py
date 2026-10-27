@@ -225,6 +225,18 @@ def _sweep():
         s[f"sc_nz{nz}"] = (_base_c(large_n_z=nz, large_m=nz), {})
     s["sc_sample_adaptive"] = (_base_c(entropy_coder_type=0, k_prime_prime_vector=[4]), {})
     s["sc_reps"] = (_base_c(sample_representative_flag=1, large_theta=4, phi_vector=[3], psi_vector=[2]), {})
+    # Second and third points of the blocks that the variations above add only once or twice
+    s["sb_bi_periodic_d24"] = (_base_b(sample_encoding_order=0, large_m=4, periodic_updating_flag=1, u=1, large_d=24),
+                               {})
+    s["sb_bi_periodic_both"] = (_base_b(sample_encoding_order=0, large_m=4, periodic_updating_flag=1, u=1,
+                                        quantizer_fidelity_control_method=3, large_d_large_r=8, r_vector=[30]), {})
+    s["sb_runtime"] = (_base_b(), {"RuntimeConfig_g": True})
+    s["sc_runtime"] = (_base_c(), {"RuntimeConfig_g": True})
+    s["sc_runtime_params"] = (_base_c(), {"RuntimeConfig_g": True, "RuntimeParams_g": True})
+    s["sa_spec_d24"] = (_base_a(sample_encoding_order=1, large_m=0, prediction_mode=1, local_sum_type=1, large_n_z=6,
+                                large_d=24), {})
+    s["sa_spec_p1"] = (_base_a(sample_encoding_order=1, large_m=0, prediction_mode=1, local_sum_type=1, large_n_z=6,
+                               large_p=1), {})
     for name in ("c01_lossless_bip", "c03_lossless_bsq_narrow", "c04_near_abs_hybrid", "c06_near_both_block",
                  "c11_wide_d32", "c20_hybrid_d28", "c25_tp_bsq_lossless", "c26_tp_bil_near_abs", "c27_tp_bip_full",
                  "c29_tp_bip_near_stride", "c30_tp_bip_both_stride"):

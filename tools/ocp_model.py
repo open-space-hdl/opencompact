@@ -8,11 +8,14 @@ The model implements the compressor of CCSDS 123.0-B-2 (Issue 2, Technical Corri
 header (5.3), predictor and quantizer (4), the three entropy coders (5.4.3) and the input orders (5.4.2). It is
 the source of the intermediate reference data of the OpenCompact unit testbenches (mapped quantizer indices,
 codewords). The compressed images of the testbenches come from the CNES reference software (tools/golden.py).
+decompress() is the decoder: it reconstructs the clipped quantizer bin centers of a compressed image of any
+configuration, as the CNES reference decoder does (tools/tests).
 
 A configuration is a dict with the parameter names of the CNES header tool (large_n_x, large_d, ...); see
 `default_config()`. Vector parameters (a_vector, phi_vector, ...) repeat their last element as needed.
 """
 
+import math
 import sys
 
 from ocp_low_entropy_codes import CODES, FLUSH, LIMITS, THRESHOLDS
@@ -411,12 +414,38 @@ def predict(cfg, img, error_limit_updates=None, trace=None):
     trace, when given, is a dict that receives per-sample intermediate values keyed by (z, y, x).
     """
     pr = Params(cfg)
+    delta = [[[0] * pr.nx for _ in range(pr.ny)] for _ in range(pr.nz)]
+
+    def quantize(z, y, x, s_hat, s_dbl, m, theta_m):
+        s = img[z][y][x]
+        assert pr.smin <= s <= pr.smax, (z, y, x, s)
+        res = s - s_hat                                             # (40)
+        q = sgn(res) * ((abs(res) + m) // (2 * m + 1))              # (41); q = res for m = 0 and for t = 0
+        delta[z][y][x] = map_index(q, theta_m, s_dbl)               # (55)
+        return q
+
+    limits = run_predictor(pr, error_limit_updates, quantize, trace=trace)
+    if trace is not None:
+        for (z, y, x), v in trace.items():
+            v["delta"] = delta[z][y][x]
+    return delta, limits
+
+
+def run_predictor(pr, error_limit_updates, quantize, trace=None, recon=None, max_error=None):
+    """Predictor, quantizer, sample representatives and weight update (4.2 to 4.10) over all samples, by row, then
+    column, then band.
+
+    quantize(z, y, x, s_hat, s_dbl, m, theta_m) gives the quantizer index of every sample: the compressor quantizes
+    the prediction residual (4.8), the decompressor takes it from the mapped quantizer index (4.11). The values that
+    follow from the index are the same in both. Returns limits as predict(); recon and max_error, when given, receive
+    the clipped quantizer bin center s'z(t) of every sample (4.9; the sample itself when lossless and for t = 0) and
+    its maximum error mz(t) (4.8.2.1).
+    """
     nx, ny, nz, d = pr.nx, pr.ny, pr.nz, pr.d
     smin, smax, smid = pr.smin, pr.smax, pr.smid
     om, reg, th = pr.om, pr.reg, pr.theta
     sr = [[[0] * nx for _ in range(ny)] for _ in range(nz)]      # sample representatives s''
     dc = [[[0] * nx for _ in range(ny)] for _ in range(nz)]      # central local differences
-    delta = [[[0] * nx for _ in range(ny)] for _ in range(nz)]
     weights = [init_weights(pr, z) for z in range(nz)]
     lim = ErrorLimits(pr, error_limit_updates)
     limits = {}
@@ -426,19 +455,21 @@ def predict(cfg, img, error_limit_updates=None, trace=None):
         for x in range(nx):
             t = y * nx + x
             for z in range(nz):
-                s = img[z][y][x]
-                assert smin <= s <= smax, (z, y, x, s)
                 pz = pr.pz(z)
                 if t == 0:
-                    # 4.7.3: double-resolution predicted sample value for t = 0
-                    s_dbl = 2 * img[z - 1][y][x] if (pr.p > 0 and z > 0) else 2 * smid
+                    # 4.7.3: double-resolution predicted sample value for t = 0 (the sample of band z - 1, which
+                    # equals its representative for t = 0)
+                    s_dbl = 2 * sr[z - 1][y][x] if (pr.p > 0 and z > 0) else 2 * smid
                     s_hat = s_dbl >> 1
-                    q = s - s_hat                                  # (41), t = 0
-                    sr[z][y][x] = s                                # (46), t = 0
                     theta_m = min(s_hat - smin, smax - s_hat)      # (56), t = 0
-                    delta[z][y][x] = map_index(q, theta_m, s_dbl)
+                    q = quantize(z, y, x, s_hat, s_dbl, 0, theta_m)
+                    s = s_hat + q                                  # (41), t = 0
+                    sr[z][y][x] = s                                # (46), t = 0
+                    if recon is not None:
+                        recon[z][y][x] = s
+                        max_error[z][y][x] = 0
                     if trace is not None:
-                        trace[(z, y, x)] = dict(s_hat=s_hat, q=q, m=0, delta=delta[z][y][x])
+                        trace[(z, y, x)] = dict(s_hat=s_hat, q=q, m=0)
                     continue
                 sigma = local_sum(pr, sr, z, y, x)
                 # local difference vector U (4.5.3)
@@ -460,7 +491,6 @@ def predict(cfg, img, error_limit_updates=None, trace=None):
                                (1 << (om + 2)) * smin, (1 << (om + 2)) * smax + (1 << (om + 1)))   # (37)
                 s_dbl = s_tilde >> (om + 1)                         # (38)
                 s_hat = s_dbl >> 1                                  # (39)
-                res = s - s_hat                                     # (40)
                 # maximum error (4.8.2.1)
                 if pr.fid == 0:
                     m = 0
@@ -470,8 +500,12 @@ def predict(cfg, img, error_limit_updates=None, trace=None):
                     m = (lim.r[z] * abs(s_hat)) >> d
                 else:
                     m = min(lim.a[z], (lim.r[z] * abs(s_hat)) >> d)
-                q = sgn(res) * ((abs(res) + m) // (2 * m + 1))      # (41)
+                theta_m = min((s_hat - smin + m) // (2 * m + 1), (smax - s_hat + m) // (2 * m + 1))   # (56)
+                q = quantize(z, y, x, s_hat, s_dbl, m, theta_m)      # (41) or (55) inverted
                 s_clip = clip(s_hat + q * (2 * m + 1), smin, smax)   # (48)
+                if recon is not None:
+                    recon[z][y][x] = s_clip
+                    max_error[z][y][x] = m
                 phi, psi = pr.phi[z], pr.psi[z]
                 num = (4 * ((1 << th) - phi) * ((s_clip << om) - ((sgn(q) * m * psi) << om >> th))
                        + phi * s_tilde - (phi << (om + 1)))
@@ -489,12 +523,10 @@ def predict(cfg, img, error_limit_updates=None, trace=None):
                     else:
                         zo = pr.zeta[z][j - (3 if pr.full else 0) + 1]
                     wv[j] = clip(wv[j] + weight_increment(sp, u[j], rho + zo), pr.wmin, pr.wmax)
-                theta_m = min((s_hat - smin + m) // (2 * m + 1), (smax - s_hat + m) // (2 * m + 1))   # (56)
-                delta[z][y][x] = map_index(q, theta_m, s_dbl)
                 if trace is not None:
                     trace[(z, y, x)] = dict(sigma=sigma, d_pred=d_pred, s_tilde=s_tilde, s_hat=s_hat, q=q, m=m,
-                                            s_rep=s_rep, delta=delta[z][y][x])
-    return delta, limits
+                                            s_rep=s_rep)
+    return limits
 
 
 def weight_increment(sp, dval, shift):
@@ -625,11 +657,7 @@ def encode_sample_adaptive(cfg, seq, w, header_bits=0, trace=None):
     pr = Params(cfg)
     d = pr.d
     umax, gs, g0 = cfg["large_u_max"], cfg["gamma_star"], cfg["gamma_0"]
-    kpp = vec(cfg, "k_prime_prime_vector", pr.nz)
-    acc = []
-    for z in range(pr.nz):
-        kp = kpp[z] if kpp[z] <= 30 - d else 2 * kpp[z] + d - 30          # (59)
-        acc.append(((3 * (1 << (kp + 6)) - 49) << g0) >> 7)                # (58), Gamma(1) = 2^g0
+    acc = sample_adaptive_initial_accumulators(cfg)
     cnt = [1 << g0] * pr.nz
     last = [None] * pr.nz
     for item in seq:
@@ -648,19 +676,33 @@ def encode_sample_adaptive(cfg, seq, w, header_bits=0, trace=None):
             else:
                 acc[z] = (acc[z] + last[z] + 1) >> 1
                 cnt[z] = (cnt[z] + 1) >> 1
-        g, a = cnt[z], acc[z]
-        if 2 * g > a + ((49 * g) >> 7):
-            k = 0
-        else:
-            k = 0
-            for kk in range(1, d - 1):
-                if (g << kk) <= a + ((49 * g) >> 7):
-                    k = kk
+        k = sample_adaptive_k(cnt[z], acc[z], d)
         if trace is not None:
             trace.append((z, t, dl, k))
         gpo2(w, dl, k, umax, d)
         last[z] = dl
     pad_to_word(cfg, w, header_bits)                                       # 5.4.3.2.4.4
+
+
+def sample_adaptive_initial_accumulators(cfg):
+    """Initial accumulator of every band of the sample-adaptive coder (5.4.3.2.3.3)."""
+    d, g0 = cfg["large_d"], cfg["gamma_0"]
+    acc = []
+    for kpp in vec(cfg, "k_prime_prime_vector", cfg["large_n_z"]):
+        kp = kpp if kpp <= 30 - d else 2 * kpp + d - 30                    # (59)
+        acc.append(((3 * (1 << (kp + 6)) - 49) << g0) >> 7)                # (58), Gamma(1) = 2^g0
+    return acc
+
+
+def sample_adaptive_k(g, a, d):
+    """Code index of the sample-adaptive coder for counter g and accumulator a (5.4.3.2.4.3)."""
+    if 2 * g > a + ((49 * g) >> 7):
+        return 0
+    k = 0
+    for kk in range(1, d - 1):
+        if (g << kk) <= a + ((49 * g) >> 7):
+            k = kk
+    return k
 
 
 # ------------------------------------------------------------------------------------------------
@@ -688,20 +730,13 @@ def encode_hybrid(cfg, seq, w, header_bits=0, trace=None):
             w.put(acc[z] & 1, 1)                                           # 5.4.3.3.5.1.2
             acc[z] = (acc[z] + 4 * dl + 1) >> 1
             cnt[z] = (cnt[z] + 1) >> 1
-        g, a = cnt[z], acc[z]
-        if a * (1 << 14) >= THRESHOLDS[0] * g:
-            k = 2
-            for kk in range(2, max(d - 2, 2) + 1):
-                if (g << (kk + 2)) <= a + ((49 * g) >> 5):
-                    k = kk
+        kind, k = hybrid_code(cnt[z], acc[z], d)
+        if kind == "H":
             if trace is not None:
                 trace.append((z, t, dl, "H", k))
             gpo2_reversed(w, dl, k, umax, d)
         else:
-            i = 0
-            for c in range(16):
-                if a * (1 << 14) < g * THRESHOLDS[c]:
-                    i = c
+            i = k
             if trace is not None:
                 trace.append((z, t, dl, "L", i))
             if dl > LIMITS[i]:
@@ -725,6 +760,23 @@ def encode_hybrid(cfg, seq, w, header_bits=0, trace=None):
     rem = (header_bits + w.n) % unit
     if rem:
         w.put(0, unit - rem)
+
+
+def hybrid_code(g, a, d):
+    """Coding of a mapped quantizer index by the hybrid coder for counter g and high-resolution accumulator a (the
+    statistics after their update with the index, 5.4.3.3.5.1.4): ("H", k) for a high-entropy index and the reversed
+    GPO2 code index k (5.4.3.3.5.2), ("L", i) for a low-entropy index and the low-entropy code i (5.4.3.3.5.3.1)."""
+    if a * (1 << 14) >= THRESHOLDS[0] * g:
+        k = 2
+        for kk in range(2, max(d - 2, 2) + 1):
+            if (g << (kk + 2)) <= a + ((49 * g) >> 5):
+                k = kk
+        return "H", k
+    i = 0
+    for c in range(16):
+        if a * (1 << 14) < g * THRESHOLDS[c]:
+            i = c
+    return "L", i
 
 
 # ------------------------------------------------------------------------------------------------
@@ -979,11 +1031,23 @@ class BitReader:
         self.pos = (self.pos + 7) & ~7
 
 
-def parse_header(data, optional_tables=b""):
-    """Returns (cfg, header length in bytes). Tables not present in the header are read from optional_tables."""
+# Configuration entries of the per-band tables that the header may leave out (table flags '0', 5.3.3)
+TABLE_KEYS = ("large_lambda_vector", "zeta_vector", "phi_vector", "psi_vector", "k_prime_prime_vector")
+
+
+def parse_header(data, optional_tables=b"", tables=None):
+    """Returns (cfg, header length in bytes). A table that the header leaves out is taken from tables, a configuration
+    dict (for example the one given to compress(); only TABLE_KEYS are used), when it holds the entry, else read from
+    optional_tables (the layout of the CCSDS test data set)."""
     cfg = default_config()
     r = BitReader(data)
-    opt = BitReader(optional_tables)
+    opt = BitReader(optional_tables or b"")
+
+    def outside(key):
+        """Values of a table that the header leaves out, from tables; None when they come from optional_tables."""
+        if tables is not None and key in tables:
+            return list(tables[key])
+        return None
     cfg["user_defined_data"] = r.get(8)
     cfg["large_n_x"] = r.get(16) or 65536
     cfg["large_n_y"] = r.get(16) or 65536
@@ -1046,21 +1110,29 @@ def parse_header(data, optional_tables=b""):
     cfg["large_q"] = r.get(5)
     pr = Params(cfg)
     if cfg["weight_initialization_method"]:
-        src = r if cfg["weight_initialization_table_flag"] else opt
-        lam = []
-        for z in range(nz):
-            for _ in range(pr.cz(z)):
-                lam.append(src.get_signed(cfg["large_q"]))
-        src.align()
-        cfg["large_lambda_vector"] = lam
+        given = None if cfg["weight_initialization_table_flag"] else outside("large_lambda_vector")
+        if given is not None:
+            cfg["large_lambda_vector"] = given
+        else:
+            src = r if cfg["weight_initialization_table_flag"] else opt
+            lam = []
+            for z in range(nz):
+                for _ in range(pr.cz(z)):
+                    lam.append(src.get_signed(cfg["large_q"]))
+            src.align()
+            cfg["large_lambda_vector"] = lam
     if cfg["weight_exponent_offset_flag"]:
-        src = r if cfg["weight_exponent_offset_table_flag"] else opt
-        zv = []
-        for z in range(nz):
-            for _ in range(pr.pz(z) + (1 if pr.full else 0)):
-                zv.append(src.get_signed(4))
-        src.align()
-        cfg["zeta_vector"] = zv
+        given = None if cfg["weight_exponent_offset_table_flag"] else outside("zeta_vector")
+        if given is not None:
+            cfg["zeta_vector"] = given
+        else:
+            src = r if cfg["weight_exponent_offset_table_flag"] else opt
+            zv = []
+            for z in range(nz):
+                for _ in range(pr.pz(z) + (1 if pr.full else 0)):
+                    zv.append(src.get_signed(4))
+            src.align()
+            cfg["zeta_vector"] = zv
     fid = cfg["quantizer_fidelity_control_method"]
     if fid != 0:
         if cfg["sample_encoding_order"] == 0:
@@ -1098,13 +1170,21 @@ def parse_header(data, optional_tables=b""):
         cfg["phi_vector"] = [fixed_phi]
         cfg["psi_vector"] = [fixed_psi]
         if cfg["band_varying_damping_flag"]:
-            src = r if cfg["damping_table_flag"] else opt
-            cfg["phi_vector"] = [src.get(th) for _ in range(nz)]
-            src.align()
+            given = None if cfg["damping_table_flag"] else outside("phi_vector")
+            if given is not None:
+                cfg["phi_vector"] = given
+            else:
+                src = r if cfg["damping_table_flag"] else opt
+                cfg["phi_vector"] = [src.get(th) for _ in range(nz)]
+                src.align()
         if cfg["band_varying_offset_flag"]:
-            src = r if cfg["offset_table_flag"] else opt
-            cfg["psi_vector"] = [src.get(th) for _ in range(nz)]
-            src.align()
+            given = None if cfg["offset_table_flag"] else outside("psi_vector")
+            if given is not None:
+                cfg["psi_vector"] = given
+            else:
+                src = r if cfg["offset_table_flag"] else opt
+                cfg["psi_vector"] = [src.get(th) for _ in range(nz)]
+                src.align()
     ec = cfg["entropy_coder_type"]
     if ec in (0, 1):
         cfg["large_u_max"] = r.get(5) or 32
@@ -1115,9 +1195,13 @@ def parse_header(data, optional_tables=b""):
             cfg["accumulator_initialization_table_flag"] = r.get(1)
             if k == 15:
                 cfg["band_varying_k_flag"] = 1
-                src = r if cfg["accumulator_initialization_table_flag"] else opt
-                cfg["k_prime_prime_vector"] = [src.get(4) for _ in range(nz)]
-                src.align()
+                given = None if cfg["accumulator_initialization_table_flag"] else outside("k_prime_prime_vector")
+                if given is not None:
+                    cfg["k_prime_prime_vector"] = given
+                else:
+                    src = r if cfg["accumulator_initialization_table_flag"] else opt
+                    cfg["k_prime_prime_vector"] = [src.get(4) for _ in range(nz)]
+                    src.align()
             else:
                 cfg["band_varying_k_flag"] = 0
                 cfg["k_prime_prime_vector"] = [k]
@@ -1130,3 +1214,308 @@ def parse_header(data, optional_tables=b""):
         cfg["r"] = r.get(12) or 4096
     assert r.pos % 8 == 0
     return cfg, r.pos // 8
+
+
+# ------------------------------------------------------------------------------------------------
+# Decompressor
+# ------------------------------------------------------------------------------------------------
+class DecodeError(ValueError):
+    """The data is not the compressed image of its header (it ends early or its body does not decode)."""
+
+
+class _Bits:
+    """Bit access to a compressed image, most significant bit of every byte first, within the bits lo to hi. Reads
+    forward from pos or, with reverse, backward: get(w) then gives the w bits that end at pos, in stream order."""
+
+    def __init__(self, data, pos, lo, hi, reverse=False):
+        self.data = data
+        self.pos = pos
+        self.lo = lo
+        self.hi = hi
+        self.reverse = reverse
+
+    def bit(self):
+        if self.reverse:
+            if self.pos <= self.lo:
+                raise DecodeError("the compressed image body ends early")
+            self.pos -= 1
+            p = self.pos
+        else:
+            if self.pos >= self.hi:
+                raise DecodeError("the compressed image ends early")
+            p = self.pos
+            self.pos += 1
+        return (self.data[p >> 3] >> (7 - (p & 7))) & 1
+
+    def get(self, width):
+        if width == 0:
+            return 0
+        if self.reverse:
+            p = self.pos - width
+            if p < self.lo:
+                raise DecodeError("the compressed image body ends early")
+            self.pos = p
+        else:
+            p = self.pos
+            if p + width > self.hi:
+                raise DecodeError("the compressed image ends early")
+            self.pos = p + width
+        end = p + width
+        first, last = p >> 3, (end + 7) >> 3
+        return (int.from_bytes(self.data[first:last], "big") >> (8 * last - end)) & ((1 << width) - 1)
+
+    def zeros(self, limit=None):
+        """Number of 'zero' bits before the next 'one', which is taken too; after limit 'zero' bits it stops there."""
+        n = 0
+        while limit is None or n < limit:
+            if self.bit():
+                return n
+            n += 1
+        return n
+
+
+def coder_input_layout(cfg):
+    """The entropy coder input sequence (5.4.2) without its values, as input_sequence() orders it: ("limit", "a" or
+    "r") for an error limit value of periodic updating, ("sample", z, t) for a mapped quantizer index."""
+    pr = Params(cfg)
+    nx, ny, nz = pr.nx, pr.ny, pr.nz
+    if pr.bsq:
+        return [("sample", z, t) for z in range(nz) for t in range(nx * ny)]
+    kinds = []
+    if pr.periodic:
+        if pr.use_abs:
+            kinds += ["a"] * (nz if cfg["absolute_error_limit_assignment_method"] else 1)
+        if pr.use_rel:
+            kinds += ["r"] * (nz if cfg["relative_error_limit_assignment_method"] else 1)
+    m = pr.m
+    out = []
+    for y in range(ny):
+        if pr.periodic and y % (1 << pr.u) == 0:
+            out += [("limit", k) for k in kinds]
+        for i in range((nz + m - 1) // m):
+            for x in range(nx):
+                for z in range(i * m, min((i + 1) * m, nz)):
+                    out.append(("sample", z, y * nx + x))
+    return out
+
+
+def image_samples(cfg, img):
+    """The samples of img[z][y][x] in the input order of the compressor (5.4.2), the order of the raw image files."""
+    nx = cfg["large_n_x"]
+    return [img[item[1]][item[2] // nx][item[2] % nx] for item in coder_input_layout(cfg) if item[0] == "sample"]
+
+
+def image_from_samples(cfg, samples):
+    """img[z][y][x] from the samples in the input order of the compressor (the inverse of image_samples)."""
+    nx, ny, nz = cfg["large_n_x"], cfg["large_n_y"], cfg["large_n_z"]
+    img = [[[0] * nx for _ in range(ny)] for _ in range(nz)]
+    items = [item for item in coder_input_layout(cfg) if item[0] == "sample"]
+    if len(samples) != len(items):
+        raise ValueError("{} samples for an image of {}".format(len(samples), len(items)))
+    for (_, z, t), s in zip(items, samples):
+        img[z][t // nx][t % nx] = s
+    return img
+
+
+def unmap_index(dl, theta_m, s_dbl, low_side):
+    """Quantizer index of the mapped quantizer index dl, the inverse of (55). low_side: theta_m is the distance to the
+    low end of the sample range, so an index beyond theta_m is positive (4.11)."""
+    if dl > 2 * theta_m:
+        return dl - theta_m if low_side else theta_m - dl
+    a = (dl + 1) >> 1
+    q = a if dl % 2 == 0 else -a
+    return -q if s_dbl & 1 else q
+
+
+def _read_gpo2(r, k, umax, d):
+    """Length-limited GPO2 codeword (5.4.3.2.2.1); read backward, the reversed codeword (5.4.3.3.3.2.1)."""
+    u = r.zeros(umax)
+    if u < umax:
+        return (u << k) | r.get(k)
+    return r.get(d)
+
+
+def _decode_sample_adaptive(cfg, r, layout):
+    pr = Params(cfg)
+    d, nz = pr.d, pr.nz
+    umax, gs, g0 = cfg["large_u_max"], cfg["gamma_star"], cfg["gamma_0"]
+    acc = sample_adaptive_initial_accumulators(cfg)
+    cnt = [1 << g0] * nz
+    last = [0] * nz
+    out = []
+    for item in layout:
+        if item[0] == "limit":
+            out.append(r.get(limit_width(cfg, item[1])))                   # 5.4.3.2.4.1
+            continue
+        _, z, t = item
+        if t == 0:
+            out.append(r.get(d))                                           # 5.4.3.2.4.2
+            continue
+        if t > 1:
+            if cnt[z] < (1 << gs) - 1:                                     # (60), (61)
+                acc[z] += last[z]
+                cnt[z] += 1
+            else:
+                acc[z] = (acc[z] + last[z] + 1) >> 1
+                cnt[z] = (cnt[z] + 1) >> 1
+        dl = _read_gpo2(r, sample_adaptive_k(cnt[z], acc[z], d), umax, d)  # 5.4.3.2.4.3
+        last[z] = dl
+        out.append(dl)
+    return out
+
+
+# Low-entropy codewords and flush words read backward: the reversed codewords form prefix-free codes (5.4.3.3.1)
+CODES_REVERSED = [{c[::-1]: p for p, c in code.items()} for code in CODES]
+FLUSH_REVERSED = [{f[::-1]: p for p, f in flush.items()} for flush in FLUSH]
+
+
+def _read_reversed(r, table):
+    """The input symbols of the codeword that ends at the read position (table: CODES_REVERSED or FLUSH_REVERSED)."""
+    bits = ""
+    longest = max(len(b) for b in table)
+    while bits not in table:
+        if len(bits) >= longest:
+            raise DecodeError("no low-entropy codeword ends here")
+        bits += "1" if r.bit() else "0"
+    return list(table[bits])
+
+
+def _decode_hybrid(cfg, data, start, layout):
+    """The hybrid coder is decoded from the end of the compressed image body (5.4.3.3.1): the tail gives the final
+    accumulators and the active prefixes of the low-entropy codes, and the statistics are run backward."""
+    pr = Params(cfg)
+    d, nz = pr.d, pr.nz
+    umax, gs, g0 = cfg["large_u_max"], cfg["gamma_star"], cfg["gamma_0"]
+    r = _Bits(data, 8 * len(data), start, 8 * len(data), reverse=True)
+    while not r.bit():                                                     # fill bits, 5.4.3.3.5.4.4 and .5
+        pass
+    acc = [0] * nz
+    for z in reversed(range(nz)):
+        acc[z] = r.get(2 + d + gs)                                         # 5.4.3.3.5.4.3
+    active = [None] * 16
+    for i in reversed(range(16)):
+        active[i] = _read_reversed(r, FLUSH_REVERSED[i])                   # 5.4.3.3.5.4.2
+    # The counter and its rescaling depend on t alone (5.4.3.3.4.2, 5.4.3.3.4.4)
+    tmax = pr.nx * pr.ny
+    count = [0] * tmax
+    rescaled = [False] * tmax
+    cnt = 1 << g0
+    for t in range(1, tmax):
+        if cnt < (1 << gs) - 1:
+            cnt += 1
+        else:
+            rescaled[t] = True
+            cnt = (cnt + 1) >> 1
+        count[t] = cnt
+    out = [0] * len(layout)
+    for n in range(len(layout) - 1, -1, -1):
+        item = layout[n]
+        if item[0] == "limit":
+            out[n] = r.get(limit_width(cfg, item[1]))                      # 5.4.3.3.5.1.1
+            continue
+        _, z, t = item
+        if t == 0:
+            out[n] = r.get(d)                                              # 5.4.3.3.5.1.3
+            continue
+        # the code follows from the statistics after their update with the index (5.4.3.3.5.1.4)
+        kind, k = hybrid_code(count[t], acc[z], d)
+        if kind == "H":
+            dl = _read_gpo2(r, k, umax, d)                                 # 5.4.3.3.5.2
+        else:
+            if not active[k]:
+                active[k] = _read_reversed(r, CODES_REVERSED[k])           # 5.4.3.3.5.3.5
+            sym = active[k].pop()
+            dl = _read_gpo2(r, 0, umax, d) + LIMITS[k] + 1 if sym == "X" else sym    # 5.4.3.3.5.3.3
+        # the statistics before the update: a rescaling wrote the bit it dropped (5.4.3.3.5.1.2)
+        if rescaled[t]:
+            acc[z] = 2 * acc[z] - r.get(1) - 4 * dl
+        else:
+            acc[z] -= 4 * dl
+        out[n] = dl
+    if r.pos != start or any(active):
+        raise DecodeError("the compressed image body does not decode to the image of its header")
+    return out
+
+
+def _decode_block_adaptive(cfg, r, count):
+    """CCSDS 121.0-B-3 with the preprocessor bypassed, as encode_block_adaptive()."""
+    n = cfg["large_d"]
+    jsz = cfg["large_j"]
+    ref = cfg["r"]
+    idb, _ = block_options(n, cfg["restricted_code_options_flag"] == 1)
+    nblk = (count + jsz - 1) // jsz
+    values = []
+    i = 0
+    while i < nblk:
+        opt = r.get(idb)
+        if opt == 0:
+            if not r.bit():
+                # zero-block option: a run of all-zeros blocks within a segment of 64 blocks of a reference interval
+                v = r.zeros()
+                start = (i // ref) * ref
+                seg_end = min(start + ((i - start) // 64 + 1) * 64, start + ref, nblk)
+                run = seg_end - i if v == 4 else v + 1 if v < 4 else v
+                if i + run > seg_end:
+                    raise DecodeError("a zero-block run crosses its segment")
+                values += [0] * (run * jsz)
+                i += run
+                continue
+            # second extension option: pairs from gamma = (a + b)(a + b + 1) / 2 + b
+            for _ in range(jsz // 2):
+                g = r.zeros()
+                s = (math.isqrt(8 * g + 1) - 1) // 2
+                b = g - s * (s + 1) // 2
+                values += [s - b, b]
+        elif opt == (1 << idb) - 1:
+            values += [r.get(n) for _ in range(jsz)]                       # no compression
+        else:
+            k = opt - 1                                                    # sample splitting
+            high = [r.zeros() for _ in range(jsz)]
+            values += [(h << k) | r.get(k) for h in high]
+        i += 1
+    return values[:count]
+
+
+def decompress(data, optional_tables=None, tables=None):
+    """Decompresses a compressed image (header and body, 5.3 and 5.4); returns (cfg, img, max_error).
+
+    cfg is the configuration of the header (parse_header(); a table that the header leaves out is taken from tables, a
+    configuration dict such as the one given to compress(), or from optional_tables). img[z][y][x] holds the clipped
+    quantizer bin centers s'z(t), which differ from the samples of the compressed image by at most the maximum error
+    mz(t) and equal them under lossless compression (4.1, 4.8.2.1, 4.9); max_error[z][y][x] holds mz(t).
+
+    With the hybrid coder data must end with the compressed image, which is decoded from its end (5.4.3.3.1); with the
+    other coders bytes after the compressed image are ignored. Raises DecodeError when the data cannot be the
+    compressed image of its header.
+    """
+    try:
+        cfg, hlen = parse_header(data, optional_tables, tables)
+    except IndexError:
+        raise DecodeError("the header ends early, or a table that it leaves out is not given") from None
+    pr = Params(cfg)
+    layout = coder_input_layout(cfg)
+    start, end = 8 * hlen, 8 * len(data)
+    ec = cfg["entropy_coder_type"]
+    if ec == 0:
+        values = _decode_sample_adaptive(cfg, _Bits(data, start, start, end), layout)
+    elif ec == 1:
+        values = _decode_hybrid(cfg, data, start, layout)
+    else:
+        values = _decode_block_adaptive(cfg, _Bits(data, start, start, end), len(layout))
+    nx, ny, nz = pr.nx, pr.ny, pr.nz
+    delta = [[[0] * nx for _ in range(ny)] for _ in range(nz)]
+    updates = []
+    for item, v in zip(layout, values):
+        if item[0] == "limit":
+            updates.append(v)
+        else:
+            delta[item[1]][item[2] // nx][item[2] % nx] = v
+    img = [[[0] * nx for _ in range(ny)] for _ in range(nz)]
+    max_error = [[[0] * nx for _ in range(ny)] for _ in range(nz)]
+    smin = pr.smin
+
+    def quantize(z, y, x, s_hat, s_dbl, m, theta_m):
+        return unmap_index(delta[z][y][x], theta_m, s_dbl, theta_m == (s_hat - smin + m) // (2 * m + 1))
+
+    run_predictor(pr, updates, quantize, recon=img, max_error=max_error)
+    return cfg, img, max_error

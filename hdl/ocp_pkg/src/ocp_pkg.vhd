@@ -115,6 +115,28 @@ package ocp_pkg is
     function imageStartSatWidth (lRep : natural; lDw : natural) return positive;
     function imageStartCycles (lRep : natural; lDw : natural) return positive;
 
+    -- Runtime parameters (ocp_core architecture, section 6.3): the encoding of a parameter in its header field.
+    -- Modulo 2^bits, the value 2^bits coded as 0: M (16 bits), Umax (5), gamma0 (3), r (12). With an offset, the
+    -- value minus the offset: log2 t_inc (4 bits, offset 4), vmin and vmax (4 bits, offset -6), gamma* (3 bits,
+    -- offset 4); user-defined data (8 bits) and K (4 bits) with offset 0
+    function encModPow2 (v : natural; bits : positive) return std_logic_vector;
+    function decModPow2 (c : std_logic_vector) return positive;
+    function encOffset (v : integer; offset : integer; bits : positive) return std_logic_vector;
+    function decOffset (c : std_logic_vector; offset : integer) return integer;
+
+    -- True when decoding the encoding gives back every value of every parameter range of CO-RP-02 (checked at the
+    -- elaboration of ocp_core)
+    function paramCodingExact return boolean;
+
+    -- Nearest value of v in the range lo to hi (range limitation of the runtime parameters, CO-RP-02)
+    function limitInt (v : integer; lo : integer; hi : integer) return integer;
+
+    -- Hybrid coder with runtime parameters: the smallest gamma0 for which every initial accumulator value
+    -- accHigh(z) 2^31 + accLow(z) of the nz bands is below 2^(d + gamma0) (CCSDS 5.4.3.3.4.3); 9 when there is
+    -- none
+    function hybridG0Min (d : positive; nz : positive; accLow : integer_vector; accHigh : integer_vector)
+        return positive;
+
     -- Low-entropy codes of the hybrid entropy coder: input symbol limits and thresholds (CCSDS table 5-16)
     type LeNatArray_t is array (0 to 15) of natural;
 
@@ -328,6 +350,107 @@ package body ocp_pkg is
     begin
         -- Start (factors), one step per bit of the factor B (SatW + 1), comparisons
         return imageStartSatWidth(lRep, lDw) + 3;
+    end function;
+
+    function encModPow2 (v : natural; bits : positive) return std_logic_vector is
+    begin
+        return std_logic_vector(to_unsigned(v mod 2 ** bits, bits));
+    end function;
+
+    function decModPow2 (c : std_logic_vector) return positive is
+        -- A metavalue converts to 0 as well (registers before their first write)
+        constant V_c : natural := to_integer(unsigned(c));
+    begin
+        if V_c = 0 then
+            return 2 ** c'length;
+        end if;
+        return V_c;
+    end function;
+
+    function encOffset (v : integer; offset : integer; bits : positive) return std_logic_vector is
+    begin
+        return std_logic_vector(to_unsigned(v - offset, bits));
+    end function;
+
+    function decOffset (c : std_logic_vector; offset : integer) return integer is
+    begin
+        return to_integer(unsigned(c)) + offset;
+    end function;
+
+    function paramCodingExact return boolean is
+        variable Ok_v : boolean := true;
+    begin
+
+        -- M (BI order), Umax, gamma0, r: modulo codes
+        for v in 1 to 65536 loop
+            Ok_v := Ok_v and decModPow2(encModPow2(v, 16)) = v;
+        end loop;
+
+        for v in 8 to 32 loop
+            Ok_v := Ok_v and decModPow2(encModPow2(v, 5)) = v;
+        end loop;
+
+        for v in 1 to 8 loop
+            Ok_v := Ok_v and decModPow2(encModPow2(v, 3)) = v;
+        end loop;
+
+        for v in 1 to 4096 loop
+            Ok_v := Ok_v and decModPow2(encModPow2(v, 12)) = v;
+        end loop;
+
+        -- log2 t_inc and gamma*: offset 4; vmin and vmax: offset -6
+        for v in 4 to 11 loop
+            Ok_v := Ok_v and decOffset(encOffset(v, 4, 4), 4) = v and decOffset(encOffset(v, 4, 3), 4) = v;
+        end loop;
+
+        for v in -6 to 9 loop
+            Ok_v := Ok_v and decOffset(encOffset(v, -6, 4), -6) = v;
+        end loop;
+
+        -- K and the user-defined data: the value
+        for v in 0 to 14 loop
+            Ok_v := Ok_v and decOffset(encOffset(v, 0, 4), 0) = v;
+        end loop;
+
+        for v in 0 to 255 loop
+            Ok_v := Ok_v and decOffset(encOffset(v, 0, 8), 0) = v;
+        end loop;
+
+        return Ok_v;
+    end function;
+
+    function limitInt (v : integer; lo : integer; hi : integer) return integer is
+    begin
+        if v < lo then
+            return lo;
+        elsif v > hi then
+            return hi;
+        end if;
+        return v;
+    end function;
+
+    function hybridG0Min (d : positive; nz : positive; accLow : integer_vector; accHigh : integer_vector)
+        return positive is
+        variable Ok_v : boolean;
+    begin
+
+        for g in 1 to 8 loop
+            Ok_v := true;
+
+            for z in 0 to nz - 1 loop
+                if d + g < 31 then
+                    Ok_v := Ok_v and vecElem(accHigh, z) = 0 and vecElem(accLow, z) < 2 ** (d + g);
+                else
+                    Ok_v := Ok_v and vecElem(accHigh, z) < 2 ** (d + g - 31);
+                end if;
+            end loop;
+
+            if Ok_v then
+                return g;
+            end if;
+        end loop;
+
+        return 9;
     end function;
 
 end package body;

@@ -89,6 +89,8 @@ detected.
 | `Cfg_AbsLimit`, `Cfg_RelLimit` | in | With `RuntimeConfig_g`: band-independent absolute and relative error limit values of the next image (16 bits, 0 to 2^DA - 1 and 2^DR - 1) |
 | `Cfg_Taken` | out | With `RuntimeConfig_g`: pulse in the clock cycle in which the core takes the configuration inputs for an image |
 | `Act_XSize`, `Act_YSize`, `Act_ZSize`, `Act_AbsLimit`, `Act_RelLimit` | out | With `RuntimeConfig_g`: the values the core took for the last image, after the range limitation (17 and 16 bits) |
+| `Cfg_UserData`, `Cfg_M`, `Cfg_WeightInterval`, `Cfg_WeightVmin`, `Cfg_WeightVmax`, `Cfg_UnaryLimit`, `Cfg_InitCountExp`, `Cfg_RescaleSize`, `Cfg_AccuInit`, `Cfg_RefInterval` | in | With `RuntimeParams_g`: the runtime parameters of the next image (8, 17, 4, 5, 5, 6, 4, 4, 4, 13 bits; specification, table 1) |
+| `Act_UserData` to `Act_RefInterval` | out | With `RuntimeParams_g`: the runtime parameters the core took for the last image, after the range limitation (zero for a parameter not in use) |
 
 ## 6. Runtime configuration
 
@@ -145,3 +147,31 @@ replaces those bits with the value of the image (the queue entry of the image wh
 the sub-frame interleaving depth M = min(`SubFrameDepth_g`, NZ) is a runtime field as well. The fields have fixed
 widths and positions, so the header length does not depend on the runtime values (CO-HD-08); the configurations
 whose header length would depend on NZ, and those with supplementary information tables, are excluded by CO-CF-04.
+
+### 6.3 Runtime parameters
+
+With `RuntimeParams_g` the parameters of section 2.8 of the specification join the configuration of an image: they
+are taken in the same cycle as the dimensions, pass the same range limitation and go into the register of the active
+configuration (`Act_` outputs) and into the queue entry of the image. The limitation follows the order of CO-RP-02:
+gamma0 first, then gamma\* against the limited gamma0; vmin first, then vmax against the limited vmin; M against the
+limited NZ.
+
+| Unit | Uses | Change against the runtime configuration without parameters |
+| --- | --- | --- |
+| Predictor | M, log2 t_inc, vmin, vmax | M feeds the image-start sequencer (section 6.1) in place of min(`SubFrameDepth_g`, NZ); the weight update parameters are taken at the image start and travel with every item of the image (3 + 5 + 5 bits per pipeline stage), so that the stage that computes the weight update scaling exponent (CCSDS 4.10.2) uses the values of the image of its item while two images share the pipeline |
+| Sample-adaptive coder | Umax, gamma0, gamma\*, K | The values are taken from the queue entry of the image with the first item of the image and held until its last item; the accumulator and counter widths stay those of `RescaleCounterSize_g`; the escape codeword and the rescaling threshold compare with the values of the image |
+| Hybrid coder | Umax, gamma0, gamma\* | As the sample-adaptive coder, held until the end of the tail of the image |
+| Block-adaptive coder | r | Taken with the first item of the image; the reference sample counter counts against r of the image within the range of `RefInterval_g` |
+| Header generator | all | Further runtime fields at fixed positions (section 6.2): user-defined data and M in the essential subpart, the weight update parameters in the primary subpart of the predictor metadata, the coder parameters in the entropy coder metadata; the header length stays constant |
+
+The queue entry holds the parameters in the encoding of their header fields, and only the fields of the options in
+use (table 2 of the specification), so the header generator copies the bits as they are. The coders decode the
+fields they need: Umax = 32 for the code 0, gamma0 = 8 for 0, gamma\* = code + 4, r = 4096 for 0; M = 65536 for the code
+0 where the predictor would need it from the queue (it takes M directly at the image start). The decoding functions
+are in `ocp_pkg`; the elaboration checks for every value of every range that decoding its encoding gives the value
+back (CO-RP-05). The coders take their entry with a read pointer of their own: it moves on after the last item of an
+image (with the hybrid coder after its tail, the read pointer of section 6), so a coder never uses the entry of an
+image that has started at the input while the coder still works on an earlier one.
+
+With `RuntimeParams_g` false the parameter inputs are not connected, the queue entry has no parameter fields and the
+units use the generics as with the runtime configuration alone (CO-RP-04).

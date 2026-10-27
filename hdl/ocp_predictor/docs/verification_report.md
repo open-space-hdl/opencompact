@@ -2,17 +2,18 @@
 
 ## 1. Test results
 
-Run on 2026-10-23 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
+Run on 2026-10-27 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
 4.7.0-ft.9: `python run.py "*predictor*" "*image_start*"`. The same tests pass in QuestaSim (Questa Pro Microchip
-Edition 2024.3, time resolution 1 fs, 2026-10-24 and 2026-10-25), with code coverage and in the optimised run without
+Edition 2024.3, time resolution 1 fs, 2026-10-26 and 2026-10-27), with code coverage and in the optimised run without
 it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL
-6.0.0 on 2026-10-24 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+6.0.0 on 2026-10-26 and 2026-10-27 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
 | `ocp_predictor_tb` | 75 (62 configurations, 5 of them also with back pressure, 3 also with strong output stalls, 5 also without the speculative weight loop) | 75 |
 | `ocp_predictor_tb` `test_runtime` (TC-PR-41) | 10 (rc01 to rc05, sequences of 20 images, each also with back pressure) | 10 |
-| `ocp_image_start_tb` `test_sweep` (TC-PR-40) | 11 (the latencies and flags of rc01 to rc05 and of c03, c04, c05, c28 and c30, which cover the other combinations of order, sample representatives and local sums, and of c03 without prediction bands) | 11 |
+| `ocp_predictor_tb` `test_runtime` (TC-PR-42) | 6 (rp01 to rp03, sequences of 21 images with their own M and weight update parameters, each also with back pressure) | 6 |
+| `ocp_image_start_tb` `test_sweep` (TC-PR-40) | 14 (the latencies and flags of rc01 to rc05 and of c03, c04, c05, c28 and c30, which cover the other combinations of order, sample representatives and local sums, and of c03 without prediction bands; rp01, rp02 and c01 in lossless BIP order with every M of an image on `In_M`) | 14 |
 | `ocp_predictor_tb` with the CCSDS test data set | 375 (300 test vectors, 75 of them also with back pressure) | 375 |
 
 ## 2. Summary
@@ -32,6 +33,14 @@ combination of NX from 1 to 64, M from 1 to the maximum NZ and NY of 1, 2, 3 and
 issue conditions as the elaboration function for constant generics and needs the same number of cycles for every input
 (TC-PR-40). Two mutations of the runtime path (NX not taken, issue distance 0) each make their test fail
 ([ocp_core verification report](../../ocp_core/docs/verification_report.md), section 6).
+
+With the runtime parameters the entropy coder input sequence of every image of the sequences of rp01 to rp03 equals
+that of the reference model for the M and the weight update parameters of the image, among them every bound of their
+ranges, also while two images with different parameters share the pipeline; without back pressure the input cycles
+and the image-start cycles equal the throughput model with the M of every image (TC-PR-42). The image-start sequencer
+gives the issue conditions of the elaboration function for every M from 1 to min(`SubFrameDepth_g`, NZ) given on
+`In_M` (rp01: 6674 image starts, rp02: 39698), also in lossless BIP order (c01), where the distance of the local
+differences of the previous sub-frame decides with M < NZ.
 
 Findings:
 

@@ -19,11 +19,17 @@ For every configuration of tools/ocp_configs.py (ALL) the script writes into tb/
 The script checks that the reference model produces the same compressed image as the CNES encoder and that the
 CNES decoder reconstructs the image within the error limits.
 
+With --decoded the script writes, for every near-lossless configuration, the image that the CNES decoder
+(lcnl_decoder) reconstructs from tb/golden/<configuration>/compressed.bin into
+tools/tests/golden_decoded/<configuration>.raw (the format of image.raw). The tests of the decoder of the reference
+model (tools/tests) compare its output with these images; a lossless image needs none, it equals image.raw.
+
 The CNES reference software (Linux executables lcnl_header_tool, lcnl_encoder, lcnl_decoder,
 lcnl_supplementary_tables_encoder) runs natively on Linux or through WSL on Windows. Its bin directory is given with
 --cnes-bin or the environment variable OCP_CNES_BIN (a path of the Linux file system).
 
 Usage: python tools/golden.py [--cnes-bin <dir>] [configuration ...]
+       python tools/golden.py --decoded [--cnes-bin <dir>] [configuration ...]
        python tools/golden.py --aborted [configuration ...]   (aborted images only; no CNES software needed)
 """
 
@@ -44,6 +50,7 @@ import ocp_model  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLDEN = ROOT / "tb" / "golden"
+DECODED = ROOT / "tools" / "tests" / "golden_decoded"
 WINDOWS = os.name == "nt"
 # Plain tables per call of lcnl_supplementary_tables_encoder: it stops with "Invalid number of arguments" for 14 or
 # 15 tables, although the standard allows 15
@@ -306,6 +313,34 @@ def generate(name, c, cnes_bin):
                                                                                       len(golden), ratio, maxerr))
 
 
+def write_decoded(name, c, cnes_bin):
+    """The image that the CNES decoder reconstructs from the golden compressed image of a near-lossless
+    configuration, in the format of image.raw."""
+    src = GOLDEN / name
+    tmp = DECODED / ("tmp_" + name)
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir(parents=True)
+    shutil.copy(src / "compressed.bin", tmp / "compressed.bin")
+    dec = ["lcnl_decoder"]
+    if (src / "optional_tables.bin").exists():
+        shutil.copy(src / "optional_tables.bin", tmp / "optional_tables.bin")
+        dec += ["-o", "optional_tables.bin"]
+    run(cnes_bin, dec + ["compressed.bin", raw_format(c), "decoded.raw"], tmp)
+    DECODED.mkdir(parents=True, exist_ok=True)
+    shutil.copy(tmp / "decoded.raw", DECODED / (name + ".raw"))
+    decoded = read_raw(c, tmp / "decoded.raw")
+    samples = read_raw(c, src / "image.raw")
+    for _ in range(10):
+        try:
+            shutil.rmtree(tmp)
+            break
+        except PermissionError:
+            time.sleep(1)    # WSL may still hold the directory for a moment
+    print("{:28s} {:6d} samples decoded by CNES, max error {}".format(
+        name, len(decoded), max(abs(a - b) for a, b in zip(samples, decoded))))
+
+
 def abort_positions(name, c):
     """Samples with the early In_Last (counted from 0 in the input order): the first sample, the middle, the last but
     one and one position drawn with the configuration name as seed; in BI order also the last band of the first pixel,
@@ -331,16 +366,26 @@ def write_aborted(name, c):
     print("{:28s} aborted at {}".format(name, ", ".join(str(p) for p in abort_positions(name, c))))
 
 
-def check_runtime_header(name, ci, data):
+def check_runtime_header(name, ci, data, params=False):
     """The header of a compressed image of a runtime sequence, decoded by the header parser of the model, carries
-    the dimensions, the sub-frame interleaving depth and the error limit values of the image (CO-HD-08)."""
-    hdr, _ = ocp_model.parse_header(data)
+    the dimensions, the sub-frame interleaving depth and the error limit values of the image (CO-HD-08); with params
+    also its runtime parameters (CO-RP-01). Tables that the header leaves out come from the configuration."""
+    hdr, _ = ocp_model.parse_header(data, tables=ci)
     fields = ["large_n_x", "large_n_y", "large_n_z", "large_m"]
     fid = ci["quantizer_fidelity_control_method"]
     if fid in (1, 3):
         fields.append("a_vector")
     if fid in (2, 3):
         fields.append("r_vector")
+    if params:
+        use = ocp_configs.params_in_use(ci)
+        fields += ["user_defined_data", "log_two_t_inc", "v_min", "v_max"]
+        if use["adp"]:
+            fields += ["large_u_max", "gamma_star", "gamma_0"]
+        if use["k"]:
+            fields.append("k_prime_prime_vector")
+        if use["r"]:
+            fields.append("r")
     for f in fields:
         if hdr[f] != ci[f]:
             raise RuntimeError("{}: header field {} is {}, the image has {}".format(name, f, hdr[f], ci[f]))
@@ -382,6 +427,56 @@ def write_runtime(name, c):
     (out / "rtabort.txt").write_text("\n".join(lines) + "\n", newline="\n")
 
 
+def write_runtime_params(name, c):
+    """Golden data of a runtime parameter configuration (RUNTIME_PARAMS, reference model): the sequence of TC-CO-59
+    (runtime.txt, image_<k>.raw, compressed_<k>.bin, delta_<k>.txt), the range test of TC-CO-60 (range.txt,
+    range_image_<k>.raw, range_<k>.bin) and for those of RUNTIME_PARAMS_QUEUE the queue test of TC-CO-61 (queue.txt,
+    queue_image_<k>.raw, queue_<k>.bin). A line of the lists holds the driven and the taken configuration (NX, NY,
+    NZ, absolute and relative error limit value), then the driven and the taken runtime parameters (PARAM_NAMES of
+    ocp_configs)."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in list(out.glob("image_*.raw")) + list(out.glob("compressed_*.bin")) + list(out.glob("delta_*.txt")) + \
+            list(out.glob("range*")) + list(out.glob("queue*")) + list(out.glob("runtime*")):
+        old.unlink()
+    jobs = [("runtime", "image_{:02d}.raw", "compressed_{:02d}.bin", True, 0, ocp_configs.runtime_params_sequence(c)),
+            ("range", "range_image_{:02d}.raw", "range_{:02d}.bin", False, 100,
+             ocp_configs.runtime_params_range_sequence(c))]
+    if name in ocp_configs.RUNTIME_PARAMS_QUEUE:
+        jobs.append(("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
+                     ocp_configs.runtime_params_queue_sequence(c)))
+    write_jobs(name, c, out, jobs)
+    # Queue test with the output held after the header of the first image (queuehold.txt, queuehold_image_<k>.raw,
+    # queuehold_<k>.bin), images of QUEUE_HOLD_IMAGE
+    if name in ocp_configs.RUNTIME_PARAMS_QUEUE_HOLD:
+        write_jobs(name, dict(c, image=ocp_configs.QUEUE_HOLD_IMAGE), out,
+                   [("queuehold", "queuehold_image_{:02d}.raw", "queuehold_{:02d}.bin", False, 300,
+                     ocp_configs.runtime_params_queue_hold_sequence(name, c))])
+
+
+def write_params_sequence_only(name, c):
+    """Golden data of a runtime parameter configuration of the sequence test only (RUNTIME_PARAMS_SEQUENCE_ONLY,
+    TC-CO-59): runtime.txt, image_<k>.raw, compressed_<k>.bin, delta_<k>.txt."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in list(out.glob("image_*.raw")) + list(out.glob("compressed_*.bin")) + list(out.glob("delta_*.txt")) + \
+            list(out.glob("runtime*")):
+        old.unlink()
+    write_jobs(name, c, out, [("runtime", "image_{:02d}.raw", "compressed_{:02d}.bin", True, 0,
+                               ocp_configs.runtime_params_sequence(c))])
+
+
+def write_params_queue_only(name, c):
+    """Golden data of a runtime parameter configuration of the queue test only (RUNTIME_PARAMS_QUEUE_ONLY, TC-CO-61):
+    queue.txt, queue_image_<k>.raw, queue_<k>.bin; the first image has all bands (a long tail of the hybrid coder)."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in out.glob("queue*"):
+        old.unlink()
+    write_jobs(name, c, out, [("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
+                               ocp_configs.runtime_params_queue_sequence(c, long_tail=True))])
+
+
 def write_queue_only(name, c):
     """Golden data of a configuration of the queue test only (RUNTIME_QUEUE_ONLY, TC-CO-58): queue.txt,
     queue_image_<k>.raw, queue_<k>.bin."""
@@ -395,20 +490,23 @@ def write_queue_only(name, c):
 
 def write_jobs(name, c, out, jobs):
     """Image lists of a runtime configuration: test images, compressed images (reference model, header checked) and
-    with with_delta the entropy coder input sequences; a line of the list holds the driven and the taken values."""
+    with with_delta the entropy coder input sequences; a line of the list holds the driven and the taken values of
+    the configuration, with runtime parameters (entries of four) then the driven and the taken parameters."""
     for list_name, raw_name, bin_name, with_delta, seed_base, seq in jobs:
         lines = []
         nbytes = 0
-        for k, (driven, taken) in enumerate(seq):
-            ci = ocp_configs.runtime_image_cfg(c, *taken, index=seed_base + k)
+        for k, entry in enumerate(seq):
+            driven, taken = entry[0], entry[1]
+            params = entry[3] if len(entry) > 2 else None
+            ci = ocp_configs.runtime_image_cfg(c, *taken, index=seed_base + k, params=params)
             img = ocp_configs.make_image(ci)
             write_raw(ci, ocp_configs.input_order(ci, img), out / raw_name.format(k))
             data = ocp_model.compress(ci, img)
-            check_runtime_header(name, ci, data)
+            check_runtime_header(name, ci, data, params is not None)
             (out / bin_name.format(k)).write_bytes(data)
             if with_delta:
                 (out / "delta_{:02d}.txt".format(k)).write_text(delta_text(ci, img, []), newline="\n")
-            lines.append(" ".join(str(v) for v in tuple(driven) + tuple(taken)))
+            lines.append(" ".join(str(v) for part in entry for v in part))
             nbytes += len(data)
         (out / (list_name + ".txt")).write_text("\n".join(lines) + "\n", newline="\n")
         print("{:28s} {:6s} {:3d} images, {:7d} bytes".format(name, list_name, len(seq), nbytes))
@@ -420,6 +518,8 @@ def main():
     ap.add_argument("--aborted", action="store_true", help="write only the aborted images (reference model)")
     ap.add_argument("--runtime", action="store_true",
                     help="write only the image sequences of the runtime configurations (reference model)")
+    ap.add_argument("--decoded", action="store_true",
+                    help="write only the images decoded by the CNES decoder (near-lossless configurations)")
     ap.add_argument("configs", nargs="*")
     args = ap.parse_args()
     if args.aborted:
@@ -427,14 +527,28 @@ def main():
             write_aborted(name, ocp_configs.ALL[name])
         return
     if args.runtime:
-        for name in args.configs or list(ocp_configs.RUNTIME) + list(ocp_configs.RUNTIME_QUEUE_ONLY):
+        for name in args.configs or (list(ocp_configs.RUNTIME) + list(ocp_configs.RUNTIME_QUEUE_ONLY) +
+                                     list(ocp_configs.RUNTIME_PARAMS) +
+                                     list(ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY) +
+                                     list(ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY)):
             if name in ocp_configs.RUNTIME_QUEUE_ONLY:
                 write_queue_only(name, ocp_configs.RUNTIME_QUEUE_ONLY[name])
+            elif name in ocp_configs.RUNTIME_PARAMS:
+                write_runtime_params(name, ocp_configs.RUNTIME_PARAMS[name])
+            elif name in ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY:
+                write_params_sequence_only(name, ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY[name])
+            elif name in ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY:
+                write_params_queue_only(name, ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY[name])
             else:
                 write_runtime(name, ocp_configs.RUNTIME[name])
         return
     if not args.cnes_bin:
         raise SystemExit("give the bin directory of the CNES reference software with --cnes-bin or OCP_CNES_BIN")
+    if args.decoded:
+        for name in args.configs or [n for n, c in ocp_configs.ALL.items()
+                                     if c["quantizer_fidelity_control_method"] != 0]:
+            write_decoded(name, ocp_configs.ALL[name], args.cnes_bin)
+        return
     names = args.configs or list(ocp_configs.ALL)
     for name in names:
         generate(name, ocp_configs.ALL[name], args.cnes_bin)

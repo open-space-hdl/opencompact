@@ -42,34 +42,44 @@ entity ocp_sample_adaptive_coder is
         AccuInit_g            : integer_vector            := (0 => 3);
         AbsBitDepth_g         : positive range 1 to 16    := 1;
         RelBitDepth_g         : positive range 1 to 16    := 1;
-        RamStyle_g            : string                    := "auto"
+        RamStyle_g            : string                    := "auto";
+        -- Runtime parameters: Umax, gamma0, gamma* and K of every item from its inputs (UnaryLimit_g and
+        -- RescaleCounterSize_g are the maxima)
+        RuntimeParams_g       : boolean                   := false
     );
     port (
-        Clk           : in    std_logic;
-        Rst           : in    std_logic;
+        Clk             : in    std_logic;
+        Rst             : in    std_logic;
         -- Entropy coder input sequence
-        In_Valid      : in    std_logic;
-        In_Ready      : out   std_logic;
-        In_Data       : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
-        In_Kind       : in    std_logic_vector(1 downto 0);
-        In_Band       : in    std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
-        In_First      : in    std_logic;
-        In_Init       : in    std_logic;
-        In_Last       : in    std_logic;
+        In_Valid        : in    std_logic;
+        In_Ready        : out   std_logic;
+        In_Data         : in    std_logic_vector(maximum(DynamicRange_g, 16) - 1 downto 0);
+        In_Kind         : in    std_logic_vector(1 downto 0);
+        In_Band         : in    std_logic_vector(log2ceil(ZSize_g + 1) - 1 downto 0);
+        In_First        : in    std_logic;
+        In_Init         : in    std_logic;
+        In_Last         : in    std_logic;
+        -- Runtime parameters of the image of the item (RuntimeParams_g): Umax (8 to UnaryLimit_g), gamma0,
+        -- gamma* (max(4, gamma0 + 1) to RescaleCounterSize_g), K (the accumulator initialisation constant,
+        -- not used with AccuInitBandVarying_g)
+        In_UnaryLimit   : in    std_logic_vector(5 downto 0) := (others => '0');
+        In_InitCountExp : in    std_logic_vector(3 downto 0) := (others => '0');
+        In_RescaleSize  : in    std_logic_vector(3 downto 0) := (others => '0');
+        In_AccuInit     : in    std_logic_vector(3 downto 0) := (others => '0');
         -- Codewords
-        Cw_Valid      : out   std_logic;
-        Cw_Ready      : in    std_logic;
-        Cw_Data       : out   std_logic_vector(CwWidth_c - 1 downto 0);
-        Cw_Length     : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Cw_Last       : out   std_logic;
+        Cw_Valid        : out   std_logic;
+        Cw_Ready        : in    std_logic;
+        Cw_Data         : out   std_logic_vector(CwWidth_c - 1 downto 0);
+        Cw_Length       : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Cw_Last         : out   std_logic;
         -- Memory errors (pulses)
-        Ecc_Sec       : out   std_logic;
-        Ecc_Ded       : out   std_logic;
+        Ecc_Sec         : out   std_logic;
+        Ecc_Ded         : out   std_logic;
         -- Error injection into the next write of the statistics memory or of the codeword buffer: a
         -- single or a double bit error
-        ErrInj_Stats  : in    std_logic := '0';
-        ErrInj_Buffer : in    std_logic := '0';
-        ErrInj_Double : in    std_logic := '0'
+        ErrInj_Stats    : in    std_logic                    := '0';
+        ErrInj_Buffer   : in    std_logic                    := '0';
+        ErrInj_Double   : in    std_logic                    := '0'
     );
 end entity;
 
@@ -125,6 +135,51 @@ architecture rtl of ocp_sample_adaptive_coder is
 
     constant AccRom_c : AccRom_t := accRom;
 
+    -- Runtime parameters: the initial accumulator value (58) of a band is (3 2^(K' + 6) - 49) 2^gamma0 / 2^7
+    -- with gamma0 of the image; the first factor of every band (AccuInitBandVarying_g) or of every K
+    constant BaseW_c : positive := AccW_c + 8;
+
+    type BaseRom_t is array (natural range <>) of unsigned(BaseW_c - 1 downto 0);
+
+    function accBase (k : natural) return unsigned is
+        variable Kp_v : natural;
+    begin
+        -- (59)
+        if k <= 30 - D_c then
+            Kp_v := k;
+        else
+            Kp_v := 2 * k + D_c - 30;
+        end if;
+        return shift_left(to_unsigned(3, BaseW_c), Kp_v + 6) - 49;
+    end function;
+
+    constant BandBaseLen_c : positive := choose(RuntimeParams_g and AccuInitBandVarying_g, ZSize_g, 1);
+
+    function bandBaseRom return BaseRom_t is
+        variable R_v : BaseRom_t(0 to BandBaseLen_c - 1);
+    begin
+
+        for z in 0 to BandBaseLen_c - 1 loop
+            R_v(z) := accBase(vecElem(AccuInit_g, z));
+        end loop;
+
+        return R_v;
+    end function;
+
+    function kBaseRom return BaseRom_t is
+        variable R_v : BaseRom_t(0 to 15);
+    begin
+
+        for k in 0 to 15 loop
+            R_v(k) := accBase(k);
+        end loop;
+
+        return R_v;
+    end function;
+
+    constant BandBase_c : BaseRom_t(0 to BandBaseLen_c - 1) := bandBaseRom;
+    constant KBase_c    : BaseRom_t(0 to 15)                := kBaseRom;
+
     type Item_r is record
         Valid  : std_logic;
         Kind   : std_logic_vector(1 downto 0);
@@ -143,6 +198,11 @@ architecture rtl of ocp_sample_adaptive_coder is
         -- Codeword
         CwData : std_logic_vector(CwWidth_c - 1 downto 0);
         CwLen  : unsigned(CwLenWidth_c - 1 downto 0);
+        -- Runtime parameters of the image of the item (no bits without them)
+        Umax   : natural range 0 to 63 * toInt(RuntimeParams_g);
+        G0     : natural range 0 to 15 * toInt(RuntimeParams_g);
+        GStar  : natural range 0 to 15 * toInt(RuntimeParams_g);
+        KConst : natural range 0 to 15 * toInt(RuntimeParams_g);
     end record;
 
     type ItemArr_t is array (0 to NSt_c - 1) of Item_r;
@@ -166,21 +226,25 @@ architecture rtl of ocp_sample_adaptive_coder is
     signal EccSecVec    : std_logic_vector(1 downto 0);
     signal StatsUse     : std_logic;
     signal EccDedVec    : std_logic_vector(1 downto 0);
+    -- Runtime parameters: initial accumulator value of the band of the item at stage 1
+    signal AccIni       : unsigned(AccW_c - 1 downto 0);
 
 begin
 
     p_comb : process (all) is
-        variable v       : TwoProcess_r;
-        variable I_v     : Item_r;
-        variable O_v     : Item_r;
-        variable Acc_v   : unsigned(AccW_c - 1 downto 0);
-        variable Cnt_v   : unsigned(CntW_c - 1 downto 0);
-        variable Fwd_v   : boolean;
-        variable K_v     : natural range 0 to 31;
-        variable Dlt_v   : unsigned(D_c - 1 downto 0);
-        variable U_v     : unsigned(D_c - 1 downto 0);
-        variable Lsb_v   : unsigned(D_c - 1 downto 0);
-        variable Coded_v : boolean;
+        variable v        : TwoProcess_r;
+        variable I_v      : Item_r;
+        variable O_v      : Item_r;
+        variable Acc_v    : unsigned(AccW_c - 1 downto 0);
+        variable Cnt_v    : unsigned(CntW_c - 1 downto 0);
+        variable Fwd_v    : boolean;
+        variable K_v      : natural range 0 to 31;
+        variable Dlt_v    : unsigned(D_c - 1 downto 0);
+        variable U_v      : unsigned(D_c - 1 downto 0);
+        variable Lsb_v    : unsigned(D_c - 1 downto 0);
+        variable Coded_v  : boolean;
+        variable Umax_v   : natural range 0 to 63;
+        variable NoResc_v : boolean;
     begin
         v := r;
 
@@ -202,6 +266,12 @@ begin
                 O_v.First := In_First;
                 O_v.Init  := In_Init;
                 O_v.Last  := In_Last;
+                if RuntimeParams_g then
+                    O_v.Umax   := to_integer(unsigned(In_UnaryLimit));
+                    O_v.G0     := to_integer(unsigned(In_InitCountExp));
+                    O_v.GStar  := to_integer(unsigned(In_RescaleSize));
+                    O_v.KConst := to_integer(unsigned(In_AccuInit));
+                end if;
             end if;
         end if;
         v.P(0) := O_v;
@@ -228,13 +298,24 @@ begin
                          not Fwd_v);
 
         if I_v.Init = '1' then
-            Acc_v := AccRom_c(to_integer(I_v.Band));
-            Cnt_v := shift_left(to_unsigned(1, CntW_c), InitialCountExp_g);
+            if RuntimeParams_g then
+                Acc_v := AccIni;
+                Cnt_v := shift_left(to_unsigned(1, CntW_c), I_v.G0);
+            else
+                Acc_v := AccRom_c(to_integer(I_v.Band));
+                Cnt_v := shift_left(to_unsigned(1, CntW_c), InitialCountExp_g);
+            end if;
         end if;
         O_v.Acc := Acc_v;
         O_v.Cnt := Cnt_v;
         Dlt_v   := resize(unsigned(I_v.Data), D_c);
-        if Cnt_v < 2 ** RescaleCounterSize_g - 1 then
+        -- Rescaling when the counter reaches 2^gamma* - 1 (5.4.3.2.3.4)
+        if RuntimeParams_g then
+            NoResc_v := Cnt_v < shift_left(to_unsigned(1, CntW_c), I_v.GStar) - 1;
+        else
+            NoResc_v := Cnt_v < 2 ** RescaleCounterSize_g - 1;
+        end if;
+        if NoResc_v then
             O_v.AccNew := Acc_v + Dlt_v;
             O_v.CntNew := Cnt_v + 1;
         else
@@ -277,15 +358,20 @@ begin
         else
             Coded_v := true;
         end if;
+        if RuntimeParams_g then
+            Umax_v := I_v.Umax;
+        else
+            Umax_v := UnaryLimit_g;
+        end if;
         if Coded_v then
             U_v   := shift_right(Dlt_v, I_v.K);
             Lsb_v := Dlt_v and (shift_left(to_unsigned(1, D_c), I_v.K) - 1);
-            if U_v < UnaryLimit_g then
+            if U_v < Umax_v then
                 O_v.CwData := std_logic_vector(resize(Lsb_v, CwWidth_c) or shift_left(to_unsigned(1, CwWidth_c), I_v.K));
                 O_v.CwLen  := resize(U_v, CwLenWidth_c) + 1 + I_v.K;
             else
                 O_v.CwData := std_logic_vector(resize(Dlt_v, CwWidth_c));
-                O_v.CwLen  := to_unsigned(UnaryLimit_g + D_c, CwLenWidth_c);
+                O_v.CwLen  := to_unsigned(Umax_v + D_c, CwLenWidth_c);
             end if;
         end if;
         v.P(StCw_c) := O_v;
@@ -330,6 +416,29 @@ begin
             end if;
         end if;
     end process;
+
+    -- Runtime parameters: initial accumulator value (58) of the band of the item at stage 0 with gamma0 and K of its
+    -- image, for the item at stage 1
+    g_acc_ini : if RuntimeParams_g generate
+
+        p_acc_ini : process (Clk) is
+            variable Base_v : unsigned(BaseW_c - 1 downto 0);
+        begin
+            if rising_edge(Clk) then
+                if r.P(0).Init = '1' then
+                    if AccuInitBandVarying_g then
+                        Base_v := BandBase_c(to_integer(r.P(0).Band));
+                    else
+                        Base_v := KBase_c(r.P(0).KConst);
+                    end if;
+                    AccIni <= resize(shift_right(shift_left(resize(Base_v, BaseW_c + 8), r.P(0).G0), 7), AccW_c);
+                end if;
+            end if;
+        end process;
+
+    else generate
+        AccIni <= (others => '0');
+    end generate;
 
     -- Accumulator and counter of every band
     i_stats_ram : entity olo.olo_ft_ram_sdp

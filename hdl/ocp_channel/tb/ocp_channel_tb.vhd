@@ -133,7 +133,9 @@ entity ocp_channel_tb is
         RestrictedCodes_g      : boolean  := false;
         RefInterval_g          : positive := 4096;
         -- Runtime configuration (test_runtime): the images of tb/golden/<config>/runtime.txt
-        RuntimeConfig_g        : boolean  := false
+        RuntimeConfig_g        : boolean  := false;
+        -- Runtime parameters: the lines of runtime.txt also hold the driven and the taken parameters
+        RuntimeParams_g        : boolean  := false
     );
 end entity;
 
@@ -189,10 +191,16 @@ architecture sim of ocp_channel_tb is
     end function;
 
     -- Runtime configuration: values of image k of runtime.txt (driven NX, NY, NZ, absolute and relative
-    -- limit, then the values taken)
+    -- limit, then the values taken; with the runtime parameters then the driven and the taken parameters:
+    -- user-defined data, M, log2 t_inc, vmin, vmax, Umax, gamma0, gamma*, K, r)
+    constant RtPar_c  : natural  := 10;
+    constant RtCols_c : positive := 10 + 20 * toInt(RuntimeParams_g);
+
+    subtype RtLine_t is integer_vector(0 to RtCols_c - 1);
+
     impure function rtValues (k : natural) return integer_vector is
         variable Line_v : line;
-        variable V_v    : integer_vector(0 to 9);
+        variable V_v    : RtLine_t;
 
         file Rt_f : text;
     begin
@@ -355,7 +363,8 @@ begin
             UserLastMask_g         => LastMask_c,
             UserLastValue_g        => LastValue_c,
             UserErrorMask_g        => ErrorMask_c,
-            RuntimeConfig_g        => RuntimeConfig_g
+            RuntimeConfig_g        => RuntimeConfig_g,
+            RuntimeParams_g        => RuntimeParams_g
         )
         port map (
             Clk               => Clk,
@@ -435,7 +444,7 @@ begin
         variable Channels_v : integer_vector(0 to 15);
         variable NCh_v      : natural;
         variable D_v        : std_logic_vector(31 downto 0);
-        variable V_v        : integer_vector(0 to 9);
+        variable V_v        : RtLine_t;
 
         procedure syncClk is
         begin
@@ -502,21 +511,58 @@ begin
             chk(RegSdusDiscarded_c, ExpDisc, msg & ": SDUS_DISCARDED");
         end procedure;
 
-        -- Runtime configuration: pending values (NEXT_X to NEXT_LIMITS) and COMMIT
-        procedure configure (x : natural; y : natural; z : natural; a : natural; r : natural) is
+        -- A register word with value in the field of width bits from bit lo (two's complement for negative values)
+        function field (value : integer; lo : natural; width : positive) return std_logic_vector is
+            variable W_v : std_logic_vector(31 downto 0) := (others => '0');
+            variable S_v : signed(width downto 0);
+        begin
+            S_v                           := to_signed(value, width + 1);
+            W_v(lo + width - 1 downto lo) := std_logic_vector(S_v(width - 1 downto 0));
+            return W_v;
+        end function;
+
+        -- Runtime configuration: pending values (NEXT_X to NEXT_LIMITS; with the runtime parameters
+        -- NEXT_SAMPLES to NEXT_BLOCK) of a line of runtime.txt with NX x, and COMMIT
+        procedure configure (v : integer_vector; x : natural) is
         begin
             regWrite(AXILITE_VVCT, Axi_c, RegNextX_c, std_logic_vector(to_unsigned(x, 32)));
-            regWrite(AXILITE_VVCT, Axi_c, RegNextY_c, std_logic_vector(to_unsigned(y, 32)));
-            regWrite(AXILITE_VVCT, Axi_c, RegNextZ_c, std_logic_vector(to_unsigned(z, 32)));
-            regWrite(AXILITE_VVCT, Axi_c, RegNextLimits_c, std_logic_vector(to_unsigned(r, 16)) &
-                                                            std_logic_vector(to_unsigned(a, 16)));
+            regWrite(AXILITE_VVCT, Axi_c, RegNextY_c, std_logic_vector(to_unsigned(v(1), 32)));
+            regWrite(AXILITE_VVCT, Axi_c, RegNextZ_c, std_logic_vector(to_unsigned(v(2), 32)));
+            regWrite(AXILITE_VVCT, Axi_c, RegNextLimits_c, std_logic_vector(to_unsigned(v(4), 16)) &
+                                                            std_logic_vector(to_unsigned(v(3), 16)));
+            if RuntimeParams_g then
+                regWrite(AXILITE_VVCT, Axi_c, RegNextSamples_c, field(v(RtPar_c), NextSamplesUserDataLo_c, 8));
+                regWrite(AXILITE_VVCT, Axi_c, RegNextOrder_c, field(v(RtPar_c + 1), NextOrderSubFrameDepthLo_c, 17));
+                regWrite(AXILITE_VVCT, Axi_c, RegNextWeights_c,
+                         field(v(RtPar_c + 4), NextWeightsVmaxLo_c, 5) or field(v(RtPar_c + 3), NextWeightsVminLo_c, 5) or
+                         field(v(RtPar_c + 2), NextWeightsUpdateIntervalLo_c, 4));
+                regWrite(AXILITE_VVCT, Axi_c, RegNextAdaptive_c,
+                         field(v(RtPar_c + 8), NextAdaptiveAccuInitLo_c, 4) or
+                         field(v(RtPar_c + 6), NextAdaptiveInitialCountLo_c, 4) or
+                         field(v(RtPar_c + 7), NextAdaptiveRescaleSizeLo_c, 4) or
+                         field(v(RtPar_c + 5), NextAdaptiveUnaryLimitLo_c, 6));
+                regWrite(AXILITE_VVCT, Axi_c, RegNextBlock_c, field(v(RtPar_c + 9), NextBlockRefIntervalLo_c, 13));
+            end if;
             regWrite(AXILITE_VVCT, Axi_c, RegControl_c, x"00000001");
+        end procedure;
+
+        -- A field of a register equals value (two's complement where it is negative)
+        procedure chkField (addr : natural; hi : natural; lo : natural; value : integer; msg : string) is
+            variable R_v : std_logic_vector(31 downto 0);
+        begin
+            regRead(AXILITE_VVCT, Axi_c, addr, R_v);
+            if value < 0 then
+                check_value(R_v(hi downto lo), std_logic_vector(to_signed(value, hi - lo + 1)), ERROR, msg);
+            else
+                check_value(R_v(hi downto lo), std_logic_vector(to_unsigned(value, hi - lo + 1)), ERROR, msg);
+            end if;
         end procedure;
 
         -- The active registers show the values of image k of runtime.txt (MB-RC-04)
         procedure chkActive (k : natural; msg : string) is
-            constant V_c : integer_vector(0 to 9) := rtValues(k);
-            variable M_v : natural                := 0;
+            constant V_c : RtLine_t := rtValues(k);
+            constant T_c : natural  := RtPar_c + 10;
+            variable M_v : natural  := 0;
         begin
             chk(RegImageX_c, V_c(5), msg & ": IMAGE_X");
             chk(RegImageY_c, V_c(6), msg & ": IMAGE_Y");
@@ -524,8 +570,35 @@ begin
             chk(RegLimits_c, V_c(9) * 65536 + V_c(8), msg & ": LIMITS");
             if EncodingOrder_g = "BI" then
                 M_v := minimum(SubFrameDepth_g, V_c(7));
+                if RuntimeParams_g then
+                    M_v := V_c(T_c + 1);
+                end if;
             end if;
             chk(RegOrder_c, M_v * 256 + toInt(EncodingOrder_g = "BSQ"), msg & ": ORDER");
+            -- Runtime parameters: the fields of SAMPLES to ADAPTIVE show the parameters of the image (MB-RP-03)
+            if RuntimeParams_g then
+                chkField(RegSamples_c, SamplesUserDataHi_c, SamplesUserDataLo_c, V_c(T_c), msg & ": USER_DATA");
+                chkField(RegWeights_c, WeightsUpdateIntervalHi_c, WeightsUpdateIntervalLo_c, V_c(T_c + 2),
+                         msg & ": UPDATE_INTERVAL");
+                chkField(RegWeights_c, WeightsVminHi_c, WeightsVminLo_c, V_c(T_c + 3), msg & ": VMIN");
+                chkField(RegWeights_c, WeightsVmaxHi_c, WeightsVmaxLo_c, V_c(T_c + 4), msg & ": VMAX");
+                if EntropyCoder_g /= "BLOCK_ADAPTIVE" then
+                    chkField(RegAdaptive_c, AdaptiveUnaryLimitHi_c, AdaptiveUnaryLimitLo_c, V_c(T_c + 5),
+                             msg & ": UNARY_LIMIT");
+                    chkField(RegAdaptive_c, AdaptiveInitialCountHi_c, AdaptiveInitialCountLo_c, V_c(T_c + 6),
+                             msg & ": INITIAL_COUNT");
+                    chkField(RegAdaptive_c, AdaptiveRescaleSizeHi_c, AdaptiveRescaleSizeLo_c, V_c(T_c + 7),
+                             msg & ": RESCALE_SIZE");
+                end if;
+                if EntropyCoder_g = "SAMPLE_ADAPTIVE" and not AccuInitBandVarying_g then
+                    chkField(RegAdaptive_c, AdaptiveAccuInitHi_c, AdaptiveAccuInitLo_c, V_c(T_c + 8),
+                             msg & ": ACCU_INIT");
+                end if;
+                if EntropyCoder_g = "BLOCK_ADAPTIVE" then
+                    chkField(RegBlock_c, BlockRefIntervalHi_c, BlockRefIntervalLo_c, V_c(T_c + 9),
+                             msg & ": REF_INTERVAL");
+                end if;
+            end if;
         end procedure;
 
         procedure inject (channel : natural; double : std_logic) is
@@ -549,7 +622,7 @@ begin
 
         while test_suite loop
             if run("test_golden") then
-                chk(RegId_c, 16#4F435002#, "ID");
+                chk(RegId_c, 16#4F435003#, "ID");
                 job(Images_g, (others => Normal_c));
                 check_value(ExpDone, Images_g, ERROR, "model: images done");
                 chkCounters("correct images");
@@ -594,7 +667,7 @@ begin
             elsif run("test_runtime") then
                 -- Configuration A (image 0 of runtime.txt), committed before its image
                 V_v   := rtValues(0);
-                configure(V_v(0), V_v(1), V_v(2), V_v(3), V_v(4));
+                configure(V_v, V_v(0));
                 chk(RegStatus_c, 1, "configuration A committed: CFG_PENDING");
                 RtImg <= 0;
                 startJob(1, (others => Normal_c));
@@ -607,7 +680,7 @@ begin
 
                 chkActive(0, "image A started");
                 V_v := rtValues(1);
-                configure(V_v(0), V_v(1), V_v(2), V_v(3), V_v(4));
+                configure(V_v, V_v(0));
                 chk(RegStatus_c, 1, "configuration B committed while the image of A is compressed");
                 job(1, (others => Normal_c), true);
                 chkActive(0, "after image A");
@@ -618,7 +691,7 @@ begin
                 chkActive(1, "after image B");
                 chk(RegStatus_c, 0, "after image B: nothing pending");
                 -- Configuration C out of range: rejected, the next image uses B
-                configure(XSize_g + 1, V_v(1), V_v(2), V_v(3), V_v(4));
+                configure(V_v, XSize_g + 1);
                 chk(RegStatus_c, 2, "configuration C rejected: CFG_ERROR");
                 regWrite(AXILITE_VVCT, Axi_c, RegStatus_c, x"00000002");
                 chk(RegStatus_c, 0, "CFG_ERROR cleared");
@@ -786,7 +859,7 @@ begin
         variable Swallow_v : boolean;
         variable Resets_v  : natural := 0;
         variable N_v       : positive;
-        variable Rt_v      : integer_vector(0 to 9);
+        variable Rt_v      : RtLine_t;
     begin
         wait on JobStart;
         Abort_v   := false;

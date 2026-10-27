@@ -20,6 +20,7 @@ library ieee;
     use ieee.numeric_std.all;
 
 library olo;
+    use olo.olo_base_pkg_math.all;
 
 library work;
     use work.ocp_pkg.all;
@@ -72,6 +73,8 @@ entity ocp_mib is
         BlockSize_g            : positive                  := 16;
         RestrictedCodes_g      : boolean                   := false;
         RefInterval_g          : positive range 1 to 4096  := 4096;
+        HybridAccuInit_g       : integer_vector            := (0 => 0);
+        HybridAccuInitHigh_g   : integer_vector            := (0 => 0);
         -- Error limits
         AbsBandDependent_g     : boolean                   := false;
         AbsBitDepth_g          : positive range 1 to 16    := 1;
@@ -81,50 +84,75 @@ entity ocp_mib is
         RelErrorLimits_g       : integer_vector            := (0 => 0);
         -- Runtime configuration of the image dimensions and error limit values (NEXT_X to NEXT_LIMITS,
         -- CONTROL, STATUS)
-        RuntimeConfig_g        : boolean                   := false
+        RuntimeConfig_g        : boolean                   := false;
+        -- Runtime parameters (with RuntimeConfig_g): user-defined data, M, the weight update and the entropy
+        -- coder parameters (NEXT_SAMPLES to NEXT_BLOCK)
+        RuntimeParams_g        : boolean                   := false
     );
     port (
-        Clk               : in    std_logic;
-        Rst               : in    std_logic;
+        Clk                : in    std_logic;
+        Rst                : in    std_logic;
         -- AXI4-Lite slave
-        S_AxiLite_ArAddr  : in    std_logic_vector(7 downto 0);
-        S_AxiLite_ArValid : in    std_logic;
-        S_AxiLite_ArReady : out   std_logic;
-        S_AxiLite_AwAddr  : in    std_logic_vector(7 downto 0);
-        S_AxiLite_AwValid : in    std_logic;
-        S_AxiLite_AwReady : out   std_logic;
-        S_AxiLite_WData   : in    std_logic_vector(31 downto 0);
-        S_AxiLite_WStrb   : in    std_logic_vector(3 downto 0);
-        S_AxiLite_WValid  : in    std_logic;
-        S_AxiLite_WReady  : out   std_logic;
-        S_AxiLite_BResp   : out   std_logic_vector(1 downto 0);
-        S_AxiLite_BValid  : out   std_logic;
-        S_AxiLite_BReady  : in    std_logic;
-        S_AxiLite_RData   : out   std_logic_vector(31 downto 0);
-        S_AxiLite_RResp   : out   std_logic_vector(1 downto 0);
-        S_AxiLite_RValid  : out   std_logic;
-        S_AxiLite_RReady  : in    std_logic;
+        S_AxiLite_ArAddr   : in    std_logic_vector(7 downto 0);
+        S_AxiLite_ArValid  : in    std_logic;
+        S_AxiLite_ArReady  : out   std_logic;
+        S_AxiLite_AwAddr   : in    std_logic_vector(7 downto 0);
+        S_AxiLite_AwValid  : in    std_logic;
+        S_AxiLite_AwReady  : out   std_logic;
+        S_AxiLite_WData    : in    std_logic_vector(31 downto 0);
+        S_AxiLite_WStrb    : in    std_logic_vector(3 downto 0);
+        S_AxiLite_WValid   : in    std_logic;
+        S_AxiLite_WReady   : out   std_logic;
+        S_AxiLite_BResp    : out   std_logic_vector(1 downto 0);
+        S_AxiLite_BValid   : out   std_logic;
+        S_AxiLite_BReady   : in    std_logic;
+        S_AxiLite_RData    : out   std_logic_vector(31 downto 0);
+        S_AxiLite_RResp    : out   std_logic_vector(1 downto 0);
+        S_AxiLite_RValid   : out   std_logic;
+        S_AxiLite_RReady   : in    std_logic;
         -- Events (pulses)
-        Ev_ImageDone      : in    std_logic;
-        Ev_ImageAborted   : in    std_logic;
-        Ev_SduError       : in    std_logic;
-        Ev_SduDiscarded   : in    std_logic;
-        Ecc_Sec           : in    std_logic;
-        Ecc_Ded           : in    std_logic;
+        Ev_ImageDone       : in    std_logic;
+        Ev_ImageAborted    : in    std_logic;
+        Ev_SduError        : in    std_logic;
+        Ev_SduDiscarded    : in    std_logic;
+        Ecc_Sec            : in    std_logic;
+        Ecc_Ded            : in    std_logic;
         -- Runtime configuration: committed configuration for the core (all five outputs change in the same
         -- clock cycle), the pulse of the core when it takes them, the values the core took for the last
         -- image
-        Cfg_XSize         : out   std_logic_vector(16 downto 0);
-        Cfg_YSize         : out   std_logic_vector(16 downto 0);
-        Cfg_ZSize         : out   std_logic_vector(16 downto 0);
-        Cfg_AbsLimit      : out   std_logic_vector(15 downto 0);
-        Cfg_RelLimit      : out   std_logic_vector(15 downto 0);
-        Cfg_Taken         : in    std_logic                     := '0';
-        Act_XSize         : in    std_logic_vector(16 downto 0) := (others => '0');
-        Act_YSize         : in    std_logic_vector(16 downto 0) := (others => '0');
-        Act_ZSize         : in    std_logic_vector(16 downto 0) := (others => '0');
-        Act_AbsLimit      : in    std_logic_vector(15 downto 0) := (others => '0');
-        Act_RelLimit      : in    std_logic_vector(15 downto 0) := (others => '0')
+        Cfg_XSize          : out   std_logic_vector(16 downto 0);
+        Cfg_YSize          : out   std_logic_vector(16 downto 0);
+        Cfg_ZSize          : out   std_logic_vector(16 downto 0);
+        Cfg_AbsLimit       : out   std_logic_vector(15 downto 0);
+        Cfg_RelLimit       : out   std_logic_vector(15 downto 0);
+        -- Runtime parameters: committed parameters for the core (with the configuration in the same clock
+        -- cycle), the parameters the core took for the last image
+        Cfg_UserData       : out   std_logic_vector(7 downto 0);
+        Cfg_M              : out   std_logic_vector(16 downto 0);
+        Cfg_WeightInterval : out   std_logic_vector(3 downto 0);
+        Cfg_WeightVmin     : out   std_logic_vector(4 downto 0);
+        Cfg_WeightVmax     : out   std_logic_vector(4 downto 0);
+        Cfg_UnaryLimit     : out   std_logic_vector(5 downto 0);
+        Cfg_InitCountExp   : out   std_logic_vector(3 downto 0);
+        Cfg_RescaleSize    : out   std_logic_vector(3 downto 0);
+        Cfg_AccuInit       : out   std_logic_vector(3 downto 0);
+        Cfg_RefInterval    : out   std_logic_vector(12 downto 0);
+        Cfg_Taken          : in    std_logic                     := '0';
+        Act_XSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Act_YSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Act_ZSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Act_AbsLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        Act_RelLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        Act_UserData       : in    std_logic_vector(7 downto 0)  := (others => '0');
+        Act_M              : in    std_logic_vector(16 downto 0) := (others => '0');
+        Act_WeightInterval : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Act_WeightVmin     : in    std_logic_vector(4 downto 0)  := (others => '0');
+        Act_WeightVmax     : in    std_logic_vector(4 downto 0)  := (others => '0');
+        Act_UnaryLimit     : in    std_logic_vector(5 downto 0)  := (others => '0');
+        Act_InitCountExp   : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Act_RescaleSize    : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Act_AccuInit       : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Act_RefInterval    : in    std_logic_vector(12 downto 0) := (others => '0')
     );
 end entity;
 
@@ -198,6 +226,7 @@ architecture rtl of ocp_mib is
         W_v(A_v) := put(W_v(A_v), (DynamicRange_g + 7) / 8, GenericsSampleBytesLo_c, GenericsSampleBytesHi_c);
         W_v(A_v) := put(W_v(A_v), toInt(Speculation_g), GenericsSpeculation_c, GenericsSpeculation_c);
         W_v(A_v) := put(W_v(A_v), toInt(RuntimeConfig_g), GenericsRuntimeConfig_c, GenericsRuntimeConfig_c);
+        W_v(A_v) := put(W_v(A_v), toInt(RuntimeParams_g), GenericsRuntimeParams_c, GenericsRuntimeParams_c);
         -- IMAGE_X, IMAGE_Y, IMAGE_Z
         W_v(RegImageX_c / 4) := put(W_v(RegImageX_c / 4), XSize_g, ImageXSizeLo_c, ImageXSizeHi_c);
         W_v(RegImageY_c / 4) := put(W_v(RegImageY_c / 4), YSize_g, ImageYSizeLo_c, ImageYSizeHi_c);
@@ -284,6 +313,89 @@ architecture rtl of ocp_mib is
                                     Z    => to_unsigned(ZSize_g, 17), AbsL => to_unsigned(AbsConst_c, 16),
                                     RelL => to_unsigned(RelConst_c, 16));
 
+    -- Runtime parameters in use: M in BI order; Umax, gamma0 and gamma* with the sample-adaptive and the hybrid
+    -- coder; K with the sample-adaptive coder and an accumulator initialisation constant; r with the
+    -- block-adaptive coder
+    constant UseM_c   : boolean := Order_c = OrderBi_c;
+    constant UseAdp_c : boolean := Coder_c /= CoderBlock_c;
+    constant UseK_c   : boolean := Coder_c = CoderSample_c and not AccuInitBandVarying_g;
+    constant UseR_c   : boolean := Coder_c = CoderBlock_c;
+    -- Lower bound of gamma0: with the hybrid coder every initial accumulator below 2^(D + gamma0)
+    constant G0Min_c  : positive := choose(Coder_c = CoderHybrid_c,
+                                           hybridG0Min(DynamicRange_g, ZSize_g, HybridAccuInit_g, HybridAccuInitHigh_g),
+                                           1);
+
+    -- Runtime parameters of an image in the widths of their register fields (zero for a parameter not in use)
+    type Par_r is record
+        User  : unsigned(7 downto 0);
+        M     : unsigned(16 downto 0);
+        TInc  : unsigned(3 downto 0);
+        Vmin  : signed(4 downto 0);
+        Vmax  : signed(4 downto 0);
+        Umax  : unsigned(5 downto 0);
+        G0    : unsigned(3 downto 0);
+        GStar : unsigned(3 downto 0);
+        K     : unsigned(3 downto 0);
+        R     : unsigned(12 downto 0);
+    end record;
+
+    -- After a reset: the values of the generics
+    function parReset return Par_r is
+        variable P_v : Par_r;
+    begin
+        P_v.User  := to_unsigned(UserData_g, 8);
+        P_v.M     := (others => '0');
+        P_v.TInc  := to_unsigned(WeightUpdateInterval_g, 4);
+        P_v.Vmin  := to_signed(WeightUpdateVmin_g, 5);
+        P_v.Vmax  := to_signed(WeightUpdateVmax_g, 5);
+        P_v.Umax  := (others => '0');
+        P_v.G0    := (others => '0');
+        P_v.GStar := (others => '0');
+        P_v.K     := (others => '0');
+        P_v.R     := (others => '0');
+        if UseM_c then
+            P_v.M := to_unsigned(SubFrameDepth_g, 17);
+        end if;
+        if UseAdp_c then
+            P_v.Umax  := to_unsigned(UnaryLimit_g, 6);
+            P_v.G0    := to_unsigned(InitialCountExp_g, 4);
+            P_v.GStar := to_unsigned(RescaleCounterSize_g, 4);
+        end if;
+        if UseK_c then
+            P_v.K := to_unsigned(vecElem(AccuInit_g, 0), 4);
+        end if;
+        if UseR_c then
+            P_v.R := to_unsigned(RefInterval_g, 13);
+        end if;
+        return P_v;
+    end function;
+
+    constant ParReset_c : Par_r := parReset;
+
+    -- The runtime parameters of a COMMIT are in range, the dependent ones against the pending values they depend
+    -- on (MB-RP-02, the ranges of CO-RP-02)
+    function inRange (p : Par_r; nz : unsigned) return boolean is
+        variable Ok_v : boolean;
+    begin
+        Ok_v := p.TInc >= 4 and p.TInc <= 11;
+        Ok_v := Ok_v and p.Vmin >= -6 and p.Vmin <= 9 and p.Vmax >= p.Vmin and p.Vmax <= 9;
+        if UseM_c then
+            Ok_v := Ok_v and p.M >= 1 and p.M <= SubFrameDepth_g and p.M <= nz;
+        end if;
+        if UseAdp_c then
+            Ok_v := Ok_v and p.Umax >= 8 and p.Umax <= 32;
+            Ok_v := Ok_v and p.G0 >= G0Min_c and p.G0 <= minimum(8, RescaleCounterSize_g - 1);
+            Ok_v := Ok_v and p.GStar >= 4 and p.GStar >= p.G0 + 1 and p.GStar <= RescaleCounterSize_g;
+        end if;
+        if UseK_c then
+            Ok_v := Ok_v and p.K <= minimum(DynamicRange_g - 2, 14);
+        end if;
+        if UseR_c then
+            Ok_v := Ok_v and p.R >= 1 and p.R <= RefInterval_g;
+        end if;
+        return Ok_v;
+    end function;
+
     -- The values of a COMMIT are in range (MB-RC-02)
     function inRange (c : Cfg_r) return boolean is
         variable Ok_v : boolean;
@@ -305,6 +417,9 @@ architecture rtl of ocp_mib is
         Cfg     : Cfg_r;
         Pending : std_logic;
         Error   : std_logic;
+        -- Runtime parameters: pending set (NEXT_SAMPLES to NEXT_BLOCK), committed set
+        PendP   : Par_r;
+        CfgP    : Par_r;
     end record;
 
     signal r, r_next : TwoProcess_r;
@@ -331,6 +446,29 @@ architecture rtl of ocp_mib is
             end if;
         end loop;
 
+        return W_v;
+    end function;
+
+    -- Word of the pending runtime parameter register with index idx (NEXT_SAMPLES to NEXT_BLOCK)
+    function parWord (p : Par_r; idx : natural) return std_logic_vector is
+        variable W_v : Word_t := (others => '0');
+    begin
+        if idx = RegNextSamples_c / 4 then
+            W_v(NextSamplesUserDataHi_c downto NextSamplesUserDataLo_c) := std_logic_vector(p.User);
+        elsif idx = RegNextOrder_c / 4 then
+            W_v(NextOrderSubFrameDepthHi_c downto NextOrderSubFrameDepthLo_c) := std_logic_vector(p.M);
+        elsif idx = RegNextWeights_c / 4 then
+            W_v(NextWeightsVmaxHi_c downto NextWeightsVmaxLo_c)                     := std_logic_vector(p.Vmax);
+            W_v(NextWeightsVminHi_c downto NextWeightsVminLo_c)                     := std_logic_vector(p.Vmin);
+            W_v(NextWeightsUpdateIntervalHi_c downto NextWeightsUpdateIntervalLo_c) := std_logic_vector(p.TInc);
+        elsif idx = RegNextAdaptive_c / 4 then
+            W_v(NextAdaptiveAccuInitHi_c downto NextAdaptiveAccuInitLo_c)         := std_logic_vector(p.K);
+            W_v(NextAdaptiveInitialCountHi_c downto NextAdaptiveInitialCountLo_c) := std_logic_vector(p.G0);
+            W_v(NextAdaptiveRescaleSizeHi_c downto NextAdaptiveRescaleSizeLo_c)   := std_logic_vector(p.GStar);
+            W_v(NextAdaptiveUnaryLimitHi_c downto NextAdaptiveUnaryLimitLo_c)     := std_logic_vector(p.Umax);
+        elsif idx = RegNextBlock_c / 4 then
+            W_v(NextBlockRefIntervalHi_c downto NextBlockRefIntervalLo_c) := std_logic_vector(p.R);
+        end if;
         return W_v;
     end function;
 
@@ -384,8 +522,9 @@ begin
                     v.Pend.RelL := unsigned(W_v(NextLimitsRelHi_c downto NextLimitsRelLo_c));
                 elsif Idx_v = RegControl_c / 4 then
                     if RbByteEn(0) = '1' and RbWrData(ControlCommit_c) = '1' then
-                        if inRange(r.Pend) then
+                        if inRange(r.Pend) and (not RuntimeParams_g or inRange(r.PendP, r.Pend.Z)) then
                             v.Cfg     := r.Pend;
+                            v.CfgP    := r.PendP;
                             v.Pending := '1';
                         else
                             v.Error := '1';
@@ -395,6 +534,39 @@ begin
                     if RbByteEn(0) = '1' and RbWrData(StatusCfgError_c) = '1' then
                         v.Error := '0';
                     end if;
+                end if;
+            end if;
+        end if;
+
+        -- Runtime parameters (MB-RP-01): the pending registers take the written bytes of the fields in use
+        if RuntimeParams_g and RbWr = '1' then
+            if Idx_v = RegNextSamples_c / 4 then
+                W_v          := merge(parWord(r.PendP, Idx_v), RbWrData, RbByteEn);
+                v.PendP.User := unsigned(W_v(NextSamplesUserDataHi_c downto NextSamplesUserDataLo_c));
+            elsif Idx_v = RegNextOrder_c / 4 then
+                W_v := merge(parWord(r.PendP, Idx_v), RbWrData, RbByteEn);
+                if UseM_c then
+                    v.PendP.M := unsigned(W_v(NextOrderSubFrameDepthHi_c downto NextOrderSubFrameDepthLo_c));
+                end if;
+            elsif Idx_v = RegNextWeights_c / 4 then
+                W_v          := merge(parWord(r.PendP, Idx_v), RbWrData, RbByteEn);
+                v.PendP.Vmax := signed(W_v(NextWeightsVmaxHi_c downto NextWeightsVmaxLo_c));
+                v.PendP.Vmin := signed(W_v(NextWeightsVminHi_c downto NextWeightsVminLo_c));
+                v.PendP.TInc := unsigned(W_v(NextWeightsUpdateIntervalHi_c downto NextWeightsUpdateIntervalLo_c));
+            elsif Idx_v = RegNextAdaptive_c / 4 then
+                W_v := merge(parWord(r.PendP, Idx_v), RbWrData, RbByteEn);
+                if UseAdp_c then
+                    v.PendP.G0    := unsigned(W_v(NextAdaptiveInitialCountHi_c downto NextAdaptiveInitialCountLo_c));
+                    v.PendP.GStar := unsigned(W_v(NextAdaptiveRescaleSizeHi_c downto NextAdaptiveRescaleSizeLo_c));
+                    v.PendP.Umax  := unsigned(W_v(NextAdaptiveUnaryLimitHi_c downto NextAdaptiveUnaryLimitLo_c));
+                end if;
+                if UseK_c then
+                    v.PendP.K := unsigned(W_v(NextAdaptiveAccuInitHi_c downto NextAdaptiveAccuInitLo_c));
+                end if;
+            elsif Idx_v = RegNextBlock_c / 4 then
+                W_v := merge(parWord(r.PendP, Idx_v), RbWrData, RbByteEn);
+                if UseR_c then
+                    v.PendP.R := unsigned(W_v(NextBlockRefIntervalHi_c downto NextBlockRefIntervalLo_c));
                 end if;
             end if;
         end if;
@@ -443,6 +615,31 @@ begin
                     v.RdData(StatusCfgError_c)   := r.Error;
                 end if;
             end if;
+            -- Runtime parameters: the pending set, the parameters the core took for the last image (MB-RP-03)
+            if RuntimeParams_g then
+                if Idx_v >= RegNextSamples_c / 4 and Idx_v <= RegNextBlock_c / 4 then
+                    v.RdData := parWord(r.PendP, Idx_v);
+                elsif Idx_v = RegSamples_c / 4 then
+                    v.RdData(SamplesUserDataHi_c downto SamplesUserDataLo_c) := Act_UserData;
+                elsif Idx_v = RegOrder_c / 4 and UseM_c then
+                    v.RdData(OrderSubFrameDepthHi_c downto OrderSubFrameDepthLo_c) := Act_M;
+                elsif Idx_v = RegWeights_c / 4 then
+                    v.RdData(WeightsVmaxHi_c downto WeightsVmaxLo_c)                     := Act_WeightVmax;
+                    v.RdData(WeightsVminHi_c downto WeightsVminLo_c)                     := Act_WeightVmin;
+                    v.RdData(WeightsUpdateIntervalHi_c downto WeightsUpdateIntervalLo_c) := Act_WeightInterval;
+                elsif Idx_v = RegAdaptive_c / 4 then
+                    if UseAdp_c then
+                        v.RdData(AdaptiveInitialCountHi_c downto AdaptiveInitialCountLo_c) := Act_InitCountExp;
+                        v.RdData(AdaptiveRescaleSizeHi_c downto AdaptiveRescaleSizeLo_c)   := Act_RescaleSize;
+                        v.RdData(AdaptiveUnaryLimitHi_c downto AdaptiveUnaryLimitLo_c)     := Act_UnaryLimit;
+                    end if;
+                    if UseK_c then
+                        v.RdData(AdaptiveAccuInitHi_c downto AdaptiveAccuInitLo_c) := Act_AccuInit;
+                    end if;
+                elsif Idx_v = RegBlock_c / 4 and UseR_c then
+                    v.RdData(BlockRefIntervalHi_c downto BlockRefIntervalLo_c) := Act_RefInterval;
+                end if;
+            end if;
         end if;
 
         r_next <= v;
@@ -460,6 +657,10 @@ begin
                     r.Cfg     <= CfgReset_c;
                     r.Pending <= '0';
                     r.Error   <= '0';
+                end if;
+                if RuntimeParams_g then
+                    r.PendP <= ParReset_c;
+                    r.CfgP  <= ParReset_c;
                 end if;
             end if;
         end if;
@@ -480,6 +681,33 @@ begin
         Cfg_ZSize    <= (others => '0');
         Cfg_AbsLimit <= (others => '0');
         Cfg_RelLimit <= (others => '0');
+    end generate;
+
+    -- Committed runtime parameters (zero without the runtime parameters)
+    g_params : if RuntimeParams_g generate
+        Cfg_UserData       <= std_logic_vector(r.CfgP.User);
+        Cfg_M              <= std_logic_vector(r.CfgP.M);
+        Cfg_WeightInterval <= std_logic_vector(r.CfgP.TInc);
+        Cfg_WeightVmin     <= std_logic_vector(r.CfgP.Vmin);
+        Cfg_WeightVmax     <= std_logic_vector(r.CfgP.Vmax);
+        Cfg_UnaryLimit     <= std_logic_vector(r.CfgP.Umax);
+        Cfg_InitCountExp   <= std_logic_vector(r.CfgP.G0);
+        Cfg_RescaleSize    <= std_logic_vector(r.CfgP.GStar);
+        Cfg_AccuInit       <= std_logic_vector(r.CfgP.K);
+        Cfg_RefInterval    <= std_logic_vector(r.CfgP.R);
+    end generate;
+
+    g_no_params : if not RuntimeParams_g generate
+        Cfg_UserData       <= (others => '0');
+        Cfg_M              <= (others => '0');
+        Cfg_WeightInterval <= (others => '0');
+        Cfg_WeightVmin     <= (others => '0');
+        Cfg_WeightVmax     <= (others => '0');
+        Cfg_UnaryLimit     <= (others => '0');
+        Cfg_InitCountExp   <= (others => '0');
+        Cfg_RescaleSize    <= (others => '0');
+        Cfg_AccuInit       <= (others => '0');
+        Cfg_RefInterval    <= (others => '0');
     end generate;
 
     i_axi : entity olo.olo_axi_lite_slave

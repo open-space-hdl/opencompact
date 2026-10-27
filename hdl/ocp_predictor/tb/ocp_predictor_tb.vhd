@@ -88,7 +88,10 @@ entity ocp_predictor_tb is
         -- acceptance cycles of the first sample of every image relative to the first (throughput model)
         RuntimeConfig_g        : boolean  := false;
         RtImages_g             : natural  := 0;
-        ExpStarts_g            : string   := ""
+        ExpStarts_g            : string   := "";
+        -- Runtime parameters: the lines of runtime.txt also hold the driven and the taken parameters; the
+        -- predictor gets the M and the weight update parameters taken (the core limits them)
+        RuntimeParams_g        : boolean  := false
     );
 end entity;
 
@@ -126,22 +129,33 @@ architecture sim of ocp_predictor_tb is
 
     -- Runtime configuration: configuration inputs, take pulse, acceptance cycle of the first sample of every
     -- image
-    signal Cfg_XSize    : std_logic_vector(16 downto 0) := (others => '0');
-    signal Cfg_YSize    : std_logic_vector(16 downto 0) := (others => '0');
-    signal Cfg_ZSize    : std_logic_vector(16 downto 0) := (others => '0');
-    signal Cfg_AbsLimit : std_logic_vector(15 downto 0) := (others => '0');
-    signal Cfg_RelLimit : std_logic_vector(15 downto 0) := (others => '0');
-    signal Cfg_Take     : std_logic;
-    signal Takes        : natural                       := 0;
+    signal Cfg_XSize          : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_YSize          : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_ZSize          : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_AbsLimit       : std_logic_vector(15 downto 0) := (others => '0');
+    signal Cfg_RelLimit       : std_logic_vector(15 downto 0) := (others => '0');
+    signal Cfg_Take           : std_logic;
+    -- Runtime parameters
+    signal Cfg_M              : std_logic_vector(16 downto 0) := (others => '0');
+    signal Cfg_WeightInterval : std_logic_vector(3 downto 0)  := (others => '0');
+    signal Cfg_WeightVmin     : std_logic_vector(4 downto 0)  := (others => '0');
+    signal Cfg_WeightVmax     : std_logic_vector(4 downto 0)  := (others => '0');
+    signal Takes              : natural                       := 0;
 
     type NatArr_t is array (natural range <>) of natural;
 
     signal StartCyc : NatArr_t(0 to 63) := (others => 0);
 
-    -- Values of image k of runtime.txt: driven NX, NY, NZ, absolute and relative limit, then the values taken
+    -- Values of image k of runtime.txt: driven NX, NY, NZ, absolute and relative limit, then the values taken;
+    -- with the runtime parameters then the driven and the taken parameters (from 20: user-defined data, M,
+    -- log2 t_inc, vmin, vmax, the coder parameters)
+    constant RtCols_c : positive := 10 + 20 * toInt(RuntimeParams_g);
+
+    subtype RtLine_t is integer_vector(0 to RtCols_c - 1);
+
     impure function rtValues (k : natural) return integer_vector is
         variable Line_v : line;
-        variable V_v    : integer_vector(0 to 9);
+        variable V_v    : RtLine_t;
 
         file Rt_f : text;
     begin
@@ -212,34 +226,39 @@ begin
             Damping_g              => parseIntVec(Damping_g),
             Offset_g               => parseIntVec(Offset_g),
             Speculation_g          => Speculation_g,
-            RuntimeConfig_g        => RuntimeConfig_g
+            RuntimeConfig_g        => RuntimeConfig_g,
+            RuntimeParams_g        => RuntimeParams_g
         )
         port map (
-            Clk          => Clk,
-            Rst          => Rst,
-            In_Valid     => In_Valid,
-            In_Ready     => In_Ready,
-            In_Data      => In_Data,
-            Lim_Valid    => Lim_Valid,
-            Lim_Ready    => Lim_Ready,
-            Lim_Data     => Lim_Data,
-            Cfg_XSize    => Cfg_XSize,
-            Cfg_YSize    => Cfg_YSize,
-            Cfg_ZSize    => Cfg_ZSize,
-            Cfg_AbsLimit => Cfg_AbsLimit,
-            Cfg_RelLimit => Cfg_RelLimit,
-            Cfg_Take     => Cfg_Take,
-            Img_Start    => open,
-            Out_Valid    => Out_Valid,
-            Out_Ready    => Out_Ready,
-            Out_Data     => Out_Data,
-            Out_Kind     => Out_Kind,
-            Out_Band     => Out_Band,
-            Out_First    => Out_First,
-            Out_Init     => Out_Init,
-            Out_Last     => Out_Last,
-            Ecc_Sec      => Ecc_Sec,
-            Ecc_Ded      => Ecc_Ded
+            Clk                => Clk,
+            Rst                => Rst,
+            In_Valid           => In_Valid,
+            In_Ready           => In_Ready,
+            In_Data            => In_Data,
+            Lim_Valid          => Lim_Valid,
+            Lim_Ready          => Lim_Ready,
+            Lim_Data           => Lim_Data,
+            Cfg_XSize          => Cfg_XSize,
+            Cfg_YSize          => Cfg_YSize,
+            Cfg_ZSize          => Cfg_ZSize,
+            Cfg_AbsLimit       => Cfg_AbsLimit,
+            Cfg_RelLimit       => Cfg_RelLimit,
+            Cfg_M              => Cfg_M,
+            Cfg_WeightInterval => Cfg_WeightInterval,
+            Cfg_WeightVmin     => Cfg_WeightVmin,
+            Cfg_WeightVmax     => Cfg_WeightVmax,
+            Cfg_Take           => Cfg_Take,
+            Img_Start          => open,
+            Out_Valid          => Out_Valid,
+            Out_Ready          => Out_Ready,
+            Out_Data           => Out_Data,
+            Out_Kind           => Out_Kind,
+            Out_Band           => Out_Band,
+            Out_First          => Out_First,
+            Out_Init           => Out_Init,
+            Out_Last           => Out_Last,
+            Ecc_Sec            => Ecc_Sec,
+            Ecc_Ded            => Ecc_Ded
         );
 
     Clk <= not Clk after ClkPeriod_c / 2;
@@ -307,9 +326,10 @@ begin
         variable Smp_v   : std_logic_vector(31 downto 0);
         variable Img_v   : natural;
         variable First_v : boolean;
-        variable V_v     : integer_vector(0 to 9);
+        variable V_v     : RtLine_t;
 
-        -- Configuration inputs of image k (the values driven on the configuration inputs)
+        -- Configuration inputs of image k (the values driven on the configuration inputs; the runtime
+        -- parameters taken, M of a BSQ image as the core gives it)
         procedure drive (k : natural) is
         begin
             V_v          := rtValues(k);
@@ -318,6 +338,15 @@ begin
             Cfg_ZSize    <= std_logic_vector(to_unsigned(V_v(2), 17));
             Cfg_AbsLimit <= std_logic_vector(to_unsigned(V_v(3), 16));
             Cfg_RelLimit <= std_logic_vector(to_unsigned(V_v(4), 16));
+            if RuntimeParams_g then
+                Cfg_M <= std_logic_vector(to_unsigned(minimum(SubFrameDepth_g, ZSize_g), 17));
+                if V_v(21) > 0 then
+                    Cfg_M <= std_logic_vector(to_unsigned(V_v(21), 17));
+                end if;
+                Cfg_WeightInterval <= std_logic_vector(to_unsigned(V_v(22), 4));
+                Cfg_WeightVmin     <= std_logic_vector(to_signed(V_v(23), 5));
+                Cfg_WeightVmax     <= std_logic_vector(to_signed(V_v(24), 5));
+            end if;
         end procedure;
 
         file Img_f : ByteFile_t;

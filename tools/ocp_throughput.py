@@ -194,8 +194,9 @@ def image_start_cycles(g):
 
 def latencies(g, speculation=True, dims=None):
     """Pipeline stages and required issue distances (cycles) for the generics g of a configuration. With dims =
-    (nx, ny, nz) the generics are the maxima of a runtime configuration: the structure (speculation, memories) follows
-    the maxima, the issue distances the dimensions of the image."""
+    (nx, ny, nz) or (nx, ny, nz, m) the generics are the maxima of a runtime configuration: the structure
+    (speculation, memories) follows the maxima, the issue distances the dimensions of the image (and its M with the
+    runtime parameters)."""
     d = g["DynamicRange_g"]
     nx, ny, nz = g["XSize_g"], g["YSize_g"], g["ZSize_g"]
     bsq = g["EncodingOrder_g"] == "BSQ"
@@ -242,8 +243,8 @@ def latencies(g, speculation=True, dims=None):
     cross_dw = diff_ram and diff_gap < l_dw
     l_cross = max(l_rep if cross_rep else 0, l_dw if cross_dw else 0)
     if dims is not None:
-        rt = issue_dist(bsq, g["SubFrameDepth_g"], *dims, p, rep_is_sample, w_used, cross_rep, st["ram"] + 2, l_rep,
-                        l_dw)
+        sfd = dims[3] if len(dims) > 3 else g["SubFrameDepth_g"]
+        rt = issue_dist(bsq, sfd, *dims[:3], p, rep_is_sample, w_used, cross_rep, st["ram"] + 2, l_rep, l_dw)
         run_rows, l_fix, l_cross = rt["run_rows"], rt["l_fix"], rt["l_cross"]
     return {"stages": st, "depth": st["out"] + 1, "spec": spec, "run_rows": run_rows, "c": c, "narrow": narrow,
             "l_w": l_w, "l_fix": l_fix, "l_cross": l_cross}
@@ -273,7 +274,7 @@ def ecc_channels(g):
         1: not (bsq or m == 1),
         2: True,
         3: True,
-        4: g["PredictionBands_g"] > 0 and (bsq or m < nz),
+        4: g["PredictionBands_g"] > 0 and (bsq or m < nz or (g.get("RuntimeParams_g", False) and nz > 1)),
         5: lat["c"] > 0 and not (lat["spec"] and lat["run_rows"]),
         6: periodic and fid in ("ABSOLUTE", "ABSOLUTE_RELATIVE") and g["AbsBandDependent_g"],
         7: periodic and fid in ("RELATIVE", "ABSOLUTE_RELATIVE") and g["RelBandDependent_g"],
@@ -344,10 +345,11 @@ def coder_cycles(g, speculation=True, images=1, dims=None, start=None, tail=True
 
     The codewords leave the coder without back pressure (the bit packer keeps up, CO-TP-01).
 
-    With dims ((nx, ny, nz) of every image; g holds the maxima) the images have their own dimensions (runtime
-    configuration): the first sample of an image is accepted with the configuration in the cycle after the last
-    sample of the previous image was issued (the output FIFO does not hold it back) and issued once the image-start
-    sequencer is done, start + 1 cycles later; its acceptance cycle is returned for it.
+    With dims ((nx, ny, nz) of every image, or (nx, ny, nz, m) with the runtime parameters; g holds the maxima) the
+    images have their own dimensions (runtime configuration): the first sample of an image is accepted with the
+    configuration in the cycle after the last sample of the previous image was issued (the output FIFO does not hold
+    it back) and issued once the image-start sequencer is done, start + 1 cycles later; its acceptance cycle is
+    returned for it.
 
     With tail false the output takes one item per cycle whatever the coder (the predictor alone, as in its
     testbench)."""
@@ -361,9 +363,12 @@ def coder_cycles(g, speculation=True, images=1, dims=None, start=None, tail=True
     else:
         runtime = True
     seq = []
-    for nx, ny, nz in dims:
+    for dim in dims:
+        nx, ny, nz = dim[:3]
         gi = dict(g, XSize_g=nx, YSize_g=ny, ZSize_g=nz)
-        lat = latencies(g, speculation, dims=(nx, ny, nz)) if runtime else lat0
+        if len(dim) > 3:
+            gi["SubFrameDepth_g"] = dim[3]
+        lat = latencies(g, speculation, dims=tuple(dim)) if runtime else lat0
         image = list(items(gi))
         seq += [(item, k == len(image) - 1, k == 0, HYBRID_TAIL + nz, lat, nx) for k, item in enumerate(image)]
     issue = 0
@@ -488,11 +493,11 @@ def issue_cycles(g, speculation=True, images=1):
 
 def runtime_accept_cycles(g, dims, speculation=True, tail=True):
     """Acceptance cycle of every sample at the input of the predictor for consecutive images of a runtime
-    configuration (g: the generics with the maxima; dims: (nx, ny, nz) of every image), without back pressure. The
-    first sample of an image is accepted with the configuration (CO-RC-03) in the cycle after the last sample of the
-    previous image was issued, and issued image_start_cycles(g) + 1 cycles later, once the image-start sequencer is
-    done (CO-RC-05); with the hybrid coder the tail of an image can hold back the next image (coder_cycles). With
-    tail false the output takes one item per cycle (the predictor without an entropy coder)."""
+    configuration (g: the generics with the maxima; dims: (nx, ny, nz) or (nx, ny, nz, m) of every image), without
+    back pressure. The first sample of an image is accepted with the configuration (CO-RC-03) in the cycle after the
+    last sample of the previous image was issued, and issued image_start_cycles(g) + 1 cycles later, once the
+    image-start sequencer is done (CO-RC-05); with the hybrid coder the tail of an image can hold back the next image
+    (coder_cycles). With tail false the output takes one item per cycle (the predictor without an entropy coder)."""
     return coder_cycles(g, speculation, dims=dims, start=image_start_cycles(g), tail=tail)
 
 

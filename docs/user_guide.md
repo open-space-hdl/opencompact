@@ -3,7 +3,7 @@
 OpenCompact compresses multispectral and hyperspectral images according to CCSDS 123.0-B-2, Low-Complexity Lossless
 and Near-Lossless Multispectral and Hyperspectral Image Compression. This guide explains how to integrate the core:
 sources, generics, interfaces, operating sequence, protection scope, integration constraints, performance, the
-conformance statement and the corrected defects.
+conformance statement, the reference data, the decompression of compressed images and the corrected defects.
 
 ## 1. Sources
 
@@ -78,7 +78,7 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | `RescaleCounterSize_g` | 6 | max(4, gamma0 + 1) to 11 | Rescaling Counter Size gamma* |
 | `InitialCountExp_g` | 1 | 1 to 8 | Initial Count Exponent gamma0 |
 | `AccuInitBandVarying_g`, `AccuInitTable_g`, `AccuInit_g` | false, false, (0 => 3) | 0 to min(D - 2, 14) | Sample-adaptive coder: Accumulator Initialization Constant K (first element) or the values k''_z per band, and their table (5.3.4.2) |
-| `HybridAccuInit_g`, `HybridAccuInitHigh_g` | (0 => 0), (0 => 0) | 0 to 2^(D + gamma0) - 1 | Hybrid coder: initial high-resolution accumulator per band, `HybridAccuInitHigh_g` 2^31 + `HybridAccuInit_g` (5.4.3.3.4.3, not in the header) |
+| `HybridAccuInit_g`, `HybridAccuInitHigh_g` | (0 => 0), (0 => 0) | 0 to 2^(D + gamma0) - 1 | Hybrid coder: initial high-resolution accumulator per band, `HybridAccuInitHigh_g` 2^31 + `HybridAccuInit_g` (5.4.3.3.4.3, not in the header); with `RuntimeParams_g` they set the smallest gamma0 an image can use (section 4.5) |
 | `BlockSize_g` | 16 | 8, 16, 32, 64 | Block-adaptive coder: Block Size J |
 | `RestrictedCodes_g` | false | D <= 4 | Restricted Code Options Flag |
 | `RefInterval_g` | 4096 | 1 to 4096 | Reference Sample Interval r |
@@ -91,6 +91,7 @@ With periodic updating, `AbsErrorLimits_g` and `RelErrorLimits_g` are not used: 
 | `Speculation_g` | true | | Speculative weight loop of the predictor where it applies (section 8) |
 | `UseInLast_g` | false | | Image framing with `In_Last`: early and missing image ends are detected, flagged and resynchronised (section 4.2) |
 | `RuntimeConfig_g` | false | | Image dimensions and band-independent error limit values of every image from the configuration ports (section 4.4); `XSize_g`, `YSize_g` and `ZSize_g` are then the maxima |
+| `RuntimeParams_g` | false | true only with `RuntimeConfig_g` | User-defined data, M, the weight update parameters and the entropy coder parameters of every image from the configuration ports (section 4.5); `SubFrameDepth_g`, `RescaleCounterSize_g` and `RefInterval_g` are then the maxima, the other parameter generics the values after a reset |
 | `RamStyle_g` | "auto" | | Implementation of the memories: passed unchanged to `RamStyle_g` of the Open Logic RAMs and FIFOs, which set the synthesis attributes `ram_style` and `ramstyle` with it (values of the synthesis tool, for example "block" or "distributed"); the simulation does not depend on it |
 
 The stride order of the predictor is used wherever it applies (section 8.1); it has no generic at the core level.
@@ -251,7 +252,7 @@ the image framing of the core (section 4.2). Every image with an error leaves as
 beat: aborted (the compressed image of the samples taken, section 4.2) or, when the faulty SDU completed the image, the
 complete compressed image. The channel specification lists the counter steps of every case.
 
-Status registers: [register map](../hdl/ocp_mib/docs/register_map.md), C header `sw/ocp_regs.h`. ID 0x4F435002; the
+Status registers: [register map](../hdl/ocp_mib/docs/register_map.md), C header `sw/ocp_regs.h`. ID 0x4F435003; the
 generics that define the compressed images (image size, dynamic range, order, output word size, coder, predictor,
 weights and coder parameters); 32-bit saturating counters IMAGES_DONE, IMAGES_ABORTED, SDU_ERRORS, SDUS_DISCARDED,
 ECC_CORRECTED and ECC_UNCORRECTABLE, each cleared by a write. `tools/ocp_mib_words.json` holds the expected
@@ -267,6 +268,15 @@ LIMITS show the values of the last image that started, as the core took them. A 
 image is compressed applies to the next image; a COMMIT in the clock cycle of the image start applies to the image
 after it. Without the runtime configuration the five registers read zero and ignore writes, and LIMITS reads the
 error limit values of the generics.
+
+Runtime parameters (`RuntimeParams_g`, section 4.5): NEXT_SAMPLES, NEXT_ORDER, NEXT_WEIGHTS, NEXT_ADAPTIVE and
+NEXT_BLOCK hold the parameters of the next images in the field layout of SAMPLES, ORDER, WEIGHTS, ADAPTIVE and BLOCK,
+so one field definition serves both. The same COMMIT checks them with the dimensions (the ranges of section 4.5, the
+dependent ones against the pending values: gamma\* against gamma0, vmax against vmin, M against NEXT_Z) and passes
+everything in one clock cycle; the parameter fields of SAMPLES to BLOCK then show the values of the last image that
+started. Fields of options not in use (M in BSQ order, the coder parameters of the other coders, K with band-varying
+accumulator initialisation) read zero and ignore writes. Without the runtime parameters the five registers read zero
+and ignore writes. GENERICS.RUNTIME_PARAMS shows the generic; the ID reads version 3 of the register map.
 
 Integration with OpenSPP: connect the receive port of the Octet String Service (`M_Rx_*`, `DataWidth_g` =
 `InStreamWidth_g`) and set `UserWidth_g` = 22, `UserLastMask_g` = 22x"3FC000" and `UserLastValue_g` = 22x"004000" (the
@@ -314,6 +324,45 @@ The predictor computes the issue conditions of every image before its first samp
 [architecture of the predictor](../hdl/ocp_predictor/docs/architecture.md)) and does not use the stride order; the
 throughput is that of section 8.1 for the dimensions of the image, plus 8 to 10 clock cycles per image.
 
+### 4.5 Runtime parameters
+
+With `RuntimeParams_g` = true (and `RuntimeConfig_g` = true) every image also takes its own user-defined data, its
+sub-frame interleaving depth M (BI order), its weight update parameters and the parameters of the entropy coder of
+`EntropyCoder_g`. The core takes them with the configuration of section 4.4, in the same clock cycle (`Cfg_Taken`):
+
+| Port | Width | Value (range) | Used with |
+| --- | --- | --- | --- |
+| `Cfg_UserData` | 8 | User-defined data (0 to 255) | Always |
+| `Cfg_M` | 17 | M (1 to min(`SubFrameDepth_g`, NZ)) | BI order |
+| `Cfg_WeightInterval` | 4 | log2 t_inc (4 to 11) | Always |
+| `Cfg_WeightVmin`, `Cfg_WeightVmax` | 5 each | vmin (-6 to 9), vmax (vmin to 9), two's complement | Always |
+| `Cfg_UnaryLimit` | 6 | Umax (8 to 32) | Sample-adaptive and hybrid coder |
+| `Cfg_InitCountExp` | 4 | gamma0 (1 to min(8, `RescaleCounterSize_g` - 1); with the hybrid coder from the smallest value for which every initial accumulator of `HybridAccuInit_g` is below 2^(D + gamma0)) | Sample-adaptive and hybrid coder |
+| `Cfg_RescaleSize` | 4 | gamma\* (max(4, gamma0 + 1) to `RescaleCounterSize_g`) | Sample-adaptive and hybrid coder |
+| `Cfg_AccuInit` | 4 | K (0 to min(D - 2, 14)) | Sample-adaptive coder with `AccuInitBandVarying_g` false |
+| `Cfg_RefInterval` | 13 | r (1 to `RefInterval_g`) | Block-adaptive coder |
+
+The outputs `Act_UserData` to `Act_RefInterval` (the same widths) show the values taken for the last image, from the
+clock cycle after `Cfg_Taken`; after a reset they show the values of the generics, and zero for a parameter not in
+use. Inputs of parameters not in use are ignored.
+
+A value outside its range is taken as the nearest valid value, as in section 4.4, and a simulation assertion of
+severity warning reports it. A range that depends on another parameter is applied after that one with its limited
+value: gamma\* after gamma0, vmax after vmin, M after NZ. The image is compressed with the values taken; its header
+carries them in their fields (User-Defined Data, Sub-Frame Interleaving Depth, the weight update fields of the
+predictor metadata and the fields of the entropy coder metadata) at fixed positions, so the length of the header does
+not change.
+
+The core holds the parameters of every image that has started until its header and its coder have used them, for up
+to 16 images (the queue of section 4.4), in the encoding of their header fields and only for the options in use: 31 to
+51 bits per image (specification of `ocp_core`, table 2). The predictor carries the weight update parameters with
+every sample, so two images in its pipeline use their own values; the coders take theirs with the first item of an
+image and keep them to its last item (the hybrid coder to the end of its tail). The throughput is that of section 4.4
+with the M of every image.
+
+The elaboration stops when `RuntimeParams_g` is true without `RuntimeConfig_g`, and with the hybrid coder when no
+gamma0 up to min(8, `RescaleCounterSize_g` - 1) keeps every initial accumulator below 2^(D + gamma0).
+
 ## 5. Operating sequence
 
 1. Release the reset.
@@ -328,7 +377,7 @@ throughput is that of section 8.1 for the dimensions of the image, plus 8 to 10 
 6. With `RuntimeConfig_g`, set the configuration of an image before its first sample: in `ocp_channel` NEXT_X to
    NEXT_LIMITS and CONTROL.COMMIT, checking STATUS.CFG_ERROR; at `ocp_core` the configuration ports (section 4.4). The
    configuration of the next image can be set while an image is compressed; STATUS.CFG_PENDING shows when the core
-   has taken it.
+   has taken it. With `RuntimeParams_g` write NEXT_SAMPLES to NEXT_BLOCK before the same COMMIT (section 4.5).
 
 The output can be stalled at any time; the core then stops taking samples after its internal buffers are full.
 
@@ -387,6 +436,8 @@ requirements of a mission is shown by a radiation test with the core in operatio
 | With `RuntimeConfig_g`: no periodic error limit updating, no band-dependent error limits, no header tables whose length depends on NZ, no supplementary information tables | The header and the quantizer follow the values of every image only for the other parameters; the elaboration stops otherwise (section 4.4) |
 | With `RuntimeConfig_g`, the configuration ports of `ocp_core` hold values in their ranges and change together in one clock cycle (`ocp_mib` checks the values and changes them together) | A value out of range is taken as the nearest valid value and reported by a simulation warning; inputs that change in different clock cycles around an image start can give the image a mix of values (section 4.4) |
 | With `RuntimeConfig_g`, the decompressor knows the per-band values that are not in the header for the NZ of every image | An image of NZ bands uses the first NZ values (section 4.4) |
+| `RuntimeParams_g` only with `RuntimeConfig_g`; with the hybrid coder some gamma0 up to min(8, `RescaleCounterSize_g` - 1) keeps every initial accumulator below 2^(D + gamma0) | The parameters travel with the configuration of an image; CCSDS 5.4.3.3.4.3 (elaboration stops otherwise, section 4.5) |
+| With `RuntimeParams_g`, the parameter ports of `ocp_core` hold values in their ranges and change together with the configuration ports | A value out of range is taken as the nearest valid value; inputs that change in different clock cycles around an image start can give the image a mix of values (section 4.5) |
 
 ## 8. Resources and performance
 
@@ -545,6 +596,10 @@ python tools/golden.py --aborted                                # aborted images
 The aborted images (`aborted_<n>.bin`, the image ended early on sample n) come from the reference model, which
 reproduces the CNES encoder for every complete image; the CNES software cannot produce them.
 
+`python tools/golden.py --decoded --cnes-bin /path/to/cnes/bin` writes the images that the CNES decoder reconstructs
+from the compressed images of the near-lossless configurations into `tools/tests/golden_decoded/`; the tests of the
+decoder of the reference model (`python -m pytest tools/tests`, section 11) compare its output with them.
+
 A new configuration is a new entry in `tools/ocp_configs.py`; the testbenches pick it up automatically. The random
 configurations `r01_random` to `r24_random` come from `random_config(seed)` in the same file: every parameter is drawn
 in the range of the standard, with a small test image.
@@ -559,7 +614,43 @@ python tools/ocp_testvectors.py /path/to/testdata --out /path/to/selection --cou
 OCP_TESTVECTORS=/path/to/selection python run.py -p 4
 ```
 
-## 11. Corrected defects
+## 11. Decompression
+
+The reference model has a decoder: `ocp_model.decompress()` in Python, without other software. It reads the header,
+decodes the body of each of the three entropy coders (the hybrid coder from the end of the compressed image, CCSDS
+5.4.3.3.1) and runs the predictor in the decompressor's direction. The decoded image holds the clipped quantizer bin
+centers (CCSDS 4.1, 4.8.2.1): the samples under lossless compression, values within the maximum error mz(t) of every
+sample under near-lossless compression. The CNES reference decoder reconstructs the same values.
+
+```python
+import ocp_model                                            # tools/ocp_model.py
+
+cfg, img, max_error = ocp_model.decompress(data, tables=channel_cfg)
+# cfg: the configuration of the header; img[z][y][x]: the decoded image; max_error[z][y][x]: mz(t)
+```
+
+- `data` is the compressed image, header and body. With the hybrid coder it must end with the compressed image, which
+  is decoded from its end; with the other coders bytes after it are ignored.
+- A table that the header leaves out (a table flag of '0': weight initialisation, weight exponent offsets, damping,
+  offset, accumulator initialisation) is taken from `tables`, a configuration dict such as the one given to
+  `ocp_model.compress()` (only its table entries are used), or from `optional_tables`, the bytes of the optional
+  tables file of the CNES software. With the runtime configuration these are the values of the generics for the
+  largest NZ; an image of NZ bands uses the first NZ of them (section 4.4).
+- Data that cannot be the compressed image of its header (it ends early, a codeword does not decode, the body does
+  not end where the header says, a table is missing) raises `ocp_model.DecodeError`.
+- `ocp_model.image_samples(cfg, img)` gives the samples in the input order of the compressor, the order of the raw
+  image files; `ocp_model.image_from_samples()` is its inverse.
+
+`tools/ocp_decompress.py` decodes a compressed image file, writes the decoded image in the format of the raw images
+of the testbenches (input order of the compressor, little-endian 8, 16 or 32-bit samples) and compares it with the
+original: identical under lossless compression, every sample within its maximum error under near-lossless
+compression (exit code 1 otherwise):
+
+```shell
+python tools/ocp_decompress.py compressed.bin -o decoded.raw --compare image.raw
+```
+
+## 12. Corrected defects
 
 | Defect | Affected | Effect | Correction |
 | --- | --- | --- | --- |

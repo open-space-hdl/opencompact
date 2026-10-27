@@ -101,6 +101,29 @@ steps through the bands 0 to NZ - 1 of the image instead of the index modulo `ZS
 its end. A band without statistics in the image ends with its initial accumulator, which covers the single-pixel
 case NX = NY = 1 as well. The block-adaptive coder does not depend on the image dimensions.
 
+With `RuntimeParams_g` (`ocp_core` architecture, section 6.3) every coder takes the parameters of an image from the
+configuration queue of the core with the first item of the image and holds them up to its last item (the hybrid
+coder up to the end of its tail), decoded from the encoding of their header fields. The widths stay those of the
+maxima: the accumulators and counters of the sample-adaptive and the hybrid coder those of `RescaleCounterSize_g`,
+the codeword width that of the largest Umax (a constant of `ocp_pkg`), the reference sample counter of the
+block-adaptive coder that of `RefInterval_g`. What changes per image: the comparison with Umax and the length of the
+escape codeword, the initial counter value 2^gamma0, the rescaling threshold 2^gamma\* - 1, the initial accumulator
+from K, and the limit of the reference sample counter.
+
+How each coder holds the values of its image:
+
+- Sample-adaptive coder: the items of two images can share its pipeline, so the parameters enter with every item
+  (`In_UnaryLimit`, `In_InitCountExp`, `In_RescaleSize`, `In_AccuInit`; the core gives the entry of the image of the
+  item) and travel with it. Stage 1 computes the initial accumulator (58) of the band as (3 2^(K' + 6) - 49) shifted
+  by gamma0 and by -7, from a table of the first factor per K (or per band with `AccuInitBandVarying_g`), so that the
+  statistics stage only selects it.
+- Hybrid coder: after the last item of an image it takes no item until the tail is out, so one image at a time is in
+  the coder, and the core keeps the entry of that image on `Cfg_UnaryLimit`, `Cfg_InitCountExp` and `Cfg_RescaleSize`
+  from its first item to the end of its tail (the tail read pointer of the queue). The final accumulators of the tail
+  have 2 + D + gamma\* bits of the image (CCSDS 5.4.3.3.5.4.3).
+- Block-adaptive coder: r enters with every value (`In_RefInterval`), is taken with the values of a block and
+  travels with the block through the selection stages to the output, where it limits the reference sample counter.
+
 ## 5. Interfaces
 
 | Port | Direction | Description |
@@ -111,3 +134,6 @@ case NX = NY = 1 as well. The block-adaptive coder does not depend on the image 
 | `ErrInj_Stats`, `ErrInj_Buffer`, `ErrInj_Double` | in | Error injection into the next write of the statistics memory or of the codeword buffer (the block-adaptive coder has no statistics memory) |
 | `Cfg_ZSize` | in | Hybrid coder with `RuntimeConfig_g`: NZ of the image whose tail comes next (17 bits) |
 | `Cfg_Done` | out | Hybrid coder with `RuntimeConfig_g`: pulse at the end of the tail of an image |
+| `In_UnaryLimit`, `In_InitCountExp`, `In_RescaleSize`, `In_AccuInit` | in | Sample-adaptive coder with `RuntimeParams_g`: Umax (6 bits), gamma0, gamma\*, K (4 bits each) of the image of the item, with every item |
+| `Cfg_UnaryLimit`, `Cfg_InitCountExp`, `Cfg_RescaleSize` | in | Hybrid coder with `RuntimeParams_g`: Umax (6 bits), gamma0, gamma\* (4 bits each) of the image in coding, stable from its first item to the end of its tail |
+| `In_RefInterval` | in | Block-adaptive coder with `RuntimeParams_g`: r (13 bits) of the image of the value, with every value |

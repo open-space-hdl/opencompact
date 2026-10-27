@@ -8,7 +8,8 @@ test_config runs one configuration per entry of tools/ocp_mib_words.json without
 configuration of tools/ocp_configs.py with the generics of a channel) and compares the registers ID to BLOCK with
 the words of the file and LIMITS with its LIMITS word; test_counters and test_reset run the first configuration.
 test_runtime_config and test_runtime_commit run the entries with the runtime configuration (RUNTIME of
-tools/ocp_configs.py).
+tools/ocp_configs.py); test_runtime_params runs the entries with the runtime parameters (RUNTIME_PARAMS),
+test_runtime_commit also the first of them.
 """
 
 import json
@@ -29,10 +30,17 @@ def configure(lib):
     tb = lib.test_bench("ocp_mib_tb")
     table = json.loads(WORDS.read_text(encoding="utf-8"))
     first = True
+    first_params = True
     for name, entry in table.items():
         gen = dict(entry["generics"])
         gen["ExpWords_g"] = ",".join(str(signed32(entry["words"][r])) for r in REGISTERS)
         gen["ExpLimits_g"] = signed32(entry["words"]["LIMITS"])
+        if gen["RuntimeParams_g"]:
+            tb.test("test_runtime_params").add_config(name=name, generics=gen)
+            if first_params:
+                tb.test("test_runtime_commit").add_config(name=name, generics=gen)
+                first_params = False
+            continue
         if gen["RuntimeConfig_g"]:
             tb.test("test_runtime_config").add_config(name=name, generics=gen)
             tb.test("test_runtime_commit").add_config(name=name, generics=gen)

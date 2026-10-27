@@ -36,13 +36,14 @@ Simulators: GHDL (regression, CI) and QuestaSim (code coverage); VUnit with UVVM
 
 | Test | Description | Requirements |
 | --- | --- | --- |
-| `test_golden` (TC-CH-01) | Three images one after the other; the ID register reads 0x4F435002; every packet equals the reference with `Out_Error` '0', all bytes valid except in the last beat; IMAGES_DONE = 3, the other counters zero, no `Ev_ImageError`. c32 feeds the error limit values through `Lim_*` | CH-IF-01, CH-IF-02, CH-IF-03, CH-IF-04, CH-IF-05, CH-FN-01, CH-FN-03 |
+| `test_golden` (TC-CH-01) | Three images one after the other; the ID register reads 0x4F435003; every packet equals the reference with `Out_Error` '0', all bytes valid except in the last beat; IMAGES_DONE = 3, the other counters zero, no `Ev_ImageError`. c32 feeds the error limit values through `Lim_*` | CH-IF-01, CH-IF-02, CH-IF-03, CH-IF-04, CH-IF-05, CH-FN-01, CH-FN-03 |
 | `test_errors` (TC-CH-02) | 17 images (all configurations without periodic updating): correct; faulty SDU inside (aborted, rest discarded); correct; faulty last SDU (reference with `Out_Error`); lost SDU inside with the Data Loss Indicator on the next SDU; correct; lost last SDU with the Data Loss Indicator on the first SDU of the next image (no packet of that image); incomplete last container inside; early end mark (aborted image and a second aborted image of the rest); correct; missing end mark (reference with `Out_Error`, the next image swallowed by the core); faulty SDU inside with the last SDU lost (the discard runs through the next image); correct. Every packet, every error flag, IMAGES_DONE, IMAGES_ABORTED, SDU_ERRORS and SDUS_DISCARDED against the model, one `Ev_ImageError` per image with an error; every correct image after an error equals the reference | CH-FN-02, CH-FN-03, CH-IF-03, IA-ER-01, IA-ER-02, CO-FR-03, CO-FR-04, CO-FR-08 |
 | `test_ecc` (TC-CH-03) | A single bit error injected through `ErrInj_*` into two memories of the core: ECC_CORRECTED counts, ECC_UNCORRECTABLE stays zero, the image equals the reference; a double bit error: ECC_UNCORRECTABLE counts | CH-IF-05, CH-FN-03 |
 | `test_reset` (TC-CH-04) | A reset in the middle of an image clears the counters; the next image equals the reference and is counted | CH-RS-01 |
 | TC-CH-05 (`lint/synth_check.py`) | GHDL synthesis of the channel with every configuration of section 2; `OutStreamWidth_g` = 24 stops the elaboration with its message | CH-CF-01 |
 | TC-CH-06 (every test) | With `OutStreamWidth_g` at least `OutWidth_g`, the throughput of the core is kept: the channel takes part in the image period checks of `ocp_core` through the same core; the output adapter takes a word in every cycle while the sink is ready (no output stall in the configurations without back pressure, checked by the packet timing of the sink) | CH-TP-01 |
 | `test_runtime` rc04 (TC-CH-07) | `RuntimeConfig_g` true through the AXI4-Lite VVC: configuration A committed, its image sent as SDUs; configuration B committed while the image of A is compressed, applies to the next image; an invalid configuration C is rejected (CFG_ERROR), the next image uses B; every packet equals `ocp_model` for its configuration; after every image the active registers show its configuration, CFG_PENDING is set after the image of A (B waits) and clear after the others | CH-RC-01, CH-IF-04 |
+| `test_runtime` rp01 (TC-CH-08) | `RuntimeParams_g` true: the sequence of TC-CH-07 with configurations that also differ in the runtime parameters (user-defined data, M, the weight update and the coder parameters), committed through the AXI4-Lite VVC; every packet equals `ocp_model` for the dimensions, limits and parameters of its image, and after every image the parameter fields of SAMPLES to ADAPTIVE show those of the image | CH-RP-01 |
 
 ## 4. Requirement coverage
 
@@ -57,3 +58,4 @@ Simulators: GHDL (regression, CI) and QuestaSim (code coverage); VUnit with UVVM
 | CH-RS-01 | TC-CH-04 |
 | CH-CF-01 | TC-CH-05 |
 | CH-RC-01 | TC-CH-07 |
+| CH-RP-01 | TC-CH-08 |

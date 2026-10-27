@@ -142,6 +142,7 @@ q (2 m + 1) = sgn(residual) (|residual| + m - remainder).
 | `Lim_Valid`, `Lim_Ready`, `Lim_Data` | in | 16-bit error limit values (periodic updating) |
 | `Img_Start` | out | Pulse: the first item of an image is accepted |
 | `Cfg_XSize`, `Cfg_YSize`, `Cfg_ZSize`, `Cfg_AbsLimit`, `Cfg_RelLimit` | in | With `RuntimeConfig_g`: NX, NY, NZ (17 bits, 1 to the maxima) and the error limit values (16 bits) of the next image |
+| `Cfg_M`, `Cfg_WeightInterval`, `Cfg_WeightVmin`, `Cfg_WeightVmax` | in | With `RuntimeParams_g`: M (17 bits, 1 to min(`SubFrameDepth_g`, NZ)), log2 t_inc (4 bits, 4 to 11), vmin and vmax (5 bits, two's complement) of the next image, after the range limitation of the core |
 | `Cfg_Ready` | in | With `RuntimeConfig_g`: '0' holds the first sample of an image back (configuration queue of the core full) |
 | `Cfg_Take` | out | With `RuntimeConfig_g`: pulse in the clock cycle in which the first sample of an image and its configuration are taken |
 | `Out_Valid`, `Out_Ready`, `Out_Data` | out | Item value, max(D, 16) bits |
@@ -165,3 +166,14 @@ line memories are addressed with the pitch of `XSize_g`. The conditions of the i
 derives from the dimensions (section 2) come from the image-start sequencer, which computes them in a fixed number of
 clock cycles before the first sample of the image is started; the history of issued bands has the length of the worst
 case over the allowed dimensions. The stride order (section 4) is not instantiated.
+
+With `RuntimeParams_g` (`ocp_core` architecture, section 6.3) the predictor also takes M (BI order) and the weight
+update parameters log2 t_inc, vmin and vmax at the image start. M replaces min(`SubFrameDepth_g`, NZ) at the input of
+the image-start sequencer and in the position counters of the sub-frames; the memories keep the sizes for
+`SubFrameDepth_g`. The weight update parameters travel with every item of the image (3 bits for log2 t_inc - 4 and
+5 bits each for vmin and vmax), like NX, so that the stage of the weight update scaling exponent (CCSDS 4.10.2:
+the shift by log2 t_inc and the limits vmin and vmax) uses the values of the image of its item; the shift becomes an
+eight-position shift instead of a constant one. In BI order an image can now have M below NZ whatever
+`SubFrameDepth_g` is, so the memory of the central local differences of the previous sub-frame is instantiated
+whenever there are prediction bands and `ZSize_g` > 1, and the image-start sequencer compares M with NZ (not
+`SubFrameDepth_g` with NZ) for the distance of these differences.

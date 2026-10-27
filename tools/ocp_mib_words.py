@@ -58,7 +58,8 @@ def field_values(g):
     return {
         "GENERICS": {"IN_STREAM_BYTES": g["InStreamWidth_g"] // 8, "OUT_STREAM_BYTES": g["OutStreamWidth_g"] // 8,
                      "OUT_BYTES": g["OutWidth_g"] // 8, "SAMPLE_BYTES": (g["DynamicRange_g"] + 7) // 8,
-                     "SPECULATION": int(g["Speculation_g"]), "RUNTIME_CONFIG": int(g.get("RuntimeConfig_g", False))},
+                     "SPECULATION": int(g["Speculation_g"]), "RUNTIME_CONFIG": int(g.get("RuntimeConfig_g", False)),
+                     "RUNTIME_PARAMS": int(g.get("RuntimeParams_g", False))},
         "IMAGE_X": {"SIZE": g["XSize_g"]},
         "IMAGE_Y": {"SIZE": g["YSize_g"]},
         "IMAGE_Z": {"SIZE": g["ZSize_g"]},
@@ -126,13 +127,16 @@ def table():
             "WeightUpdateVmax_g", "WeightExpOffsetsUsed_g", "CustomWeights_g", "WeightInitResolution_g",
             "UnaryLimit_g", "RescaleCounterSize_g", "InitialCountExp_g", "AccuInitBandVarying_g", "AccuInit_g",
             "BlockSize_g", "RestrictedCodes_g", "RefInterval_g", "AbsBandDependent_g", "AbsBitDepth_g",
-            "AbsErrorLimits_g", "RelBandDependent_g", "RelBitDepth_g", "RelErrorLimits_g", "RuntimeConfig_g"]
+            "AbsErrorLimits_g", "RelBandDependent_g", "RelBitDepth_g", "RelErrorLimits_g", "HybridAccuInit_g",
+            "HybridAccuInitHigh_g", "RuntimeConfig_g", "RuntimeParams_g"]
     out = {}
-    configs = [(name, c, False) for name, c in ocp_configs.ALL.items()]
-    configs += [(name, c, True) for name, c in ocp_configs.RUNTIME.items()]
-    for name, c, runtime in configs:
+    configs = [(name, c, False, False) for name, c in ocp_configs.ALL.items()]
+    configs += [(name, c, True, False) for name, c in ocp_configs.RUNTIME.items()]
+    configs += [(name, c, True, True) for name, c in ocp_configs.RUNTIME_PARAMS.items()]
+    for name, c, runtime, params in configs:
         g = channel_generics(c)
         g["RuntimeConfig_g"] = runtime
+        g["RuntimeParams_g"] = params
         out[name] = {"generics": {k: g[k] for k in keep},
                      "words": {k: "0x{:08X}".format(v) for k, v in words(g).items()}}
     return out

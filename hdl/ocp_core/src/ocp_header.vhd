@@ -87,26 +87,42 @@ entity ocp_header is
         RefInterval_g          : positive range 1 to 4096  := 4096;
         -- Runtime configuration: X, Y and Z Size, the sub-frame interleaving depth and the
         -- band-independent error limit values of every image from the configuration inputs
-        RuntimeConfig_g        : boolean                   := false
+        RuntimeConfig_g        : boolean                   := false;
+        -- Runtime parameters (with RuntimeConfig_g): the user-defined data, the sub-frame interleaving
+        -- depth, the weight update parameters and the entropy coder parameters from the configuration inputs
+        RuntimeParams_g        : boolean                   := false
     );
     port (
-        Clk          : in    std_logic;
-        Rst          : in    std_logic;
-        Start        : in    std_logic;
-        Out_Valid    : out   std_logic;
-        Out_Ready    : in    std_logic;
+        Clk                : in    std_logic;
+        Rst                : in    std_logic;
+        Start              : in    std_logic;
+        Out_Valid          : out   std_logic;
+        Out_Ready          : in    std_logic;
         -- Parts of the header: the Out_Length least significant bits of Out_Data, first bit in the
         -- most significant of them
-        Out_Data     : out   std_logic_vector(63 downto 0);
-        Out_Length   : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
-        Out_Last     : out   std_logic;
+        Out_Data           : out   std_logic_vector(63 downto 0);
+        Out_Length         : out   std_logic_vector(CwLenWidth_c - 1 downto 0);
+        Out_Last           : out   std_logic;
         -- Runtime configuration: NX, NY, NZ and the error limit values of the image whose header is
         -- output (stable from Start to the last part)
-        Cfg_XSize    : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_YSize    : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_ZSize    : in    std_logic_vector(16 downto 0) := (others => '0');
-        Cfg_AbsLimit : in    std_logic_vector(15 downto 0) := (others => '0');
-        Cfg_RelLimit : in    std_logic_vector(15 downto 0) := (others => '0')
+        Cfg_XSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_YSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_ZSize          : in    std_logic_vector(16 downto 0) := (others => '0');
+        Cfg_AbsLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_RelLimit       : in    std_logic_vector(15 downto 0) := (others => '0');
+        -- Runtime parameters: the bits of their header fields for the image whose header is output (stable
+        -- from Start to the last part): user-defined data, M mod 2^16, log2 t_inc - 4, vmin + 6, vmax + 6,
+        -- Umax mod 32, gamma* - 4, gamma0 mod 8, K, r mod 4096
+        Cfg_UserData       : in    std_logic_vector(7 downto 0)  := (others => '0');
+        Cfg_M              : in    std_logic_vector(15 downto 0) := (others => '0');
+        Cfg_WeightInterval : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_WeightVmin     : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_WeightVmax     : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_UnaryLimit     : in    std_logic_vector(4 downto 0)  := (others => '0');
+        Cfg_RescaleSize    : in    std_logic_vector(2 downto 0)  := (others => '0');
+        Cfg_InitCountExp   : in    std_logic_vector(2 downto 0)  := (others => '0');
+        Cfg_AccuInit       : in    std_logic_vector(3 downto 0)  := (others => '0');
+        Cfg_RefInterval    : in    std_logic_vector(11 downto 0) := (others => '0')
     );
 end entity;
 
@@ -161,11 +177,20 @@ architecture rtl of ocp_header is
 
     end procedure;
 
-    -- Bit positions of the header fields of the runtime configuration (X, Y, Z Size: bits 8, 24, 40)
+    -- Bit positions of the header fields of the runtime configuration (X, Y, Z Size: bits 8, 24, 40) and of
+    -- the runtime parameters (user-defined data: bit 0)
     type FieldPos_r is record
         M      : natural;
         AbsLim : natural;
         RelLim : natural;
+        TInc   : natural;
+        Vmin   : natural;
+        Vmax   : natural;
+        Umax   : natural;
+        GStar  : natural;
+        G0     : natural;
+        K      : natural;
+        R      : natural;
     end record;
 
     procedure build (
@@ -219,8 +244,11 @@ architecture rtl of ocp_header is
         put(buf, pos, Sum_c, 2);
         put(buf, pos, RegisterSize_g mod 64, 6);
         put(buf, pos, WeightResolution_g - 4, 4);
+        fld.TInc := pos;
         put(buf, pos, WeightUpdateInterval_g - 4, 4);
+        fld.Vmin := pos;
         put(buf, pos, WeightUpdateVmin_g + 6, 4);
+        fld.Vmax := pos;
         put(buf, pos, WeightUpdateVmax_g + 6, 4);
         put(buf, pos, toInt(WeightExpOffsetsUsed_g and WeightExpOffsetTable_g), 1);
         put(buf, pos, toInt(CustomWeights_g), 1);
@@ -353,11 +381,15 @@ architecture rtl of ocp_header is
         end if;
         -- Entropy coder metadata (CCSDS 5.3.4)
         if Coder_c = CoderSample_c or Coder_c = CoderHybrid_c then
+            fld.Umax  := pos;
             put(buf, pos, UnaryLimit_g mod 32, 5);
+            fld.GStar := pos;
             put(buf, pos, RescaleCounterSize_g - 4, 3);
+            fld.G0    := pos;
             put(buf, pos, InitialCountExp_g mod 8, 3);
         end if;
         if Coder_c = CoderSample_c then
+            fld.K := pos;
             if AccuInitBandVarying_g then
                 put(buf, pos, 15, 4);
             else
@@ -385,6 +417,7 @@ architecture rtl of ocp_header is
             end case;
 
             put(buf, pos, toInt(RestrictedCodes_g), 1);
+            fld.R := pos;
             put(buf, pos, RefInterval_g mod 4096, 12);
         end if;
     end procedure;
@@ -485,8 +518,8 @@ architecture rtl of ocp_header is
         place(P_v, index, 8, 16, nx(15 downto 0));
         place(P_v, index, 24, 16, ny(15 downto 0));
         place(P_v, index, 40, 16, nz(15 downto 0));
-        -- Sub-frame interleaving depth min(M, NZ) in BI order
-        if Order_c = OrderBi_c then
+        -- Sub-frame interleaving depth min(M, NZ) in BI order (a runtime parameter: placed by paramPart)
+        if Order_c = OrderBi_c and not RuntimeParams_g then
             M_v := to_unsigned(SubFrameDepth_g, 17);
             if nz < SubFrameDepth_g then
                 M_v := nz;
@@ -502,6 +535,42 @@ architecture rtl of ocp_header is
         end if;
         return P_v;
     end function;
+
+    -- Part index with the header fields of the runtime parameters of the image (CCSDS 5.3.2.2, 5.3.3.2, 5.3.4)
+    procedure paramPart (
+        part  : inout std_logic_vector(63 downto 0);
+        index : in    natural;
+        user  : in    std_logic_vector(7 downto 0);
+        m     : in    std_logic_vector(15 downto 0);
+        tinc  : in    std_logic_vector(3 downto 0);
+        vmin  : in    std_logic_vector(3 downto 0);
+        vmax  : in    std_logic_vector(3 downto 0);
+        umax  : in    std_logic_vector(4 downto 0);
+        gstar : in    std_logic_vector(2 downto 0);
+        g0    : in    std_logic_vector(2 downto 0);
+        k     : in    std_logic_vector(3 downto 0);
+        ref   : in    std_logic_vector(11 downto 0)) is
+    begin
+        place(part, index, 0, 8, unsigned(user));
+        if Order_c = OrderBi_c then
+            place(part, index, Fld_c.M, 16, unsigned(m));
+        end if;
+        place(part, index, Fld_c.TInc, 4, unsigned(tinc));
+        place(part, index, Fld_c.Vmin, 4, unsigned(vmin));
+        place(part, index, Fld_c.Vmax, 4, unsigned(vmax));
+        if Coder_c = CoderSample_c or Coder_c = CoderHybrid_c then
+            place(part, index, Fld_c.Umax, 5, unsigned(umax));
+            place(part, index, Fld_c.GStar, 3, unsigned(gstar));
+            place(part, index, Fld_c.G0, 3, unsigned(g0));
+        end if;
+        -- K: the accumulator initialisation constant (with band-varying values the constant field 15)
+        if Coder_c = CoderSample_c and not AccuInitBandVarying_g then
+            place(part, index, Fld_c.K, 4, unsigned(k));
+        end if;
+        if Coder_c = CoderBlock_c then
+            place(part, index, Fld_c.R, 12, unsigned(ref));
+        end if;
+    end procedure;
 
     type TwoProcess_r is record
         Active : std_logic;
@@ -537,9 +606,23 @@ begin
         Out_Data <= PartRom_c(r.Index);
     end generate;
 
-    g_runtime : if RuntimeConfig_g generate
+    g_runtime : if RuntimeConfig_g and not RuntimeParams_g generate
         Out_Data <= runtimePart(r.Index, unsigned(Cfg_XSize), unsigned(Cfg_YSize), unsigned(Cfg_ZSize),
                                 unsigned(Cfg_AbsLimit), unsigned(Cfg_RelLimit));
+    end generate;
+
+    g_params : if RuntimeParams_g generate
+
+        p_part : process (all) is
+            variable P_v : std_logic_vector(63 downto 0);
+        begin
+            P_v      := runtimePart(r.Index, unsigned(Cfg_XSize), unsigned(Cfg_YSize), unsigned(Cfg_ZSize),
+                                    unsigned(Cfg_AbsLimit), unsigned(Cfg_RelLimit));
+            paramPart(P_v, r.Index, Cfg_UserData, Cfg_M, Cfg_WeightInterval, Cfg_WeightVmin, Cfg_WeightVmax,
+                      Cfg_UnaryLimit, Cfg_RescaleSize, Cfg_InitCountExp, Cfg_AccuInit, Cfg_RefInterval);
+            Out_Data <= P_v;
+        end process;
+
     end generate;
 
     Out_Length <= std_logic_vector(to_unsigned(LastLen_c, CwLenWidth_c)) when r.Index = Parts_c - 1 else

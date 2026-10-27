@@ -2,13 +2,13 @@
 
 ## 1. Test results
 
-Run on 2026-10-25 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
+Run on 2026-10-27 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
 4.7.0-ft.9: `python run.py "*ocp_entropy_coder*"`; the coders are also part of every test of `ocp_core_tb` ([ocp_core
 verification report](../../ocp_core/docs/verification_report.md)), the tail of the hybrid coder with the NZ of every
 image in the tests of the runtime configuration (TC-CO-52, TC-CO-58). The same tests pass in QuestaSim (Questa Pro
-Microchip Edition 2024.3, time resolution 1 fs, 2026-10-24), with code coverage and in the optimised run without it;
-the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL
-6.0.0 on 2026-10-24 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+Microchip Edition 2024.3, time resolution 1 fs, 2026-10-26 and 2026-10-27), with code coverage and in the optimised
+run without it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set
+ran in GHDL 6.0.0 on 2026-10-26 and 2026-10-27 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
@@ -22,6 +22,14 @@ test data set) byte by byte, including the tail and the fill bits, for two conse
 compressed image of the core tests. Each coder takes one item per clock cycle (TC-CO-25 to TC-CO-28). Every
 requirement of the specification is covered; the error injection into the statistics memories and the codeword
 buffers (EC-FT-01, EC-FT-02) runs in the core testbench (TC-CO-37).
+
+With the runtime parameters every coder codes the images of the sequences of rp01 (sample-adaptive), rp02 (hybrid)
+and rp03 (block-adaptive) with Umax, gamma0, gamma\*, K and r of every image, among them every bound of their ranges,
+and every compressed image equals the reference model byte by byte (TC-CO-59, EC-RP-01, EC-RP-02): in the
+sample-adaptive coder two images with different parameters share the pipeline, the hybrid coder writes the final
+accumulators of the tail with 2 + D + gamma\* bits of the image, the block-adaptive coder limits the reference sample
+interval of every block by the r of its image. The values limited at the image start (TC-CO-60) and the parameters of
+images that wait in the full queue (TC-CO-61) are used the same way.
 
 Findings:
 

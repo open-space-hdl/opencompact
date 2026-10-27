@@ -81,6 +81,8 @@ with periodic error limit updating, the error limit values at the start of every
 | PR-RC-02 | With `RuntimeConfig_g` true and absolute or relative error limits the predictor shall use the band-independent error limit values given for the image. | 4.8.2.2, 4.8.2.3, 4.8.2.4.1 |
 | PR-RC-03 | Before the first sample of an image the predictor shall compute the conditions of its dependency checks (PR-TP-01) from the dimensions of the image, in a fixed number of clock cycles, with the same result as the elaboration computes for constant dimensions NX, NY, NZ and M; these cycles are part of the throughput model. | none |
 | PR-RC-04 | With `RuntimeConfig_g` true the predictor shall not use the stride order (PR-TP-03). | none |
+| PR-RP-01 | With `RuntimeParams_g` true, in BI order, the predictor shall compress every image with the sub-frame interleaving depth M given with its configuration (`Cfg_M`, from 1 to min(`SubFrameDepth_g`, NZ)), and compute its dependency checks with that M (PR-RC-03). | 5.4.2.2.1 |
+| PR-RP-02 | With `RuntimeParams_g` true the predictor shall compute the weight update scaling exponent of every sample with the change interval t_inc and the parameters vmin and vmax given with the configuration of its image (`Cfg_WeightInterval`, `Cfg_WeightVmin`, `Cfg_WeightVmax`), also while samples of two images are in the pipeline. | 4.10.2 |
 
 ### 2.8 Fault tolerance
 

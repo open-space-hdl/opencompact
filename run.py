@@ -18,14 +18,12 @@ and exits without simulating.
 
 import importlib.util
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-
-# QuestaSim installation used when --questa is given and VUNIT_MODELSIM_PATH is not set
-QUESTA_DEFAULT_PATH = r"D:\Microchip\Libero_SoC_2025.2\Libero_SoC\QuestaSim_Pro\win64"
 
 # Simulator selection must happen before VUnit parses the command line
 COMPILE_ORDER = "--compile-order" in sys.argv
@@ -37,8 +35,12 @@ if COVERAGE:
 if "--questa" in sys.argv:
     sys.argv.remove("--questa")
     os.environ["VUNIT_SIMULATOR"] = "modelsim"
-    if "VUNIT_MODELSIM_PATH" not in os.environ and Path(QUESTA_DEFAULT_PATH).exists():
-        os.environ["VUNIT_MODELSIM_PATH"] = QUESTA_DEFAULT_PATH
+    # QuestaSim from VUNIT_MODELSIM_PATH (the directory of vsim) or from the PATH
+    if "VUNIT_MODELSIM_PATH" not in os.environ:
+        vsim = shutil.which("vsim")
+        if vsim is None:
+            sys.exit("QuestaSim not found: set VUNIT_MODELSIM_PATH to the directory of vsim or put vsim on the PATH")
+        os.environ["VUNIT_MODELSIM_PATH"] = str(Path(vsim).parent)
 else:
     os.environ.setdefault("VUNIT_SIMULATOR", "ghdl")
 
@@ -138,7 +140,7 @@ def set_simulator_options(vu):
     vu.add_compile_option("ghdl.a_flags", ["-frelaxed", "-Wno-hide", "-Wno-shared"])
     vu.set_sim_option("ghdl.elab_flags", ["-frelaxed"])
     # Large word arrays in testbench processes exceed the default stack limit of GHDL. Extra simulation flags for
-    # debugging, for example a waveform: OCP_GHDL_SIM_FLAGS="--vcd=D:/tmp/wave.vcd --read-wave-opt=D:/tmp/wave.opt"
+    # debugging, for example a waveform: OCP_GHDL_SIM_FLAGS="--vcd=wave.vcd --read-wave-opt=wave.opt"
     extra = os.environ.get("OCP_GHDL_SIM_FLAGS", "").split()
     vu.set_sim_option("ghdl.sim_flags", ["--max-stack-alloc=0"] + extra)
     vu.set_sim_option("disable_ieee_warnings", True)

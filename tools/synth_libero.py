@@ -93,9 +93,13 @@ def main():
     parser.add_argument("--clk-mhz", type=float, default=100.0)
     parser.add_argument("--impl", action="store_true")
     parser.add_argument("--in-last", action="store_true", help="image framing (UseInLast_g)")
-    parser.add_argument("--libero", default=shutil.which("libero") or
-                        r"D:\Microchip\Libero_SoC_2025.2\Libero_SoC\Designer\bin\libero.exe")
+    parser.add_argument("--libero", default=os.environ.get("OCP_LIBERO") or shutil.which("libero"),
+                        help="the Libero executable (default: the environment variable OCP_LIBERO, else libero on the "
+                             "PATH)")
     args = parser.parse_args()
+    if not args.libero:
+        parser.error("Libero not found: give --libero, set OCP_LIBERO to the Libero executable or put libero on the "
+                     "PATH")
     out = ROOT / "libero_out" / args.device / (args.config + ("_last" if args.in_last else ""))
     if out.exists():
         shutil.rmtree(out)

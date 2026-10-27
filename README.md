@@ -37,9 +37,10 @@ and every configuration synthesizes. The core has not been tested on hardware an
 [roadmap](docs/roadmap.md#technology-readiness).
 
 The reference model of the verification (`tools/ocp_model.py`) reproduces all 6474 compressed images of the CCSDS test
-data set for the standard. The [compliance matrix](docs/compliance.md) traces every clause of the standard to its
-requirements and test cases; the [user guide](docs/user_guide.md) contains the implementation conformance statement
-of annex A of the standard.
+data set for the standard, and its decoder (`ocp_model.decompress`, `tools/ocp_decompress.py`) reconstructs all of
+them, the near-lossless ones bit for bit as the CNES reference decoder does. The
+[compliance matrix](docs/compliance.md) traces every clause of the standard to its requirements and test cases; the
+[user guide](docs/user_guide.md) contains the implementation conformance statement of annex A of the standard.
 
 ## Documentation
 

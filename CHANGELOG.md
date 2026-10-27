@@ -22,6 +22,12 @@ feature and a patch version for a fix.
 - Register map version 3 (ID 0x4F435003): NEXT_SAMPLES to NEXT_BLOCK, GENERICS.RUNTIME_PARAMS; with the runtime
   parameters the parameter fields of SAMPLES, ORDER, WEIGHTS, ADAPTIVE and BLOCK show the values of the last image.
 - `lint/xsim_smoke.py` also elaborates and simulates the runtime parameter configurations (167 top levels).
+- Decoder of the reference model (`ocp_model.decompress`, `tools/ocp_decompress.py`, user guide section 11): decodes
+  a compressed image of any configuration of CCSDS 123.0-B-2 in Python, without other software, to the clipped
+  quantizer bin centers, as the CNES reference decoder does, with the maximum error of every sample; the command
+  compares the decoded image with the original. Tests in `tools/tests` (pytest, in the CI) against the golden data
+  and against images decoded by the CNES decoder (`tools/golden.py --decoded`);
+  `tools/check_model_testvectors.py --decode` decodes the CCSDS test data set.
 
 ## [0.2.0] - 2026-10-25
 

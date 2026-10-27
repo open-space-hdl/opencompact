@@ -19,11 +19,17 @@ For every configuration of tools/ocp_configs.py (ALL) the script writes into tb/
 The script checks that the reference model produces the same compressed image as the CNES encoder and that the
 CNES decoder reconstructs the image within the error limits.
 
+With --decoded the script writes, for every near-lossless configuration, the image that the CNES decoder
+(lcnl_decoder) reconstructs from tb/golden/<configuration>/compressed.bin into
+tools/tests/golden_decoded/<configuration>.raw (the format of image.raw). The tests of the decoder of the reference
+model (tools/tests) compare its output with these images; a lossless image needs none, it equals image.raw.
+
 The CNES reference software (Linux executables lcnl_header_tool, lcnl_encoder, lcnl_decoder,
 lcnl_supplementary_tables_encoder) runs natively on Linux or through WSL on Windows. Its bin directory is given with
 --cnes-bin or the environment variable OCP_CNES_BIN (a path of the Linux file system).
 
 Usage: python tools/golden.py [--cnes-bin <dir>] [configuration ...]
+       python tools/golden.py --decoded [--cnes-bin <dir>] [configuration ...]
        python tools/golden.py --aborted [configuration ...]   (aborted images only; no CNES software needed)
 """
 
@@ -44,6 +50,7 @@ import ocp_model  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLDEN = ROOT / "tb" / "golden"
+DECODED = ROOT / "tools" / "tests" / "golden_decoded"
 WINDOWS = os.name == "nt"
 # Plain tables per call of lcnl_supplementary_tables_encoder: it stops with "Invalid number of arguments" for 14 or
 # 15 tables, although the standard allows 15
@@ -306,6 +313,34 @@ def generate(name, c, cnes_bin):
                                                                                       len(golden), ratio, maxerr))
 
 
+def write_decoded(name, c, cnes_bin):
+    """The image that the CNES decoder reconstructs from the golden compressed image of a near-lossless
+    configuration, in the format of image.raw."""
+    src = GOLDEN / name
+    tmp = DECODED / ("tmp_" + name)
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir(parents=True)
+    shutil.copy(src / "compressed.bin", tmp / "compressed.bin")
+    dec = ["lcnl_decoder"]
+    if (src / "optional_tables.bin").exists():
+        shutil.copy(src / "optional_tables.bin", tmp / "optional_tables.bin")
+        dec += ["-o", "optional_tables.bin"]
+    run(cnes_bin, dec + ["compressed.bin", raw_format(c), "decoded.raw"], tmp)
+    DECODED.mkdir(parents=True, exist_ok=True)
+    shutil.copy(tmp / "decoded.raw", DECODED / (name + ".raw"))
+    decoded = read_raw(c, tmp / "decoded.raw")
+    samples = read_raw(c, src / "image.raw")
+    for _ in range(10):
+        try:
+            shutil.rmtree(tmp)
+            break
+        except PermissionError:
+            time.sleep(1)    # WSL may still hold the directory for a moment
+    print("{:28s} {:6d} samples decoded by CNES, max error {}".format(
+        name, len(decoded), max(abs(a - b) for a, b in zip(samples, decoded))))
+
+
 def abort_positions(name, c):
     """Samples with the early In_Last (counted from 0 in the input order): the first sample, the middle, the last but
     one and one position drawn with the configuration name as seed; in BI order also the last band of the first pixel,
@@ -460,6 +495,8 @@ def main():
     ap.add_argument("--aborted", action="store_true", help="write only the aborted images (reference model)")
     ap.add_argument("--runtime", action="store_true",
                     help="write only the image sequences of the runtime configurations (reference model)")
+    ap.add_argument("--decoded", action="store_true",
+                    help="write only the images decoded by the CNES decoder (near-lossless configurations)")
     ap.add_argument("configs", nargs="*")
     args = ap.parse_args()
     if args.aborted:
@@ -478,6 +515,11 @@ def main():
         return
     if not args.cnes_bin:
         raise SystemExit("give the bin directory of the CNES reference software with --cnes-bin or OCP_CNES_BIN")
+    if args.decoded:
+        for name in args.configs or [n for n, c in ocp_configs.ALL.items()
+                                     if c["quantizer_fidelity_control_method"] != 0]:
+            write_decoded(name, ocp_configs.ALL[name], args.cnes_bin)
+        return
     names = args.configs or list(ocp_configs.ALL)
     for name in names:
         generate(name, ocp_configs.ALL[name], args.cnes_bin)

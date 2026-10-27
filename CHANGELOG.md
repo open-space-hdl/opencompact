@@ -4,6 +4,15 @@ The notable changes of OpenCompact. The versions follow semantic versioning: 0.y
 major version for an incompatible change of ports, stream formats, generics or register map, a minor version for a
 feature and a patch version for a fix.
 
+## [Unreleased]
+
+### Changed
+
+- The scripts take the tool paths from the environment or the `PATH` only: `run.py --questa` takes QuestaSim from
+  `VUNIT_MODELSIM_PATH` or from `vsim` on the `PATH`, `tools/synth_libero.py` takes Libero from `--libero`,
+  `OCP_LIBERO` or the `PATH`, and `lint/vivado_ooc.py` takes its output directory from `--out` or `OCP_OOC_OUT`. Each
+  stops with a message when the tool or the directory is not given.
+
 ## [0.3.0] - 2026-10-27
 
 ### Added

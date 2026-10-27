@@ -47,7 +47,8 @@ that byte only. For every parameter in use its bounds commit, and one value beyo
 every configuration output unchanged; the dependent ranges are checked against the pending values (vmax below vmin,
 gamma\* below max(4, gamma0 + 1), M above NZ of NEXT_Z), in rp02 gamma0 = 1 is rejected and gamma0 = 2 accepted (the
 lower bound from its initial accumulators); an invalid dimension with valid parameters commits nothing. The parameter
-fields of SAMPLES to BLOCK read the `Act_` inputs (TC-MB-08). Around every COMMIT of rp01 all configuration outputs,
+fields of SAMPLES to BLOCK read the `Act_` inputs, and every unused address reads zero, also those after NEXT_BLOCK
+(TC-MB-08). Around every COMMIT of rp01 all configuration outputs,
 the dimensions, the error limit values and the nine runtime parameters in use, change in the same clock cycle
 (TC-MB-09). Without the runtime parameters NEXT_SAMPLES to NEXT_BLOCK read zero and ignore writes, a valid COMMIT
 leaves the parameter outputs at zero, and SAMPLES to BLOCK read the words of the file with all ones on the `Act_`

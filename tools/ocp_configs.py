@@ -691,6 +691,23 @@ QUEUE_HOLD_IMAGE = "noise"
 # Bytes of the body of the first image that the output takes before it is held
 QUEUE_HOLD_BODY = 16
 
+# Runtime parameter configurations of the image sequence test only (TC-CO-59)
+RUNTIME_PARAMS_SEQUENCE_ONLY = {
+    # BSQ, block-adaptive coder with blocks of 8 samples: images of up to 75 blocks, so that a segment of 64 blocks ends
+    # within the reference sample interval of an image; the last image of the sequence has the maximum dimensions and
+    # r = 4096 (last_r)
+    "rp05_bsq_block_j8": dict(RUNTIME_PARAMS["rp03_bsq_block"], large_j=8, seed=115, last_r=4096),
+    # BI, sample-adaptive coder with band-varying accumulator initialisation values (K is not a runtime parameter; the
+    # header carries the value 15, and an image of NZ bands uses the first NZ values of the generic)
+    "rp06_bi_sample_kvar": dict(RUNTIME_PARAMS["rp01_bi_m4_sample"], band_varying_k_flag=1, seed=116,
+                                k_prime_prime_vector=[(3 * z) % 15 for z in range(12)]),
+}
+# Runtime parameter configuration of the queue test only (TC-CO-61): rq06 with the runtime parameters, so that the
+# queue fills behind the read pointer of the hybrid coder (its tail) while the header pointer has room
+RUNTIME_PARAMS_QUEUE_ONLY = {
+    "rp04_bsq_column_hybrid_nz128": dict(RUNTIME_QUEUE_ONLY["rq06_bsq_column_hybrid_nz128"], gamma_star=11, seed=114),
+}
+
 # Runtime parameters in the order of the lines of the image lists (driven, then taken)
 PARAM_NAMES = ["user", "m", "tinc", "vmin", "vmax", "umax", "g0", "gstar", "k", "r"]
 
@@ -799,14 +816,15 @@ def runtime_params_sequence(c, n=RUNTIME_IMAGES):
         p = random_params(c, dims[2], rng, edge, image_blocks(c, dims))
         out.append((dims, dims, p, runtime_params_limit(c, dims[2], p)))
     # A last image of the maximum dimensions with log2 t_inc 4 and vmin = vmax = -6: the weight update scaling
-    # exponent reaches vmax from t = NX + 16 on (the clip of CCSDS 4.10.2 at the vmax of the image); r = 2
+    # exponent reaches vmax from t = NX + 16 on (the clip of CCSDS 4.10.2 at the vmax of the image); r = 2, or the r
+    # of the configuration entry last_r
     mx, my, mz = c["large_n_x"], c["large_n_y"], c["large_n_z"]
     fid = c["quantizer_fidelity_control_method"]
     dims = runtime_limit(c, mx, my, mz, 1 if fid in (1, 3) else 0, 1 if fid in (2, 3) else 0)
     v = dict(zip(PARAM_NAMES, random_params(c, mz, rng)))
     v.update(tinc=4, vmin=-6, vmax=-6)
     if params_in_use(c)["r"]:
-        v["r"] = 2
+        v["r"] = c.get("last_r", 2)
     p = tuple(v[n] for n in PARAM_NAMES)
     out.append((dims, dims, p, runtime_params_limit(c, dims[2], p)))
     return out
@@ -840,12 +858,12 @@ def runtime_params_queue_hold_sequence(name, c):
     return out
 
 
-def runtime_params_queue_sequence(c):
-    """Images of the queue test with runtime parameters (TC-CO-61): the images of runtime_queue_sequence, each with
-    its own random runtime parameters."""
+def runtime_params_queue_sequence(c, long_tail=False):
+    """Images of the queue test with runtime parameters (TC-CO-61): the images of runtime_queue_sequence (with
+    long_tail a first image of the smallest width with all bands), each with its own random runtime parameters."""
     rng = random.Random(8500 + c["seed"])
     out = []
-    for driven, taken in runtime_queue_sequence(c):
+    for driven, taken in runtime_queue_sequence(c, long_tail):
         p = random_params(c, taken[2], rng)
         out.append((driven, taken, p, runtime_params_limit(c, taken[2], p)))
     return out

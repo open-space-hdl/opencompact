@@ -15,7 +15,8 @@ ocp_core_tb:
   the configurations of FRAMING (every encoding order and coder, the stride order, periodic error limits, all
   interface widths, some with back pressure)
 - test_runtime, test_runtime_timing, test_runtime_range, test_runtime_queue: the runtime configurations (RUNTIME,
-  RuntimeConfig_g) and the runtime parameter configurations (RUNTIME_PARAMS, RuntimeParams_g)
+  RuntimeConfig_g) and the runtime parameter configurations (RUNTIME_PARAMS, RuntimeParams_g; the configurations of
+  RUNTIME_PARAMS_SEQUENCE_ONLY in test_runtime, those of RUNTIME_PARAMS_QUEUE_ONLY in test_runtime_queue)
 
 Every configuration of test_golden, test_ecc and test_reset also runs with the image framing (UseInLast_g, suffix
 _last): In_Last on the last sample of every image; without it In_Last is random and ignored.
@@ -205,6 +206,14 @@ def configure(lib):
         if name in ocp_configs.RUNTIME_PARAMS_QUEUE_HOLD:
             gen = dict(runtime_generics(name, cfg, "queuehold"), RuntimeParams_g=True)
             add(queue, name + "_hold", dict(gen, QueueHoldBytes_g=gen["HeaderBytes_g"] + ocp_configs.QUEUE_HOLD_BODY))
+    # Runtime parameter configurations of one test: the image sequences (TC-CO-59) of the block-adaptive coder with
+    # images of more than 64 blocks and of the sample-adaptive coder with band-varying accumulator initialisation
+    # values; the queue test (TC-CO-61) of the hybrid coder with a tail longer than its codeword buffers
+    for name, cfg in ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY.items():
+        gen = dict(runtime_generics(name, cfg), RuntimeParams_g=True)
+        add(runtime, name, dict(gen, ExpStarts_g=runtime_starts(name, gen)))
+    for name, cfg in ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY.items():
+        add(queue, name, dict(runtime_generics(name, cfg, "queue"), RuntimeParams_g=True))
 
     framing = tb.test("test_framing")
     for name, width, bp in FRAMING:

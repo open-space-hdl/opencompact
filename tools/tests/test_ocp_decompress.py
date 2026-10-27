@@ -30,7 +30,8 @@ DECODED = TOOLS / "tests" / "golden_decoded"
 
 LOSSLESS = [n for n, c in ocp_configs.ALL.items() if c["quantizer_fidelity_control_method"] == 0]
 NEAR_LOSSLESS = [n for n, c in ocp_configs.ALL.items() if c["quantizer_fidelity_control_method"] != 0]
-RUNTIME = list(ocp_configs.RUNTIME) + list(ocp_configs.RUNTIME_PARAMS)
+RUNTIME = dict(ocp_configs.RUNTIME, **ocp_configs.RUNTIME_QUEUE_ONLY, **ocp_configs.RUNTIME_PARAMS,
+               **ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY, **ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY)
 WITH_TABLES = [n for n in ocp_configs.ALL if (GOLDEN / n / "optional_tables.bin").exists()]
 
 
@@ -80,7 +81,8 @@ def test_runtime_sequences(name):
     for comp in files:
         prefix, k = comp.stem.rsplit("_", 1)
         raw = out / ("image_{}.raw".format(k) if prefix == "compressed" else "{}_image_{}.raw".format(prefix, k))
-        cfg, decoded, max_error = decode(comp.read_bytes())
+        # Per-band values that the header leaves out (band-varying K of rp06) come from the configuration
+        cfg, decoded, max_error = decode(comp.read_bytes(), tables=RUNTIME[name])
         samples = read_raw(cfg, raw)
         assert within(samples, decoded, max_error), comp.name
         if cfg["quantizer_fidelity_control_method"] == 0:

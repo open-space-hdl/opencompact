@@ -92,6 +92,42 @@ def ram_bits(g):
     return sum(m["depth"] * m["width"] for m in mems), sum(m["depth"] * m["codeword"] for m in mems)
 
 
+def logic_features(g):
+    """Structure features of the logic of ocp_core for the generics g, the inputs of the linear LUT and flip-flop
+    model: name -> value. Every feature is a quantity the generics determine (a datapath width times the number of
+    its instances, or 1 for a block that exists)."""
+    g = dict(g)
+    g.setdefault("Speculation_g", True)
+    g.setdefault("RuntimeConfig_g", False)
+    g.setdefault("RuntimeParams_g", False)
+    g.setdefault("OutWidth_g", 32)
+    d, om = g["DynamicRange_g"], g["WeightResolution_g"]
+    lat = ocp_throughput.latencies(g, g["Speculation_g"])
+    c1 = max(lat["c"], 1)
+    fid = g["Fidelity_g"]
+    qw = max(d, 16) + 2
+    stride = not g["RuntimeConfig_g"] and ocp_throughput.stride_params(g, lat) is not None
+    coder = g["EntropyCoder_g"]
+    return {
+        "base": 1,
+        "dyn_range": d,
+        "products": c1 * (d + om + 12),
+        "weights": c1 * (om + 3),
+        "speculation": c1 * (d + om + 12) if lat["spec"] else 0,
+        "quantizer": qw * (d + 16) if fid != "LOSSLESS" else 0,
+        "relative": d + 16 if fid in ("RELATIVE", "ABSOLUTE_RELATIVE") else 0,
+        "representatives": d + om if not ocp_throughput.rep_equals_sample(g) else 0,
+        "stride": d if stride else 0,
+        "periodic": 1 if g["PeriodicUpdate_g"] else 0,
+        "hybrid": 1 if coder == "HYBRID" else 0,
+        "block": d * g["BlockSize_g"] // 8 if coder == "BLOCK_ADAPTIVE" else 0,
+        "counters": log2ceil(g["XSize_g"]) + log2ceil(g["YSize_g"]) + log2ceil(g["ZSize_g"]),
+        "out_width": g["OutWidth_g"],
+        "runtime_config": 1 if g["RuntimeConfig_g"] else 0,
+        "runtime_params": 1 if g["RuntimeParams_g"] else 0,
+    }
+
+
 def estimate_resources(g):
     """Resource estimate of ocp_core for the generics g: the bits and the list of the memories, and the logic (LUT,
     flip-flops) and the clock frequency of a target where the model has data for it (None otherwise), with notes on

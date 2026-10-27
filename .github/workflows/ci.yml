@@ -31,6 +31,8 @@ jobs:
           backend: mcode
       - name: Run regression
         run: python run.py -p 4 --xunit-xml results.xml
+      - name: Memories of the GHDL netlists against the resource estimate
+        run: python lint/memory_check.py
       - name: Publish test results
         if: always()
         uses: actions/upload-artifact@v7

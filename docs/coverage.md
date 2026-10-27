@@ -25,36 +25,38 @@ Closure rules:
 
 ## 2. Results
 
-Run on 2026-10-24 and 2026-10-25 with Open Logic 4.7.0-ft.9: 565 tests (the testbenches of the predictor and its
+Run on 2026-10-26 and 2026-10-27 with Open Logic 4.7.0-ft.9: 613 tests (the testbenches of the predictor and its
 image-start sequencer, the entropy coders, the bit packer and the core with all configurations of
-`tools/ocp_configs.py` and the runtime configurations, the core configurations also with the image framing and the
-aborted images at every abort position, and the testbenches of the input adapter, the MIB and the channel), all passed
-in QuestaSim as in GHDL, with code coverage and in the optimised run without it. The regression ran in ten parts by
-testbench; the tests added by the review of this coverage (section 3) ran again in both modes; `vcover merge` combines
-the coverage databases of all parts. Numbers are covered/total bins per file; bold marks a metric with misses.
+`tools/ocp_configs.py`, the runtime configurations and the runtime parameter configurations, the core configurations
+also with the image framing and the aborted images at every abort position, and the testbenches of the input adapter,
+the MIB and the channel), all passed in QuestaSim as in GHDL, with code coverage and in the optimised run without it.
+The regression ran in twelve parts by testbench; the tests added by the review of this coverage (section 3) ran in
+both modes; `vcover merge` combines the coverage databases of all parts. Numbers are covered/total bins per file; bold
+marks a metric with misses.
 
 | File | Statements | Branches | Conditions | Expressions | FSM States | FSM Transitions |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ocp_pkg.vhd` | **50 / 62 (80.6 %)** | **37 / 42 (88.1 %)** | **1 / 2 (50.0 %)** | 11 / 11 | | |
-| `ocp_predictor.vhd` | **753 / 756 (99.6 %)** | **357 / 358 (99.7 %)** | **85 / 108 (78.7 %)** | **70 / 75 (93.3 %)** | | |
-| `ocp_sample_adaptive_coder.vhd` | 97 / 97 | 30 / 30 | 9 / 9 | 14 / 14 | | |
-| `ocp_hybrid_coder.vhd` | **211 / 212 (99.5 %)** | **65 / 67 (97.0 %)** | **24 / 25 (96.0 %)** | 16 / 16 | 3 / 3 | 4 / 4 |
-| `ocp_block_adaptive_coder.vhd` | 211 / 211 | 97 / 97 | **17 / 20 (85.0 %)** | 5 / 5 | | |
+| `ocp_pkg.vhd` | **101 / 114 (88.6 %)** | **46 / 51 (90.2 %)** | **1 / 2 (50.0 %)** | **16 / 33 (48.5 %)** | | |
+| `ocp_predictor.vhd` | **766 / 769 (99.6 %)** | **366 / 367 (99.7 %)** | **85 / 108 (78.7 %)** | **70 / 75 (93.3 %)** | | |
+| `ocp_sample_adaptive_coder.vhd` | 123 / 123 | 45 / 45 | 9 / 9 | 14 / 14 | | |
+| `ocp_hybrid_coder.vhd` | **220 / 221 (99.5 %)** | **69 / 71 (97.2 %)** | **24 / 25 (96.0 %)** | 16 / 16 | 3 / 3 | 4 / 4 |
+| `ocp_block_adaptive_coder.vhd` | 218 / 218 | 101 / 101 | **15 / 18 (83.3 %)** | 12 / 12 | | |
 | `ocp_cw_buffer.vhd` | 33 / 33 | 13 / 13 | 9 / 9 | 6 / 6 | | |
-| `ocp_header.vhd` | 190 / 190 | 70 / 70 | 2 / 2 | | | |
+| `ocp_header.vhd` | 212 / 212 | 78 / 78 | 8 / 8 | | | |
 | `ocp_bit_packer.vhd` | 105 / 105 | 31 / 31 | 2 / 2 | | | |
 | `ocp_image_framer.vhd` | **73 / 74 (98.6 %)** | **39 / 40 (97.5 %)** | 9 / 9 | 8 / 8 | 2 / 2 | 2 / 2 |
-| `ocp_core.vhd` | 88 / 88 | 62 / 62 | 15 / 15 | 9 / 9 | | |
+| `ocp_core.vhd` | 205 / 205 | 111 / 111 | 23 / 23 | 9 / 9 | | |
 | `ocp_input_adapter.vhd` | **47 / 48 (97.9 %)** | **19 / 20 (95.0 %)** | 11 / 11 | 12 / 12 | 2 / 2 | 2 / 2 |
-| `ocp_mib.vhd` | 131 / 131 | 70 / 70 | **15 / 16 (93.8 %)** | 16 / 16 | | |
+| `ocp_mib.vhd` | 218 / 218 | **122 / 123 (99.2 %)** | **25 / 27 (92.6 %)** | 42 / 42 | | |
 | `ocp_channel.vhd` | 14 / 14 | 5 / 5 | 3 / 3 | **8 / 10 (80.0 %)** | | |
-| `ocp_image_start.vhd` | **51 / 52 (98.1 %)** | **28 / 29 (96.6 %)** | | 11 / 11 | 3 / 3 | **3 / 4 (75.0 %)** |
-| Total | 2054 / 2073 (99.1 %) | 923 / 934 (98.8 %) | 202 / 231 (87.4 %) | 186 / 193 (96.4 %) | 10 / 10 (100.0 %) | 11 / 12 (91.7 %) |
+| `ocp_image_start.vhd` | **53 / 54 (98.1 %)** | **31 / 32 (96.9 %)** | | 11 / 11 | 3 / 3 | **3 / 4 (75.0 %)** |
+| Total | 2388 / 2408 (99.2 %) | 1076 / 1088 (98.9 %) | 224 / 254 (88.2 %) | 224 / 248 (90.3 %) | 10 / 10 (100.0 %) | 11 / 12 (91.7 %) |
 
-Every statement and branch that runs in simulation is covered except five items (the recovery branches of the state
-machines of the tail, the image framer, the input adapter and the image-start sequencer, and the wait of the flush
-words of the tail), and every condition and expression term whose value can change in a simulation is covered (the
-saturation of a 32-bit counter of the MIB needs 2^32 - 1 events); section 4 lists all misses. The predictor and the
+Every statement and branch that runs in simulation is covered except six items (the recovery branches of the state
+machines of the tail, the image framer, the input adapter and the image-start sequencer, the wait of the flush words
+of the tail, and the implicit `else` of the register decoder of the runtime parameters of the MIB, which no caller
+reaches), and every condition and expression term whose value can change in a simulation is covered (the saturation of
+a 32-bit counter of the MIB needs 2^32 - 1 events); section 4 lists all misses. The predictor and the
 sample-adaptive and block-adaptive coders are pipelines without state machines; the tail of the hybrid coder, the
 image framer, the input adapter and the image-start sequencer are the state machines, and all their states and
 transitions are reached except the recovery transition of the sequencer.
@@ -82,6 +84,10 @@ new test variant; no gap needed a change of the design.
 | MIB: writes of CONTROL and STATUS with byte lane 0 disabled or with the bit '0' | TC-MB-05: such writes commit nothing and leave CFG_ERROR set |
 | Image-start sequencer without prediction bands (P = 0) | A sweep configuration with P = 0 (TC-PR-40) |
 | Block-adaptive coder: saturation of the length of a second extension symbol above 8191 (a miss of version 0.1.1) | Reached by the regression of version 0.2.0: the length of every code option is computed for every block, also of the options that are not selected |
+| Runtime parameters: the configuration queue full behind the tail pointer of the hybrid coder (the header pointer has room) | rp04 in TC-CO-61: rq06 with the runtime parameters, a first image of 128 bands whose tail is longer than the codeword buffers |
+| Runtime parameters: the end of a segment of 64 blocks within the reference sample interval of an image (block-adaptive coder) | rp05 in TC-CO-59: blocks of 8 samples, images of 75 blocks with r = 4096 |
+| Runtime parameters: the K field of the header with band-varying accumulator initialisation values | rp06 in TC-CO-59: the sample-adaptive coder with band-varying values; the header carries 15 |
+| MIB: reads of the addresses after NEXT_BLOCK with the runtime parameters | TC-MB-08 reads every unused address |
 
 ## 4. Remaining misses
 
@@ -107,6 +113,10 @@ new test variant; no gap needed a change of the design.
 | `ocp_predictor.vhd` | Condition terms of the dependency on the sample of the previous band at x - 1 (narrow local sums at y = 0), in BI order and in stride order | That sample is issued before the sample of the previous band at x, which the same check holds back for at least as long; the term cannot change the result |
 | `ocp_predictor.vhd` | Condition terms `Kind = ItemSample_c` false: with t = 0 (`First`), at the end of an image (`Last`), in lossless compression and in stride order | Error limit values never carry these flags: they precede the samples of an update period, and periodic updating is used neither in lossless compression nor in stride order |
 | `ocp_predictor.vhd` | Condition term `Par_v <= theta` false in the mapper | The branch runs only when the magnitude of the quantizer index is at most theta, and `Par_v` is plus or minus that magnitude |
+| `ocp_pkg.vhd` | Expression rows with a false result of `paramCodingExact` (17 terms: the decoding of the encoding of every header field of the runtime parameters gives the value back) | The check of CO-RP-05 that every header field encoding is exact over its range; a false row needs an encoding that does not decode to its value, which the encodings never produce, and it would stop the elaboration |
+| `ocp_pkg.vhd` | `return 9` of `hybridG0Min` (no gamma0 up to 8 keeps every initial accumulator below 2^(D + gamma0)) | Runs during elaboration only; such a configuration stops the elaboration (TC-CO-64) |
+| `ocp_mib.vhd` | The implicit `else` of the decoder of the pending parameter registers (`parWord`) | The callers pass only the indices of NEXT_SAMPLES to NEXT_BLOCK: the read path checks the range first, the write path branches per register |
+| `ocp_mib.vhd` | Condition row `RuntimeParams_g` = false of `RuntimeParams_g and RbWr = '1'` | With the generic false the condition is static and folded at elaboration, so no row is recorded; both branches of the statement are covered |
 
 ## 5. Reproduction
 

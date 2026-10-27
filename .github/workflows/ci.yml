@@ -64,8 +64,18 @@ jobs:
         run: python tools/regmap.py --check
       - name: Expected status register words up to date
         run: python tools/ocp_mib_words.py --check
-      - name: Decoder of the reference model
+      - name: Decoder of the reference model, memories of the resource estimate
         run: python -m pytest -q tools/tests
+      - name: Golden data of the JavaScript models up to date
+        run: python tools/ocp_estimate_golden.py --check
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: JavaScript models against the Python models
+        run: node --test "tools/tests/*.test.mjs"
+      - name: Type check of the JavaScript models (TypeScript 7.0.2, checkJs strict)
+        run: npx --yes -p typescript@7.0.2 tsc -p tools/tests/tsconfig.json
       - name: Compile order up to date
         run: |
           python run.py --compile-order

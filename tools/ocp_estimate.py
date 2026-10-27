@@ -92,6 +92,25 @@ def ram_bits(g):
     return sum(m["depth"] * m["width"] for m in mems), sum(m["depth"] * m["codeword"] for m in mems)
 
 
+def estimate_resources(g):
+    """Resource estimate of ocp_core for the generics g: the bits and the list of the memories, and the logic (LUT,
+    flip-flops) and the clock frequency of a target where the model has data for it (None otherwise), with notes on
+    the sources and the validity. tools/estimate/ocp_resources.mjs estimateResources() gives the same result."""
+    data, stored = ram_bits(g)
+    return {
+        "ramBits": {"data": data, "stored": stored},
+        "memories": memories(g),
+        "lut": None,
+        "ff": None,
+        "fmaxMHz": None,
+        "notes": [
+            "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every "
+            "configuration of the regression. Stored bits include the SECDED check bits.",
+            "LUT, flip-flops and clock frequency: no model yet.",
+        ],
+    }
+
+
 def _reg(d, om):
     """Register size R at the lower bound of CCSDS 4.7.1: max(32, D + Omega + 2)."""
     return max(32, d + om + 2)

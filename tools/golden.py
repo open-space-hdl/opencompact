@@ -369,8 +369,8 @@ def write_aborted(name, c):
 def check_runtime_header(name, ci, data, params=False):
     """The header of a compressed image of a runtime sequence, decoded by the header parser of the model, carries
     the dimensions, the sub-frame interleaving depth and the error limit values of the image (CO-HD-08); with params
-    also its runtime parameters (CO-RP-01)."""
-    hdr, _ = ocp_model.parse_header(data)
+    also its runtime parameters (CO-RP-01). Tables that the header leaves out come from the configuration."""
+    hdr, _ = ocp_model.parse_header(data, tables=ci)
     fields = ["large_n_x", "large_n_y", "large_n_z", "large_m"]
     fid = ci["quantizer_fidelity_control_method"]
     if fid in (1, 3):
@@ -454,6 +454,29 @@ def write_runtime_params(name, c):
                      ocp_configs.runtime_params_queue_hold_sequence(name, c))])
 
 
+def write_params_sequence_only(name, c):
+    """Golden data of a runtime parameter configuration of the sequence test only (RUNTIME_PARAMS_SEQUENCE_ONLY,
+    TC-CO-59): runtime.txt, image_<k>.raw, compressed_<k>.bin, delta_<k>.txt."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in list(out.glob("image_*.raw")) + list(out.glob("compressed_*.bin")) + list(out.glob("delta_*.txt")) + \
+            list(out.glob("runtime*")):
+        old.unlink()
+    write_jobs(name, c, out, [("runtime", "image_{:02d}.raw", "compressed_{:02d}.bin", True, 0,
+                               ocp_configs.runtime_params_sequence(c))])
+
+
+def write_params_queue_only(name, c):
+    """Golden data of a runtime parameter configuration of the queue test only (RUNTIME_PARAMS_QUEUE_ONLY, TC-CO-61):
+    queue.txt, queue_image_<k>.raw, queue_<k>.bin; the first image has all bands (a long tail of the hybrid coder)."""
+    out = GOLDEN / name
+    out.mkdir(parents=True, exist_ok=True)
+    for old in out.glob("queue*"):
+        old.unlink()
+    write_jobs(name, c, out, [("queue", "queue_image_{:02d}.raw", "queue_{:02d}.bin", False, 200,
+                               ocp_configs.runtime_params_queue_sequence(c, long_tail=True))])
+
+
 def write_queue_only(name, c):
     """Golden data of a configuration of the queue test only (RUNTIME_QUEUE_ONLY, TC-CO-58): queue.txt,
     queue_image_<k>.raw, queue_<k>.bin."""
@@ -505,11 +528,17 @@ def main():
         return
     if args.runtime:
         for name in args.configs or (list(ocp_configs.RUNTIME) + list(ocp_configs.RUNTIME_QUEUE_ONLY) +
-                                     list(ocp_configs.RUNTIME_PARAMS)):
+                                     list(ocp_configs.RUNTIME_PARAMS) +
+                                     list(ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY) +
+                                     list(ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY)):
             if name in ocp_configs.RUNTIME_QUEUE_ONLY:
                 write_queue_only(name, ocp_configs.RUNTIME_QUEUE_ONLY[name])
             elif name in ocp_configs.RUNTIME_PARAMS:
                 write_runtime_params(name, ocp_configs.RUNTIME_PARAMS[name])
+            elif name in ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY:
+                write_params_sequence_only(name, ocp_configs.RUNTIME_PARAMS_SEQUENCE_ONLY[name])
+            elif name in ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY:
+                write_params_queue_only(name, ocp_configs.RUNTIME_PARAMS_QUEUE_ONLY[name])
             else:
                 write_runtime(name, ocp_configs.RUNTIME[name])
         return

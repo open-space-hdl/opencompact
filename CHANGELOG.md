@@ -28,6 +28,10 @@ feature and a patch version for a fix.
   compares the decoded image with the original. Tests in `tools/tests` (pytest, in the CI) against the golden data
   and against images decoded by the CNES decoder (`tools/golden.py --decoded`);
   `tools/check_model_testvectors.py --decode` decodes the CCSDS test data set.
+- Tests from the code coverage review of the runtime parameters: the queue full behind the tail pointer of the hybrid
+  coder (rp04, TC-CO-61), the end of a segment of 64 blocks within the reference sample interval (rp05, blocks of 8
+  samples, TC-CO-59), band-varying accumulator initialisation values (rp06, TC-CO-59), and the unused addresses of the
+  register map with the runtime parameters (TC-MB-08).
 
 ## [0.2.0] - 2026-10-25
 

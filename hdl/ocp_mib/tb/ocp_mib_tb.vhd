@@ -1048,6 +1048,19 @@ begin
                 check_value(word(1)(GenericsRuntimeParams_c), '1', ERROR, "GENERICS.RUNTIME_PARAMS in the file");
                 chk(RegGenerics_c, word(1), "GENERICS");
 
+                -- Unused addresses read zero, also those after NEXT_BLOCK (MB-IF-01)
+                for a in RegBlock_c / 4 + 1 to RegImagesDone_c / 4 - 1 loop
+                    chk(4 * a, x"00000000", "unused address 0x" & to_hstring(to_unsigned(4 * a, 8)));
+                end loop;
+
+                for a in RegEccUncorrectable_c / 4 + 1 to RegControl_c / 4 - 1 loop
+                    chk(4 * a, x"00000000", "unused address 0x" & to_hstring(to_unsigned(4 * a, 8)));
+                end loop;
+
+                for a in RegNextBlock_c / 4 + 1 to 63 loop
+                    chk(4 * a, x"00000000", "unused address 0x" & to_hstring(to_unsigned(4 * a, 8)));
+                end loop;
+
                 -- Reset values: the values of the generics in the fields in use, the read-only registers of the
                 -- same layout give them (MB-RP-01)
                 for i in 0 to 4 loop

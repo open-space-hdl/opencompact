@@ -16,13 +16,15 @@
  *                      codeword; the sizes mirror the constants of the RTL, and lint/memory_check.py checks them
  *                      against the GHDL netlist of every configuration of the regression. They do not depend on the
  *                      FPGA vendor; how a synthesis tool maps a memory (block RAM, distributed RAM) does.
+ *   logicFeatures      the structure features of the logic (datapath widths times their number, the optional blocks),
+ *                      the inputs of the linear LUT and flip-flop model.
  *   estimateResources  the memories with their bits, and the logic (LUT, flip-flops) and the clock frequency of a
  *                      target where the model has data for it (see the notes of the result).
  *
  * The throughput (cycles per sample, period of consecutive images) is computed by ocp_throughput.mjs.
  */
 
-import { latencies, strideParams } from './ocp_throughput.mjs';
+import { intVector, latencies, strideParams } from './ocp_throughput.mjs';
 
 // Codeword buffer of the entropy coders (ocp_pkg) and the depth of its FIFO
 const CW_WIDTH = 96;
@@ -70,7 +72,7 @@ function log2ceil(n) {
  * @returns {Record<string, any>}
  */
 function withDefaults(g) {
-  return { RuntimeConfig_g: false, RuntimeParams_g: false, Speculation_g: true, ...g };
+  return { RuntimeConfig_g: false, RuntimeParams_g: false, Speculation_g: true, OutWidth_g: 8, ...g };
 }
 
 /**
@@ -139,21 +141,79 @@ export function ramBits(generics) {
 }
 
 /**
+ * Structure features of the logic of ocp_core, the inputs of the linear LUT and flip-flop model (logic_features() of
+ * tools/ocp_estimate.py).
+ * @param {Record<string, any>} generics
+ * @returns {Record<string, number>}
+ */
+export function logicFeatures(generics) {
+  const g = withDefaults(generics);
+  const d = g.DynamicRange_g;
+  const om = g.WeightResolution_g;
+  const lat = latencies(g, g.Speculation_g === true);
+  const c1 = Math.max(lat.c, 1);
+  const fid = g.Fidelity_g;
+  const qw = Math.max(d, 16) + 2;
+  const stride = g.RuntimeConfig_g !== true && Boolean(strideParams(g, lat));
+  const coder = g.EntropyCoder_g;
+  const damping = intVector(g.Damping_g);
+  const repIsSample = fid === 'LOSSLESS' && (g.SampleRepResolution_g === 0 || !damping.some((v) => v !== 0));
+  return {
+    base: 1,
+    dyn_range: d,
+    products: c1 * (d + om + 12),
+    weights: c1 * (om + 3),
+    speculation: lat.spec ? c1 * (d + om + 12) : 0,
+    quantizer: fid !== 'LOSSLESS' ? qw * (d + 16) : 0,
+    relative: fid === 'RELATIVE' || fid === 'ABSOLUTE_RELATIVE' ? d + 16 : 0,
+    representatives: repIsSample ? 0 : d + om,
+    stride: stride ? d : 0,
+    periodic: g.PeriodicUpdate_g === true ? 1 : 0,
+    hybrid: coder === 'HYBRID' ? 1 : 0,
+    block: coder === 'BLOCK_ADAPTIVE' ? Math.floor((d * g.BlockSize_g) / 8) : 0,
+    counters: log2ceil(g.XSize_g) + log2ceil(g.YSize_g) + log2ceil(g.ZSize_g),
+    out_width: g.OutWidth_g,
+    runtime_config: g.RuntimeConfig_g === true ? 1 : 0,
+    runtime_params: g.RuntimeParams_g === true ? 1 : 0,
+  };
+}
+
+/**
+ * The linear LUT and flip-flop model of a target: the coefficient of every feature of logicFeatures() and the notes
+ * on its source and accuracy (LOGIC_MODEL of tools/ocp_estimate.py).
+ * @type {Record<string, { lut: Record<string, number>, ff: Record<string, number>, notes: string[] }>}
+ */
+const LOGIC_MODEL = {};
+
+const MEMORY_NOTE =
+  'Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration ' +
+  'of the regression. Stored bits include the SECDED check bits.';
+
+/**
+ * sum(coefficient x feature), rounded to a multiple of 10 (halves up), in integer arithmetic on the coefficients in
+ * tenths (linear_estimate() of tools/ocp_estimate.py).
+ * @param {Record<string, number>} coef @param {Record<string, number>} features
+ */
+function linearEstimate(coef, features) {
+  let tenths = 0;
+  for (const [name, value] of Object.entries(features)) tenths += Math.round(coef[name] * 10) * value;
+  return Math.floor((tenths + 50) / 100) * 10;
+}
+
+/**
  * Resource estimate of ocp_core (estimate_resources() of tools/ocp_estimate.py).
  * @param {Record<string, any>} generics
  * @returns {Resources}
  */
 export function estimateResources(generics) {
+  const model = LOGIC_MODEL.polarfire;
+  const features = logicFeatures(generics);
   return {
     ramBits: ramBits(generics),
     memories: memories(generics),
-    lut: null,
-    ff: null,
+    lut: model ? linearEstimate(model.lut, features) : null,
+    ff: model ? linearEstimate(model.ff, features) : null,
     fmaxMHz: null,
-    notes: [
-      'Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration ' +
-      'of the regression. Stored bits include the SECDED check bits.',
-      'LUT, flip-flops and clock frequency: no model yet.',
-    ],
+    notes: [MEMORY_NOTE, ...(model ? model.notes : ['LUT, flip-flops and clock frequency: no model yet.'])],
   };
 }

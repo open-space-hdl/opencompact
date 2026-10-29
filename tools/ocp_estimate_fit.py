@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import libero_summary  # noqa: E402
 import ocp_estimate  # noqa: E402
 import ocp_generics  # noqa: E402
+import ocp_wrapper  # noqa: E402
 
 TARGETS = {"polarfire": "PolarFire MPF100T (FCG484, STD speed grade, industrial range)"}
 
@@ -54,8 +55,11 @@ def collect(device, tool):
 
 
 def features(name):
+    """The features of a sweep point, with the output width of its synthesis top level (tools/synth_libero.py)."""
     cfg, extra = ocp_estimate.SWEEP[name]
-    return ocp_estimate.logic_features(dict(ocp_generics.generics(cfg), **extra))
+    g = dict(ocp_generics.generics(cfg), OutWidth_g=ocp_wrapper.OUT_WIDTH)
+    g.update(extra)
+    return ocp_estimate.logic_features(g)
 
 
 def least_squares(x, y):

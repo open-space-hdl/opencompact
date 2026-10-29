@@ -9443,6 +9443,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13775,
@@ -9572,6 +9590,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 170,
+    "weights": 65,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -9703,6 +9739,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 8,
+    "products": 140,
+    "weights": 55,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 7675,
@@ -9832,6 +9886,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 252,
+    "weights": 102,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 30,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -9984,6 +10056,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 14,
+    "products": 228,
+    "weights": 90,
+    "speculation": 0,
+    "quantizer": 540,
+    "relative": 30,
+    "representatives": 26,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 11703,
@@ -10120,6 +10210,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 301,
+    "weights": 126,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 31,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -10265,6 +10373,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 10,
+    "products": 124,
+    "weights": 48,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 80,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 10184,
@@ -10388,6 +10514,24 @@
     "RestrictedCodes_g": true,
     "RefInterval_g": 128
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 4,
+    "products": 110,
+    "weights": 45,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 4,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3624,
@@ -10510,6 +10654,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 308,
+    "weights": 133,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -10640,6 +10802,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 240,
+    "weights": 90,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 28,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -10785,6 +10965,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 32,
+    "products": 1134,
+    "weights": 396,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 20435,
@@ -10914,6 +11112,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 78,
+    "weights": 28,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -11045,6 +11261,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 102,
+    "weights": 39,
+    "speculation": 102,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3042,
@@ -11160,6 +11394,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 205,
+    "weights": 80,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 10,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -11291,6 +11543,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 144,
+    "weights": 44,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 10,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 5619,
@@ -11420,6 +11690,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 170,
+    "weights": 65,
+    "speculation": 0,
+    "quantizer": 504,
+    "relative": 0,
+    "representatives": 22,
+    "stride": 12,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -11572,6 +11860,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 70
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 128,
+    "weights": 44,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 12,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 18408,
@@ -11695,6 +12001,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 24,
+    "products": 240,
+    "weights": 75,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 96,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 9380,
@@ -11817,6 +12141,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": true,
     "RefInterval_g": 8
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 2,
+    "products": 90,
+    "weights": 35,
+    "speculation": 0,
+    "quantizer": 324,
+    "relative": 0,
+    "representatives": 6,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 4,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -11955,6 +12297,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 28,
+    "products": 324,
+    "weights": 102,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 6473,
@@ -12084,6 +12444,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 14,
+    "products": 74,
+    "weights": 28,
+    "speculation": 0,
+    "quantizer": 540,
+    "relative": 30,
+    "representatives": 25,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -12222,6 +12600,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 72,
+    "weights": 22,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 3,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3261,
@@ -12351,6 +12747,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 3,
+    "products": 170,
+    "weights": 110,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -12482,6 +12896,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 16
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 10,
+    "products": 30,
+    "weights": 11,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 10,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3240,
@@ -12598,6 +13030,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096,
     "Speculation_g": false
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 141,
+    "weights": 66,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -12729,6 +13179,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 141,
+    "weights": 66,
+    "speculation": 141,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 26137,
@@ -12851,6 +13319,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 141,
+    "weights": 66,
+    "speculation": 141,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 35,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -12982,6 +13468,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 32
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 282,
+    "weights": 132,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13344,
@@ -13104,6 +13608,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 78,
+    "weights": 36,
+    "speculation": 78,
+    "quantizer": 504,
+    "relative": 0,
+    "representatives": 27,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -13228,6 +13750,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 228,
+    "weights": 102,
+    "speculation": 0,
+    "quantizer": 504,
+    "relative": 0,
+    "representatives": 26,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -13358,6 +13898,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 228,
+    "weights": 102,
+    "speculation": 0,
+    "quantizer": 504,
+    "relative": 0,
+    "representatives": 26,
+    "stride": 12,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -13510,6 +14068,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 82,
+    "weights": 32,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 29,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 84559,
@@ -13661,6 +14237,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 180,
+    "weights": 75,
+    "speculation": 0,
+    "quantizer": 504,
+    "relative": 0,
+    "representatives": 24,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 4851,
@@ -13805,6 +14399,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 14,
+    "products": 111,
+    "weights": 42,
+    "speculation": 0,
+    "quantizer": 540,
+    "relative": 30,
+    "representatives": 25,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 4380,
@@ -13941,6 +14553,24 @@
     "BlockSize_g": 8,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 205,
+    "weights": 80,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 16,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -14086,6 +14716,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 10,
+    "products": 160,
+    "weights": 65,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 7,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3789,
@@ -14215,6 +14863,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 72,
+    "weights": 30,
+    "speculation": 72,
+    "quantizer": 504,
+    "relative": 0,
+    "representatives": 24,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 10,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -14353,6 +15019,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 32,
+    "weights": 11,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 96,
+    "counters": 10,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 4752,
@@ -14461,6 +15145,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 32,
+    "products": 252,
+    "weights": 88,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 64,
+    "counters": 7,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -14584,6 +15286,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 20,
+    "products": 96,
+    "weights": 38,
+    "speculation": 0,
+    "quantizer": 792,
+    "relative": 36,
+    "representatives": 36,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 7,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -14736,6 +15456,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 22,
+    "products": 287,
+    "weights": 70,
+    "speculation": 0,
+    "quantizer": 912,
+    "relative": 38,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 10279,
@@ -14873,6 +15611,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 10,
+    "products": 108,
+    "weights": 51,
+    "speculation": 0,
+    "quantizer": 468,
+    "relative": 26,
+    "representatives": 24,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3368,
@@ -14996,6 +15752,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 1
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 30,
+    "products": 350,
+    "weights": 77,
+    "speculation": 0,
+    "quantizer": 1472,
+    "relative": 0,
+    "representatives": 38,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 120,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 9096,
@@ -15118,6 +15892,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 2,
+    "products": 130,
+    "weights": 75,
+    "speculation": 0,
+    "quantizer": 324,
+    "relative": 18,
+    "representatives": 14,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -15256,6 +16048,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 5,
+    "products": 204,
+    "weights": 120,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 6,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3735,
@@ -15393,6 +16203,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 16
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 8,
+    "products": 555,
+    "weights": 300,
+    "speculation": 0,
+    "quantizer": 432,
+    "relative": 0,
+    "representatives": 25,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 16,
+    "counters": 5,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3736,
@@ -15508,6 +16336,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 30,
+    "products": 848,
+    "weights": 224,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 4,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -15639,6 +16485,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 8,
+    "products": 702,
+    "weights": 396,
+    "speculation": 0,
+    "quantizer": 432,
+    "relative": 24,
+    "representatives": 27,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 34312,
@@ -15768,6 +16632,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 630,
+    "weights": 280,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 7,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -15899,6 +16781,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 100
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 22,
+    "products": 416,
+    "weights": 168,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 176,
+    "counters": 6,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3826,
@@ -16028,6 +16928,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 3,
+    "products": 125,
+    "weights": 65,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 10,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -16166,6 +17084,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 16
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 18,
+    "products": 560,
+    "weights": 182,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 36,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 9041,
@@ -16288,6 +17224,24 @@
     "BlockSize_g": 64,
     "RestrictedCodes_g": false,
     "RefInterval_g": 2
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 4,
+    "products": 297,
+    "weights": 154,
+    "speculation": 0,
+    "quantizer": 360,
+    "relative": 20,
+    "representatives": 15,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -16419,6 +17373,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 4,
+    "products": 69,
+    "weights": 30,
+    "speculation": 0,
+    "quantizer": 360,
+    "relative": 20,
+    "representatives": 11,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 1,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3347,
@@ -16548,6 +17520,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 2,
+    "products": 377,
+    "weights": 234,
+    "speculation": 0,
+    "quantizer": 324,
+    "relative": 18,
+    "representatives": 17,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 6,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -16679,6 +17669,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 14,
+    "products": 546,
+    "weights": 224,
+    "speculation": 0,
+    "quantizer": 540,
+    "relative": 30,
+    "representatives": 27,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 6943,
@@ -16809,6 +17817,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 20,
+    "products": 168,
+    "weights": 52,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3226,
@@ -16931,6 +17957,24 @@
     "BlockSize_g": 64,
     "RestrictedCodes_g": false,
     "RefInterval_g": 100
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 20,
+    "products": 600,
+    "weights": 165,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 28,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 160,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -17062,6 +18106,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 2
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 414,
+    "weights": 189,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 34,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 128,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 7336,
@@ -17192,6 +18254,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 5
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 22,
+    "products": 748,
+    "weights": 221,
+    "speculation": 0,
+    "quantizer": 912,
+    "relative": 38,
+    "representatives": 32,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 22,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 6020,
@@ -17314,6 +18394,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 4,
+    "products": 273,
+    "weights": 104,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 9,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 5,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -17444,6 +18542,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 5,
+    "products": 104,
+    "weights": 48,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 14,
+    "stride": 5,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 10,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -17596,6 +18712,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 100
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 138,
+    "weights": 63,
+    "speculation": 138,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 64,
+    "counters": 6,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 2608,
@@ -17704,6 +18838,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 18,
+    "products": 205,
+    "weights": 70,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 6,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -17828,6 +18980,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 222,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -17960,6 +19130,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 14,
+    "products": 240,
+    "weights": 102,
+    "speculation": 0,
+    "quantizer": 540,
+    "relative": 0,
+    "representatives": 28,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 6843,
@@ -18091,6 +19279,24 @@
     "RefInterval_g": 8,
     "RuntimeConfig_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 200,
+    "weights": 75,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 28,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 7694,
@@ -18214,6 +19420,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 287,
+    "weights": 112,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -18353,6 +19577,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 10,
+    "products": 66,
+    "weights": 28,
+    "speculation": 66,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 9,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 4514,
@@ -18477,6 +19719,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 287,
+    "weights": 112,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
    },
    "estimate": {
     "ramBits": {
@@ -18617,6 +19877,24 @@
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 14,
+    "products": 240,
+    "weights": 102,
+    "speculation": 0,
+    "quantizer": 540,
+    "relative": 0,
+    "representatives": 28,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
+   },
    "estimate": {
     "ramBits": {
      "data": 7565,
@@ -18756,6 +20034,24 @@
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 200,
+    "weights": 75,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 28,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
+   },
    "estimate": {
     "ramBits": {
      "data": 7694,
@@ -18880,6 +20176,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 10,
+    "products": 66,
+    "weights": 28,
+    "speculation": 66,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
    },
    "estimate": {
     "ramBits": {
@@ -19006,6 +20320,24 @@
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 200,
+    "weights": 75,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 28,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 16,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
+   },
    "estimate": {
     "ramBits": {
      "data": 7694,
@@ -19130,6 +20462,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 287,
+    "weights": 112,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 11,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
    },
    "estimate": {
     "ramBits": {
@@ -19269,6 +20619,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 10,
+    "products": 66,
+    "weights": 28,
+    "speculation": 66,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 7503,
@@ -19391,6 +20759,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -19521,6 +20907,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -19659,6 +21063,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 15087,
@@ -19789,6 +21211,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13248,
@@ -19911,6 +21351,24 @@
     "BlockSize_g": 32,
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 64,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -20035,6 +21493,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 128,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13248,
@@ -20158,6 +21634,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 16,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13248,
@@ -20280,6 +21774,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -20411,6 +21923,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 12,
+    "products": 222,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 11403,
@@ -20540,6 +22070,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 24,
+    "products": 294,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -20671,6 +22219,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 32,
+    "products": 342,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 23775,
@@ -20800,6 +22366,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 8,
+    "products": 198,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -20931,6 +22515,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13775,
@@ -21061,6 +22663,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 19,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 145887,
@@ -21190,6 +22810,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -21322,6 +22960,24 @@
     "RefInterval_g": 4096,
     "Speculation_g": false
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 123,
+    "weights": 48,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 26233,
@@ -21451,6 +23107,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 228,
+    "weights": 78,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -21582,6 +23256,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 282,
+    "weights": 132,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 14351,
@@ -21711,6 +23403,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 192,
+    "weights": 42,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -21843,6 +23553,24 @@
     "RefInterval_g": 4096,
     "OutWidth_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 64,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13775,
@@ -21974,6 +23702,24 @@
     "RefInterval_g": 4096,
     "OutWidth_g": 8
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13775,
@@ -22103,6 +23849,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 123,
+    "weights": 48,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -22234,6 +23998,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 164,
+    "weights": 64,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13263,
@@ -22363,6 +24145,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 738,
+    "weights": 288,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -22494,6 +24294,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 123,
+    "weights": 48,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13007,
@@ -22623,6 +24441,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 410,
+    "weights": 160,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -22755,6 +24591,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 13775,
@@ -22886,6 +24740,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
    },
    "estimate": {
     "ramBits": {
@@ -23024,6 +24896,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 8,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 3739,
@@ -23154,6 +25044,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 123,
+    "weights": 48,
+    "speculation": 123,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 26137,
@@ -23276,6 +25184,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 24,
+    "products": 147,
+    "weights": 48,
+    "speculation": 147,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -23400,6 +25326,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 41,
+    "weights": 16,
+    "speculation": 41,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 11545,
@@ -23522,6 +25466,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -23653,6 +25615,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 26944,
@@ -23775,6 +25755,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -23906,6 +25904,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 10464,
@@ -24035,6 +26051,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 24,
+    "products": 294,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 1040,
+    "relative": 0,
+    "representatives": 37,
+    "stride": 0,
+    "periodic": 1,
+    "hybrid": 0,
+    "block": 48,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -24166,6 +26200,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 26944,
@@ -24288,6 +26340,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 0,
+    "relative": 0,
+    "representatives": 0,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -24412,6 +26482,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 32,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 26944,
@@ -24535,6 +26623,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 64,
     "RuntimeConfig_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -24661,6 +26767,24 @@
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 32,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
+   },
    "estimate": {
     "ramBits": {
      "data": 26944,
@@ -24783,6 +26907,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 64
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -24913,6 +27055,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -25065,6 +27225,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 13,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 90079,
@@ -25216,6 +27394,24 @@
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 10,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 16457,
@@ -25366,6 +27562,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {
@@ -25519,6 +27733,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true
    },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 0
+   },
    "estimate": {
     "ramBits": {
      "data": 12551,
@@ -25650,6 +27882,24 @@
     "RefInterval_g": 4096,
     "RuntimeConfig_g": true,
     "RuntimeParams_g": true
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 0,
+    "periodic": 0,
+    "hybrid": 1,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 1,
+    "runtime_params": 1
    },
    "estimate": {
     "ramBits": {
@@ -25787,6 +28037,24 @@
     "BlockSize_g": 16,
     "RestrictedCodes_g": false,
     "RefInterval_g": 4096
+   },
+   "features": {
+    "base": 1,
+    "dyn_range": 16,
+    "products": 246,
+    "weights": 96,
+    "speculation": 0,
+    "quantizer": 576,
+    "relative": 0,
+    "representatives": 29,
+    "stride": 16,
+    "periodic": 0,
+    "hybrid": 0,
+    "block": 0,
+    "counters": 12,
+    "out_width": 8,
+    "runtime_config": 0,
+    "runtime_params": 0
    },
    "estimate": {
     "ramBits": {

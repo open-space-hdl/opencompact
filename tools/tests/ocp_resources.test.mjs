@@ -6,10 +6,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { eccCodewordWidth, estimateResources, memories, ramBits } from '../estimate/ocp_resources.mjs';
+import { eccCodewordWidth, estimateResources, logicFeatures, memories, ramBits } from '../estimate/ocp_resources.mjs';
 
 const golden = JSON.parse(readFileSync(new URL('./golden_ocp_models.json', import.meta.url), 'utf-8'));
-/** @type {{ name: string, generics: Record<string, any>, estimate: any }[]} */
+/** @type {{ name: string, generics: Record<string, any>, features: Record<string, number>, estimate: any }[]} */
 const cases = golden.resources;
 
 test('the golden data covers the configurations of the regression and of the sweep', () => {
@@ -20,6 +20,12 @@ test('the golden data covers the configurations of the regression and of the swe
 test('the estimate equals the Python function for every case', () => {
   for (const c of cases) {
     assert.deepEqual(estimateResources(c.generics), c.estimate, c.name);
+  }
+});
+
+test('the features of the logic model equal the Python function for every case', () => {
+  for (const c of cases) {
+    assert.deepEqual(logicFeatures(c.generics), c.features, c.name);
   }
 });
 

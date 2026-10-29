@@ -43,13 +43,14 @@ def log2ceil(n):
     return max(math.ceil(math.log2(n)), 0) if n > 1 else 0
 
 
+# Defaults of the generics of ocp_core that a configuration of tools/ocp_configs.py does not set
+DEFAULTS = {"RuntimeConfig_g": False, "RuntimeParams_g": False, "Speculation_g": True, "OutWidth_g": 8}
+
+
 def memories(g):
     """The memories of ocp_core for the generics g: a list of dicts with name, channel (ErrInj_Channel), depth,
     width (data bits per word) and codeword (stored bits per word)."""
-    g = dict(g)
-    g.setdefault("Speculation_g", True)
-    g.setdefault("RuntimeConfig_g", False)
-    g.setdefault("RuntimeParams_g", False)
+    g = dict(DEFAULTS, **g)
     nx, ny, nz = g["XSize_g"], g["YSize_g"], g["ZSize_g"]
     d = g["DynamicRange_g"]
     bsq = g["EncodingOrder_g"] == "BSQ"
@@ -96,11 +97,7 @@ def logic_features(g):
     """Structure features of the logic of ocp_core for the generics g, the inputs of the linear LUT and flip-flop
     model: name -> value. Every feature is a quantity the generics determine (a datapath width times the number of
     its instances, or 1 for a block that exists)."""
-    g = dict(g)
-    g.setdefault("Speculation_g", True)
-    g.setdefault("RuntimeConfig_g", False)
-    g.setdefault("RuntimeParams_g", False)
-    g.setdefault("OutWidth_g", 32)
+    g = dict(DEFAULTS, **g)
     d, om = g["DynamicRange_g"], g["WeightResolution_g"]
     lat = ocp_throughput.latencies(g, g["Speculation_g"])
     c1 = max(lat["c"], 1)
@@ -128,22 +125,40 @@ def logic_features(g):
     }
 
 
-def estimate_resources(g):
+# The linear LUT and flip-flop model of a target: the coefficient of every feature of logic_features() (one decimal,
+# fitted by tools/ocp_estimate_fit.py to the calibration file tools/tests/calibration_<target>.json) and the notes on
+# its source and accuracy. The same numbers are in tools/estimate/ocp_resources.mjs.
+LOGIC_MODEL = {}
+
+MEMORY_NOTE = ("Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every "
+               "configuration of the regression. Stored bits include the SECDED check bits.")
+
+
+def linear_estimate(coef, features):
+    """sum(coefficient x feature), rounded to a multiple of 10 (halves up), in integer arithmetic on the coefficients
+    in tenths so that the JavaScript port gives the same number."""
+    tenths = sum(round(coef[name] * 10) * value for name, value in features.items())
+    return (tenths + 50) // 100 * 10
+
+
+def estimate_resources(g, target="polarfire"):
     """Resource estimate of ocp_core for the generics g: the bits and the list of the memories, and the logic (LUT,
     flip-flops) and the clock frequency of a target where the model has data for it (None otherwise), with notes on
     the sources and the validity. tools/estimate/ocp_resources.mjs estimateResources() gives the same result."""
     data, stored = ram_bits(g)
+    model = LOGIC_MODEL.get(target)
+    lut = ff = None
+    if model:
+        features = logic_features(g)
+        lut = linear_estimate(model["lut"], features)
+        ff = linear_estimate(model["ff"], features)
     return {
         "ramBits": {"data": data, "stored": stored},
         "memories": memories(g),
-        "lut": None,
-        "ff": None,
+        "lut": lut,
+        "ff": ff,
         "fmaxMHz": None,
-        "notes": [
-            "Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every "
-            "configuration of the regression. Stored bits include the SECDED check bits.",
-            "LUT, flip-flops and clock frequency: no model yet.",
-        ],
+        "notes": [MEMORY_NOTE] + (model["notes"] if model else ["LUT, flip-flops and clock frequency: no model yet."]),
     }
 
 

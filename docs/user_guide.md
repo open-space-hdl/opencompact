@@ -560,8 +560,8 @@ memories grow with the image (NX NZ D bits for the sample representatives in BI 
 of the stride order) and with C (Omega + 3) bits per band for the weights. The image framing (`UseInLast_g`)
 adds 93 LUTs and 49 flip-flops and no memory; it puts one more multiplexer level between the codeword buffer and the
 bit packer, which in c01 is the critical path (place and route at 125 MHz instead of 133 MHz).
-`python tools/synth_libero.py --config <configuration> [--impl] [--in-last]` repeats a run;
-`python tools/libero_summary.py` lists the results.
+`python tools/synth_libero.py --config <configuration> [--impl] [--in-last]` repeats a run (Libero from `--libero`,
+the environment variable `OCP_LIBERO` or the `PATH`); `python tools/libero_summary.py` lists the results.
 
 #### Estimate of a configuration
 

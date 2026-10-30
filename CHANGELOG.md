@@ -27,6 +27,15 @@ interfaces is a patch release.
   a configuration. Roadmap: the predictor at the widest generic corner (c11) replaces the products of wide operands,
   and the runtime parameters are no longer listed as in progress.
 
+## [Unreleased]
+
+### Changed
+
+- The scripts take the tool paths from the environment or the `PATH` only: `run.py --questa` takes QuestaSim from
+  `VUNIT_MODELSIM_PATH` or from `vsim` on the `PATH`, `tools/synth_libero.py` takes Libero from `--libero`,
+  `OCP_LIBERO` or the `PATH`, and `lint/vivado_ooc.py` takes its output directory from `--out` or `OCP_OOC_OUT`. Each
+  stops with a message when the tool or the directory is not given.
+
 ## [0.3.0] - 2026-10-27
 
 ### Added

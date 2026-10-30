@@ -77,7 +77,7 @@ opencompact/
 ## Running the tests
 
 Prerequisites: Python 3, [GHDL](https://github.com/ghdl/ghdl) on the `PATH` and the Python packages of
-`requirements.txt`.
+`requirements.txt`; for QuestaSim, `vsim` on the `PATH` or `VUNIT_MODELSIM_PATH` set to its directory.
 
 ```shell
 git submodule update --init
@@ -118,7 +118,7 @@ Checks with the AMD Vivado tools (Vivado on the `PATH` or `VIVADO_PATH` set to t
 
 ```shell
 python lint/xsim_smoke.py                   # every synthesis top level in the AMD simulator for 1 us
-python lint/vivado_ooc.py                   # out-of-context implementation at 200 MHz (see below)
+python lint/vivado_ooc.py --out <dir>       # out-of-context implementation at 200 MHz (see below)
 ```
 
 `lint/vivado_ooc.py` implements four configurations out of context on the Versal AI Core device
@@ -134,14 +134,15 @@ Each run synthesizes out of context, places and routes with a clock of the targe
 enters through a global clock buffer, and writes the timing summary, the utilization, the 20 worst setup paths and
 the logic level distribution to `<out>/results/` with `summary.md` as the overview. Only register-to-register paths
 are timed: the ports have no input or output delays. The scoped constraints of the Open Logic modules that
-OpenCompact uses are loaded, and the run stops before `opt_design` when a constraint did not apply. Vivado projects
-need short paths on Windows, so the default output directory is `C:/osh/ocp_ooc`; Vivado writes its temporary
-files to `<out>/tmp` (`--temp` selects another directory):
+OpenCompact uses are loaded, and the run stops before `opt_design` when a constraint did not apply. The output
+directory comes from `--out` or the environment variable `OCP_OOC_OUT`; Vivado projects need short paths on Windows,
+so give a short one such as `C:/ooc`. Vivado writes its temporary files to `<out>/tmp` (`--temp` selects another
+directory):
 
 ```shell
-python lint/vivado_ooc.py --out C:/osh/ocp_ooc --mhz 200   # all four configurations
-python lint/vivado_ooc.py c11                               # one configuration
-python lint/vivado_ooc.py --elaborate                       # RTL elaboration only, no synthesis or implementation
+python lint/vivado_ooc.py --out C:/ooc --mhz 200     # all four configurations
+python lint/vivado_ooc.py --out C:/ooc c11           # one configuration
+python lint/vivado_ooc.py --out C:/ooc --elaborate   # RTL elaboration only, no synthesis or implementation
 ```
 
 ## Licence

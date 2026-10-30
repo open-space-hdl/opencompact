@@ -103,10 +103,6 @@ def main():
     if not args.libero:
         parser.error("Libero not found: give --libero, set OCP_LIBERO to the Libero executable or put libero on the "
                      "PATH")
-    out = ROOT / "libero_out" / args.device / (args.config + ("_last" if args.in_last else ""))
-    if out.exists():
-        shutil.rmtree(out)
-    out.mkdir(parents=True)
     # A configuration of the regression or of the synthesis sweep of the resource model (tools/ocp_estimate.py)
     if args.config in ocp_configs.CONFIGS:
         cfg, extra = ocp_configs.CONFIGS[args.config], {}
@@ -114,6 +110,10 @@ def main():
         cfg, extra = ocp_estimate.SWEEP[args.config]
     else:
         parser.error(f"unknown configuration {args.config}")
+    out = ROOT / "libero_out" / args.device / (args.config + ("_last" if args.in_last else ""))
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
     top = ocp_wrapper.wrapper(cfg, out_width=extra.get("OutWidth_g", ocp_wrapper.OUT_WIDTH), use_in_last=args.in_last,
                               extra=extra)
     (out / "ocp_synth_top.vhd").write_text(top, encoding="utf-8")

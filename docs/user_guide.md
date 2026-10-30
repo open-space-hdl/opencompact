@@ -529,36 +529,63 @@ and the longest low-entropy output codeword for every index, more than any image
 
 ### 8.2 Resources
 
-Resources and clock frequency with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a PolarFire MPF100T (FCG484,
-STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the place and route results
-for a 100 MHz constraint; the cycles per sample are those of the throughput model (section 8.1; for c29 and c30 the
-small test images make the per-image skew of the stride order visible).
+Resources and clock frequency of the RTL of version 0.3.0 with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a
+PolarFire MPF100T (FCG484, STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the
+place and route results for a 100 MHz constraint; the cycles per sample are those of the throughput model (section
+8.1; for c29 and c30 the small test images make the per-image skew of the stride order visible).
 
 | Configuration | Cycles per sample | LUT | Flip-flops | LSRAM | uSRAM | Math blocks | Clock frequency |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| c01: 32 x 12 x 16, D = 16, BIP, lossless, P = 3 full, sample-adaptive | 1.00 | 11521 | 5422 | 1 | 34 | 13 | 133 MHz |
-| c03: 20 x 10 x 8, D = 8, BSQ, lossless, P = 2 full, narrow local sums, sample-adaptive | 7.93 | 12058 | 4231 | 1 | 17 | 7 | 120 MHz |
-| c04: 24 x 12 x 12, D = 16, BIP, absolute error limit, P = 3 full, hybrid (stride order) | 3.14 | 20908 | 13832 | 3 | 41 | 36 | 116 MHz |
-| c06: 24 x 12 x 10, D = 16, BIP, absolute and relative error limits, P = 4 full, block-adaptive (stride order) | 3.78 | 19433 | 16994 | 3 | 40 | 23 | 106 MHz |
-| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, sample-adaptive | 1.00 | 39435 | 15178 | 12 | 34 | 74 | 81 MHz |
-| c20: 12 x 10 x 6, D = 28, BIP, lossless, P = 3 full, hybrid | 1.33 | 21949 | 7337 | 1 | 41 | 31 | 125 MHz |
-| c25: 32 x 12 x 6, D = 16, BSQ, lossless, P = 3 reduced, narrow local sums, sample-adaptive (speculative weight loop) | 1.00 | 13310 | 4123 | 3 | 17 | 49 | 106 MHz |
-| c26: 40 x 8 x 6, D = 16, BIL, absolute error limit, P = 3 reduced, narrow column-oriented local sums, hybrid (speculative weight loop) | 1.00 | 22928 | 11584 | 1 | 34 | 68 | 106 MHz |
-| c27: 16 x 8 x 24, D = 16, BIP, lossless, P = 3 full, block-adaptive | 1.00 | 19945 | 7396 | 1 | 33 | 25 | 107 MHz |
-| c29: 12 x 6 x 40, D = 12, BIP, absolute error limit, P = 3 full, sample-adaptive (stride order) | 1.49 | 16248 | 11776 | 5 | 38 | 11 | 117 MHz |
-| c30: 10 x 5 x 48, D = 16, BIP, absolute and relative error limits, P = 2 reduced, hybrid (stride order) | 1.67 | 18545 | 10727 | 7 | 33 | 25 | 119 MHz |
+| c01: 32 x 12 x 16, D = 16, BIP, lossless, P = 3 full, sample-adaptive | 1.00 | 11517 | 5460 | 1 | 34 | 13 | 131 MHz |
+| c03: 20 x 10 x 8, D = 8, BSQ, lossless, P = 2 full, narrow local sums, sample-adaptive | 7.93 | 12088 | 4230 | 1 | 17 | 7 | 118 MHz |
+| c04: 24 x 12 x 12, D = 16, BIP, absolute error limit, P = 3 full, hybrid (stride order) | 3.14 | 21089 | 13797 | 3 | 41 | 36 | 118 MHz |
+| c06: 24 x 12 x 10, D = 16, BIP, absolute and relative error limits, P = 4 full, block-adaptive (stride order) | 3.78 | 19397 | 16991 | 3 | 40 | 23 | 112 MHz |
+| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, R = 64, sample-adaptive | 1.00 | 81160 | 15167 | 12 | 34 | 74 | 75 MHz |
+| c20: 12 x 10 x 6, D = 28, BIP, lossless, P = 3 full, hybrid | 1.33 | 22222 | 7331 | 1 | 41 | 31 | 124 MHz |
+| c25: 32 x 12 x 6, D = 16, BSQ, lossless, P = 3 reduced, narrow local sums, sample-adaptive (speculative weight loop) | 1.00 | 13466 | 4107 | 3 | 17 | 49 | 107 MHz |
+| c26: 40 x 8 x 6, D = 16, BIL, absolute error limit, P = 3 reduced, narrow column-oriented local sums, hybrid (speculative weight loop) | 1.00 | 23161 | 11585 | 1 | 34 | 68 | 104 MHz |
+| c27: 16 x 8 x 24, D = 16, BIP, lossless, P = 3 full, block-adaptive | 1.00 | 19783 | 7367 | 1 | 33 | 25 | 103 MHz |
+| c29: 12 x 6 x 40, D = 12, BIP, absolute error limit, P = 3 full, sample-adaptive (stride order) | 1.49 | 16252 | 11779 | 5 | 38 | 11 | 124 MHz |
+| c30: 10 x 5 x 48, D = 16, BIP, absolute and relative error limits, P = 2 reduced, hybrid (stride order) | 1.67 | 18713 | 10721 | 7 | 33 | 25 | 119 MHz |
 
-All configurations reach 100 MHz except c11, which combines D = 32 with Omega = 19: the product of a 35-bit local
-difference and a 22-bit weight needs a cascade of four math blocks within one clock cycle. A second product stage for
-such widths is an open item of the [roadmap](roadmap.md).
+All configurations reach 100 MHz except c11, which combines the widest values of D, Omega, P and R and reaches
+75 MHz; its predictor takes 72549 of its 81160 LUTs. Area and clock frequency of the predictor for this corner are an
+open item of the [roadmap](roadmap.md).
 
-The logic grows with D, with the number of local differences C and, for the speculative weight loop, four times with
-C; the memories grow with the image (NX NZ D bits for the sample representatives in BI order, the input and output
-buffers of the stride order) and with C (Omega + 3) bits per band for the weights. The image framing (`UseInLast_g`)
-adds 93 LUTs and 49 flip-flops and no memory; it puts one more multiplexer level between the codeword buffer and the
-bit packer, which in c01 is the critical path (place and route at 125 MHz instead of 133 MHz).
+The logic grows with the number of local differences C, with the widths D, Omega and R, with near-lossless
+compression, with the hybrid and the block-adaptive coder and with the runtime parameters. The math blocks grow with
+C: a product of a local difference (D + 3 bits) and a weight (Omega + 3 bits) takes one or two blocks, four when both
+operands are wider than 18 bits, and the speculative weight loop has four products per local difference. The
+memories grow with the image (NX NZ D bits for the sample representatives in BI order, the input and output buffers
+of the stride order) and with C (Omega + 3) bits per band for the weights. The image framing (`UseInLast_g`)
+adds no memory; it puts one more multiplexer level between the codeword buffer and the bit packer, which in c01 is
+the critical path. Measured on 2026-10-12 with the RTL before version 0.1.0, it added 93 LUTs and 49 flip-flops to
+c01 and lowered its place and route result from 133 MHz to 125 MHz.
 `python tools/synth_libero.py --config <configuration> [--impl] [--in-last]` repeats a run (Libero from `--libero`,
 the environment variable `OCP_LIBERO` or the `PATH`); `python tools/libero_summary.py` lists the results.
+
+#### Estimate of a configuration
+
+The [Open Space Composer](https://openspacehdl.org/composer/) shows the estimate of the memories, the logic, the
+clock frequency and the throughput of any configuration of OpenCompact. It uses the JavaScript modules of
+`tools/estimate/` (MIT licence); `tools/ocp_estimate.py` and `tools/ocp_throughput.py` are the same models in Python,
+and the CI checks that both give the same results for every configuration of the regression.
+
+| Quantity | Model | Accuracy |
+| --- | --- | --- |
+| Memories (`memories`, `ramBits`) | Depth, data width and stored SECDED codeword width of every memory, from the generics | Exact: equal to the memories of the GHDL netlist of 126 configurations (`lint/memory_check.py`) |
+| LUT, flip-flops | Linear model over the structure of the configuration (datapath widths times their number, the optional blocks), fitted to 56 of 61 Libero synthesis runs | LUT: RMS 7.5 %, max 30.6 % over all runs; for the configurations of the table RMS 11.9 %, max 30.6 % (c11), for the ten other configurations of the table RMS 7.8 %, max 13.5 %. Flip-flops: RMS 3.7 %, max 14.4 % |
+| Clock frequency | Linear model of the clock period, fitted to 11 of the 16 place and route runs | RMS 4.4 %, max 12.8 % |
+| Throughput (`imagePeriod`, `headerBytes`, `maxImageBytes`) | Throughput model of section 8.1 | Exact: the testbench of the predictor checks it cycle by cycle |
+
+LUT, flip-flops and clock frequency hold for the target and tool of the table; the runs cover the configurations of
+the table and variations of one parameter at a time around three base configurations, and five configurations of
+the table (c04, c06, c20, c26, c30) are kept out of the fits as a check. The memory figures do not depend on the
+vendor; how a tool maps a memory (block RAM, distributed RAM or registers) does.
+`tools/tests/calibration_polarfire.json` holds the synthesis results, `python tools/ocp_estimate_fit.py` fits the
+models to them and writes
+`tools/estimate/ocp_models.mjs`, and `python tools/ocp_estimate.py <configuration>` prints the memories of a
+configuration of `tools/ocp_configs.py`.
 
 ## 9. Conformance statement
 

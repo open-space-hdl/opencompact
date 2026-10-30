@@ -66,6 +66,8 @@ jobs:
         run: python tools/ocp_mib_words.py --check
       - name: Decoder of the reference model, memories of the resource estimate
         run: python -m pytest -q tools/tests
+      - name: Resource models are the fit of the calibration data
+        run: python tools/ocp_estimate_fit.py --check
       - name: Golden data of the JavaScript models up to date
         run: python tools/ocp_estimate_golden.py --check
       - name: Set up Node.js

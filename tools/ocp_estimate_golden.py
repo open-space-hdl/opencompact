@@ -146,7 +146,7 @@ def golden():
     # The resource estimate (tools/ocp_estimate.py) of every case of its checks: the configurations of the regression,
     # the runtime configurations, variants and the synthesis sweep, with the features of the logic model
     resources = [{"name": name, "generics": composer_generics(g), "features": ocp_estimate.logic_features(g),
-                  "estimate": ocp_estimate.estimate_resources(g)}
+                  "clockFeatures": ocp_estimate.clock_features(g), "estimate": ocp_estimate.estimate_resources(g)}
                  for name, g in sorted(ocp_estimate.check_cases().items())]
     return {"source": "opencompact", "constants": constants, "configs": configs, "runtime": runtime,
             "runtimeParams": params, "latencyM": probes, "resources": resources}

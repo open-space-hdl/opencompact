@@ -16,8 +16,10 @@ The throughput (cycles per sample, image period) is computed by tools/ocp_throug
 Usage: python tools/ocp_estimate.py [configuration ...]
 """
 
+import json
 import math
 import sys
+from pathlib import Path
 
 import ocp_configs
 import ocp_generics
@@ -93,6 +95,12 @@ def ram_bits(g):
     return sum(m["depth"] * m["width"] for m in mems), sum(m["depth"] * m["codeword"] for m in mems)
 
 
+def quad_products(g):
+    """Every product of a local difference (D + 3 bits) and a weight (Omega + 3 bits) has both operands wider than the
+    18 bits of a math block, so that it takes four of them."""
+    return g["DynamicRange_g"] + 3 > 18 and g["WeightResolution_g"] + 3 > 18
+
+
 def logic_features(g):
     """Structure features of the logic of ocp_core for the generics g, the inputs of the linear LUT and flip-flop
     model: name -> value. Every feature is a quantity the generics determine (a datapath width times the number of
@@ -110,7 +118,8 @@ def logic_features(g):
         "dyn_range": d,
         "products": c1 * (d + om + 12),
         "weights": c1 * (om + 3),
-        "speculation": c1 * (d + om + 12) if lat["spec"] else 0,
+        "cascade": c1 * (d + 3) * (om + 3) if quad_products(g) else 0,
+        "register": g["RegisterSize_g"] - 32,
         "quantizer": qw * (d + 16) if fid != "LOSSLESS" else 0,
         "relative": d + 16 if fid in ("RELATIVE", "ABSOLUTE_RELATIVE") else 0,
         "representatives": d + om if not ocp_throughput.rep_equals_sample(g) else 0,
@@ -125,10 +134,38 @@ def logic_features(g):
     }
 
 
-# The linear LUT and flip-flop model of a target: the coefficient of every feature of logic_features() (one decimal,
-# fitted by tools/ocp_estimate_fit.py to the calibration file tools/tests/calibration_<target>.json) and the notes on
-# its source and accuracy. The same numbers are in tools/estimate/ocp_resources.mjs.
-LOGIC_MODEL = {}
+def clock_features(g):
+    """Structure features of the critical path of ocp_core for the generics g, the inputs of the linear model of the
+    clock period: name -> value."""
+    g = dict(DEFAULTS, **g)
+    d, om = g["DynamicRange_g"], g["WeightResolution_g"]
+    c1 = max(ocp_throughput.latencies(g, g["Speculation_g"])["c"], 1)
+    return {
+        "base": 1,
+        "cascade": 1 if quad_products(g) else 0,
+        "block": 1 if g["EntropyCoder_g"] == "BLOCK_ADAPTIVE" else 0,
+        "near_lossless": 1 if g["Fidelity_g"] != "LOSSLESS" else 0,
+        "wide": c1 * max(d + om - 35, 0),
+    }
+
+
+# The models of every target, fitted by tools/ocp_estimate_fit.py to the calibration file
+# tools/tests/calibration_<target>.json: the coefficients of the LUT and flip-flop model for the features of
+# logic_features() (one decimal), those of the clock period in picoseconds for the features of clock_features()
+# (integers), and the notes on the source and the accuracy. The fit writes them to the JavaScript module
+# tools/estimate/ocp_models.mjs (export const MODELS = <JSON>;), which ocp_resources.mjs imports and this module reads.
+MODELS_FILE = Path(__file__).resolve().parent / "estimate" / "ocp_models.mjs"
+
+
+def _load_models():
+    if not MODELS_FILE.exists():
+        return {}
+    text = MODELS_FILE.read_text(encoding="utf-8")
+    start = text.index("export const MODELS = ") + len("export const MODELS = ")
+    return json.loads(text[start:text.rindex(";")])
+
+
+MODELS = _load_models()
 
 MEMORY_NOTE = ("Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every "
                "configuration of the regression. Stored bits include the SECDED check bits.")
@@ -141,23 +178,30 @@ def linear_estimate(coef, features):
     return (tenths + 50) // 100 * 10
 
 
+def clock_estimate(coef, features):
+    """The clock frequency in MHz (rounded down) for the period sum(coefficient x feature) in picoseconds."""
+    period = sum(coef[name] * value for name, value in features.items())
+    return 1000000 // period
+
+
 def estimate_resources(g, target="polarfire"):
     """Resource estimate of ocp_core for the generics g: the bits and the list of the memories, and the logic (LUT,
     flip-flops) and the clock frequency of a target where the model has data for it (None otherwise), with notes on
     the sources and the validity. tools/estimate/ocp_resources.mjs estimateResources() gives the same result."""
     data, stored = ram_bits(g)
-    model = LOGIC_MODEL.get(target)
-    lut = ff = None
+    model = MODELS.get(target)
+    lut = ff = fmax = None
     if model:
         features = logic_features(g)
         lut = linear_estimate(model["lut"], features)
         ff = linear_estimate(model["ff"], features)
+        fmax = clock_estimate(model["period_ps"], clock_features(g))
     return {
         "ramBits": {"data": data, "stored": stored},
         "memories": memories(g),
         "lut": lut,
         "ff": ff,
-        "fmaxMHz": None,
+        "fmaxMHz": fmax,
         "notes": [MEMORY_NOTE] + (model["notes"] if model else ["LUT, flip-flops and clock frequency: no model yet."]),
     }
 

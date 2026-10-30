@@ -18,12 +18,15 @@
  *                      FPGA vendor; how a synthesis tool maps a memory (block RAM, distributed RAM) does.
  *   logicFeatures      the structure features of the logic (datapath widths times their number, the optional blocks),
  *                      the inputs of the linear LUT and flip-flop model.
+ *   clockFeatures      the structure features of the critical path, the inputs of the model of the clock period.
  *   estimateResources  the memories with their bits, and the logic (LUT, flip-flops) and the clock frequency of a
- *                      target where the model has data for it (see the notes of the result).
+ *                      target of ocp_models.mjs (default PolarFire), with the source and the accuracy of the models
+ *                      in the notes of the result.
  *
  * The throughput (cycles per sample, period of consecutive images) is computed by ocp_throughput.mjs.
  */
 
+import { MODELS } from './ocp_models.mjs';
 import { intVector, latencies, strideParams } from './ocp_throughput.mjs';
 
 // Codeword buffer of the entropy coders (ocp_pkg) and the depth of its FIFO
@@ -146,6 +149,15 @@ export function ramBits(generics) {
  * @param {Record<string, any>} generics
  * @returns {Record<string, number>}
  */
+/**
+ * Every product of a local difference (D + 3 bits) and a weight (Omega + 3 bits) has both operands wider than the 18
+ * bits of a math block, so that it takes four of them.
+ * @param {Record<string, any>} g
+ */
+function quadProducts(g) {
+  return g.DynamicRange_g + 3 > 18 && g.WeightResolution_g + 3 > 18;
+}
+
 export function logicFeatures(generics) {
   const g = withDefaults(generics);
   const d = g.DynamicRange_g;
@@ -163,7 +175,8 @@ export function logicFeatures(generics) {
     dyn_range: d,
     products: c1 * (d + om + 12),
     weights: c1 * (om + 3),
-    speculation: lat.spec ? c1 * (d + om + 12) : 0,
+    cascade: quadProducts(g) ? c1 * (d + 3) * (om + 3) : 0,
+    register: g.RegisterSize_g - 32,
     quantizer: fid !== 'LOSSLESS' ? qw * (d + 16) : 0,
     relative: fid === 'RELATIVE' || fid === 'ABSOLUTE_RELATIVE' ? d + 16 : 0,
     representatives: repIsSample ? 0 : d + om,
@@ -179,11 +192,22 @@ export function logicFeatures(generics) {
 }
 
 /**
- * The linear LUT and flip-flop model of a target: the coefficient of every feature of logicFeatures() and the notes
- * on its source and accuracy (LOGIC_MODEL of tools/ocp_estimate.py).
- * @type {Record<string, { lut: Record<string, number>, ff: Record<string, number>, notes: string[] }>}
+ * Structure features of the critical path of ocp_core, the inputs of the linear model of the clock period
+ * (clock_features() of tools/ocp_estimate.py).
+ * @param {Record<string, any>} generics
+ * @returns {Record<string, number>}
  */
-const LOGIC_MODEL = {};
+export function clockFeatures(generics) {
+  const g = withDefaults(generics);
+  const c1 = Math.max(latencies(g, g.Speculation_g === true).c, 1);
+  return {
+    base: 1,
+    cascade: quadProducts(g) ? 1 : 0,
+    block: g.EntropyCoder_g === 'BLOCK_ADAPTIVE' ? 1 : 0,
+    near_lossless: g.Fidelity_g !== 'LOSSLESS' ? 1 : 0,
+    wide: c1 * Math.max(g.DynamicRange_g + g.WeightResolution_g - 35, 0),
+  };
+}
 
 const MEMORY_NOTE =
   'Memories: exact for the generics; the sizes of the RTL, checked against the GHDL netlist of every configuration ' +
@@ -201,19 +225,31 @@ function linearEstimate(coef, features) {
 }
 
 /**
- * Resource estimate of ocp_core (estimate_resources() of tools/ocp_estimate.py).
+ * The clock frequency in MHz (rounded down) for the period sum(coefficient x feature) in picoseconds
+ * (clock_estimate() of tools/ocp_estimate.py).
+ * @param {Record<string, number>} coef @param {Record<string, number>} features
+ */
+function clockEstimate(coef, features) {
+  let period = 0;
+  for (const [name, value] of Object.entries(features)) period += coef[name] * value;
+  return Math.floor(1000000 / period);
+}
+
+/**
+ * Resource estimate of ocp_core (estimate_resources() of tools/ocp_estimate.py) for a target of ocp_models.mjs.
  * @param {Record<string, any>} generics
+ * @param {string} [target]
  * @returns {Resources}
  */
-export function estimateResources(generics) {
-  const model = LOGIC_MODEL.polarfire;
+export function estimateResources(generics, target = 'polarfire') {
+  const model = MODELS[target];
   const features = logicFeatures(generics);
   return {
     ramBits: ramBits(generics),
     memories: memories(generics),
     lut: model ? linearEstimate(model.lut, features) : null,
     ff: model ? linearEstimate(model.ff, features) : null,
-    fmaxMHz: null,
+    fmaxMHz: model ? clockEstimate(model.period_ps, clockFeatures(generics)) : null,
     notes: [MEMORY_NOTE, ...(model ? model.notes : ['LUT, flip-flops and clock frequency: no model yet.'])],
   };
 }

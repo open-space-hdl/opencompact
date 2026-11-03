@@ -2,12 +2,30 @@
 
 The notable changes of OpenCompact. The versions follow semantic versioning: 0.y.z while the core is at TRL 3, a
 major version for an incompatible change of ports, stream formats, generics or register map, a minor version for a
-feature and a patch version for a fix.
+feature and a patch version for a fix. A release that adds tools without changing the HDL, the testbenches or the
+interfaces is a patch release.
 
 ## [Unreleased]
 
+### Added
+
+- Resource and throughput estimate of a configuration (`tools/estimate/`, MIT licence): the browser modules
+  `ocp_throughput.mjs` (header length, image period in clock cycles, maximum length of a compressed image) and
+  `ocp_resources.mjs` (the memories of `ocp_core` with their depths and widths, data bits and bits stored with ECC;
+  LUT, flip-flops and clock frequency for PolarFire), with the Python counterpart `tools/ocp_estimate.py`. The stable
+  functions are `headerBytes`, `imagePeriod`, `maxImageBytes` and `estimateResources`; they take the generics in the
+  form of the Composer (VHDL literals). The memory estimate equals the memories of the GHDL netlist of 126
+  configurations (`lint/memory_check.py`, in the CI). LUT, flip-flops and clock frequency come from linear models
+  fitted to 61 Libero synthesis runs and 16 place and route runs (`tools/ocp_estimate_fit.py`, calibration data in
+  `tools/tests/calibration_polarfire.json`, models in the generated module `tools/estimate/ocp_models.mjs`); their
+  errors are in user guide section 8.2. The JavaScript modules are checked against golden data of the Python models
+  (`tools/ocp_estimate_golden.py --check`, `node --test`, TypeScript check of the JSDoc types, in the CI).
+
 ### Changed
 
+- User guide section 8.2: the resources and clock frequencies measured with the RTL of version 0.3.0, the estimate of
+  a configuration. Roadmap: the predictor at the widest generic corner (c11) replaces the products of wide operands,
+  and the runtime parameters are no longer listed as in progress.
 - The scripts take the tool paths from the environment or the `PATH` only: `run.py --questa` takes QuestaSim from
   `VUNIT_MODELSIM_PATH` or from `vsim` on the `PATH`, `tools/synth_libero.py` takes Libero from `--libero`,
   `OCP_LIBERO` or the `PATH`, and `lint/vivado_ooc.py` takes its output directory from `--out` or `OCP_OOC_OUT`. Each

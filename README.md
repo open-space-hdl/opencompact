@@ -64,7 +64,8 @@ opencompact/
 |-- lint/             VSG configuration (Open Logic rules), synthesizability check
 |-- tools/            Reference model and its decoder, configurations, golden data generator, table generator,
 |                     compliance matrix, synthesis scripts
-|   |-- tests/        Tests of the decoder of the reference model (pytest)
+|   |-- estimate/     JavaScript models for web pages: throughput and resource estimate (MIT licence)
+|   |-- tests/        Tests of the decoder and of the estimate (pytest, node --test)
 |   `-- docs/         Documentation website (MkDocs)
 |-- open-logic/       Git submodule: Open Logic (fault-tolerant fork)
 |-- uvvm/             Git submodule: UVVM verification framework
@@ -103,9 +104,13 @@ python lint/lint.py                         # VSG, no errors and no warnings
 python lint/synth_check.py                  # GHDL synthesis: configurations, generic bounds, invalid values
 python tools/compliance.py --check          # traceability of every clause
 python tools/gen_low_entropy_pkg.py --check # low-entropy code tables up to date
-python -m pytest tools/tests               # decoder of the reference model against the golden data
+python -m pytest tools/tests               # decoder of the reference model, memories of the resource estimate
 python tools/check_model_testvectors.py <dir> --decode   # reference model and decoder on the CCSDS test data set
 python tools/ocp_throughput.py              # cycles per sample of every configuration
+python lint/memory_check.py                 # memories of the estimate against the GHDL netlist (after run.py --compile)
+python tools/ocp_estimate_fit.py --check    # resource models are the fit of the calibration data
+python tools/ocp_estimate_golden.py --check # golden data of the JavaScript models up to date
+node --test "tools/tests/*.test.mjs"        # JavaScript models against the Python models
 python run.py --compile-order               # compile_order.txt; the CI fails when the file changes
 ```
 
@@ -143,4 +148,6 @@ python lint/vivado_ooc.py --out C:/ooc --elaborate   # RTL elaboration only, no 
 ## Licence
 
 OpenCompact is licensed under the PSI HDL Library License, Version 1.0 ([License.txt](License.txt)), the licence of
-Open Logic: the LGPL 2.1 ([LGPL2_1.txt](LGPL2_1.txt)) with an exception for binaries such as FPGA bitstreams.
+Open Logic: the LGPL 2.1 ([LGPL2_1.txt](LGPL2_1.txt)) with an exception for binaries such as FPGA bitstreams. The
+JavaScript models in `tools/estimate` (throughput and resource estimate for web pages) are licensed under the MIT
+licence ([tools/estimate/LICENSE](tools/estimate/LICENSE)), as their SPDX headers state.

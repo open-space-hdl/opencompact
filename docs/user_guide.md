@@ -559,8 +559,8 @@ operands are wider than 18 bits, and the speculative weight loop has four produc
 memories grow with the image (NX NZ D bits for the sample representatives in BI order, the input and output buffers
 of the stride order) and with C (Omega + 3) bits per band for the weights. The image framing (`UseInLast_g`)
 adds no memory; it puts one more multiplexer level between the codeword buffer and the bit packer, which in c01 is
-the critical path. Measured on 2026-10-12 with the RTL before version 0.1.0, it added 93 LUTs and 49 flip-flops to
-c01 and lowered its place and route result from 133 MHz to 125 MHz.
+the critical path. Measured on 2026-11-03 with the RTL of version 0.3.0, c01 with the image framing needs 32 LUTs and
+34 flip-flops more and reached 135 MHz after place and route (131 MHz without the image framing).
 `python tools/synth_libero.py --config <configuration> [--impl] [--in-last]` repeats a run (Libero from `--libero`,
 the environment variable `OCP_LIBERO` or the `PATH`); `python tools/libero_summary.py` lists the results.
 

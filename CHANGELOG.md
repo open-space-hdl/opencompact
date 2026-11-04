@@ -7,6 +7,14 @@ interfaces is a patch release.
 
 ## [Unreleased]
 
+### Added
+
+- The output at a reset during an image (`ocp_channel` requirement CH-RS-02, user guide sections 3 and 7): from the
+  first rising edge of `Clk` with `Rst` = '1', `Out_Valid` and `Out_Last` are '0' and the words of the image that the
+  output stream has not taken are discarded, so its packet ends without `Out_Last`; a block that frames the
+  compressed image stream is reset in the same clock cycle as the core. `test_reset` of `ocp_channel` checks it with
+  and without the output converter.
+
 ### Changed
 
 - `python tools/compliance.py --check` also fails when `docs/compliance.md` is not the matrix the script generates

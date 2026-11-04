@@ -5,6 +5,13 @@ major version for an incompatible change of ports, stream formats, generics or r
 feature and a patch version for a fix. A release that adds tools without changing the HDL, the testbenches or the
 interfaces is a patch release.
 
+## [Unreleased]
+
+### Changed
+
+- `python tools/compliance.py --check` also fails when `docs/compliance.md` is not the matrix the script generates
+  (tests in `tools/tests/test_compliance.py`).
+
 ## [0.3.1] - 2026-11-03
 
 ### Added

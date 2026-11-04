@@ -5,7 +5,7 @@ major version for an incompatible change of ports, stream formats, generics or r
 feature and a patch version for a fix. A release that adds tools without changing the HDL, the testbenches or the
 interfaces is a patch release.
 
-## [Unreleased]
+## [0.3.1] - 2026-11-03
 
 ### Added
 

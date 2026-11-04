@@ -117,6 +117,14 @@ of an image. A reset at any time aborts the image in progress (header, body or t
 from the initial state of the standard. The memories need no initialisation: the core uses data read from a memory
 only after it has been written in the same image.
 
+A reset during an image also ends its output, in `ocp_core` and in `ocp_channel`. From the first rising edge of `Clk`
+with `Rst` = '1', `Out_Valid` and `Out_Last` are '0', and the words of the compressed image that the output stream has
+not taken are discarded. The packet of that image therefore ends without `Out_Last`; a word taken at the clock edge
+at which `Rst` is first '1' belongs to it. After the reset the next word is the first word of the next compressed
+image. A block that frames the compressed image stream into packets or chunks must be reset in the same clock cycle
+as the core, for example by a reset group that resets both from one source (section 7); otherwise it adds the next
+image to the open packet.
+
 ## 4. Interfaces
 
 | Port | Direction | Width | Description |
@@ -429,6 +437,7 @@ requirements of a mission is shown by a radiation test with the core in operatio
 | The elaboration stops for the parameter values of section 2 that the standard does not allow: register size below max(32, D + Omega + 2), width 1 with full prediction or neighbour-oriented local sums, vmin above vmax, periodic updating in BSQ order, M above NZ, block sizes other than 8, 16, 32 and 64, restricted code options with D above 4, rescaling counter sizes below max(4, gamma0 + 1) and accumulator initialisation values above min(D - 2, 14). The user keeps the other ranges of the standard, for example the values of the error limit and weight tables | The header fields have the widths of the standard and would carry most of these values; the compressed image would contradict its header |
 | The decompressor must know the tables that are not included in the header (table flags false) and the initial accumulators of the hybrid coder | CCSDS 5.3.3.3.2.1, 5.4.3.3.4.3 |
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
+| A block that frames the compressed image stream (packetizer, chunker) is reset in the same clock cycle as the core | A reset during an image ends its packet without `Out_Last` (section 3); a block that keeps its state adds the next image to the open packet |
 | TMR of the synthesis tool enabled for the core | The core protects its memories itself and relies on TMR for all other logic (section 6) |
 | With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
 | `ocp_channel`: every SDU carries a whole number of samples and no other bytes (no secondary header) | Every byte is sample data; an SDU with a partial sample ends its image with an error (section 4.3) |

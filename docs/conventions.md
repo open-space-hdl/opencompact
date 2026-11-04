@@ -16,6 +16,12 @@ document. This page lists the rules and the few OpenCompact-specific additions.
   record, signals `r` and `r_next`, a combinational process starting with `v := r;` and ending with
   `r_next <= v;`, a sequential process with `r <= r_next;` and the reset override at its end.
 - Resets are synchronous and high-active. Only state registers are reset. The core has one clock domain `Clk`.
+- Every register has a defined value in every configuration of the generics. A register that a generic disables (for
+  example the registers of the runtime configuration when `RuntimeConfig_g` is false) is assigned a constant in the
+  combinational process under the same generic, and so is every record field it feeds; it is never left without a
+  reset and without a next-state assignment. Synthesis removes such an undefined register, but it can still change
+  how the tool maps the logic around it: in one configuration (c11) Synplify mapped the unchanged predictor to twice
+  the LUTs.
 - Every data path between blocks is a valid / ready stream (AXI4-Stream handshake semantics).
 - Standard functions (FIFOs, RAMs, crossings, synchronisers) are instantiated from Open Logic, never rewritten.
   Memories use the fault-tolerant `olo_ft_*` entities.

@@ -15,6 +15,11 @@ interfaces is a patch release.
   compressed image stream is reset in the same clock cycle as the core. `test_reset` of `ocp_channel` checks it with
   and without the output converter.
 
+### Changed
+
+- `python tools/compliance.py --check` also fails when `docs/compliance.md` is not the matrix the script generates
+  (tests in `tools/tests/test_compliance.py`).
+
 ### Fixed
 
 - The predictor gives its registers of the runtime configuration and of the runtime parameters, and the fields of

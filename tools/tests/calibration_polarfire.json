@@ -1,0 +1,566 @@
+{
+ "target": "PolarFire MPF100T (STD)",
+ "tool": "Libero SoC 2025.2",
+ "synthesis": [
+  "Synplify Pro (R) W-2025.03M-SP1-1"
+ ],
+ "dates": [
+  "2026-10-28",
+  "2026-10-30"
+ ],
+ "outWidth": 32,
+ "rows": [
+  {
+   "name": "c01_lossless_bip",
+   "lut": 11517,
+   "ff": 5460,
+   "lsram": 1,
+   "usram": 34,
+   "math": 13,
+   "fmaxMHz": 130.719
+  },
+  {
+   "name": "c03_lossless_bsq_narrow",
+   "lut": 12088,
+   "ff": 4230,
+   "lsram": 1,
+   "usram": 17,
+   "math": 7,
+   "fmaxMHz": 117.925
+  },
+  {
+   "name": "c04_near_abs_hybrid",
+   "lut": 21089,
+   "ff": 13797,
+   "lsram": 3,
+   "usram": 41,
+   "math": 36,
+   "fmaxMHz": 117.592
+  },
+  {
+   "name": "c06_near_both_block",
+   "lut": 19397,
+   "ff": 16991,
+   "lsram": 3,
+   "usram": 40,
+   "math": 23,
+   "fmaxMHz": 112.461
+  },
+  {
+   "name": "c11_wide_d32",
+   "lut": 81160,
+   "ff": 15167,
+   "lsram": 12,
+   "usram": 34,
+   "math": 74,
+   "fmaxMHz": 74.991
+  },
+  {
+   "name": "c20_hybrid_d28",
+   "lut": 22222,
+   "ff": 7331,
+   "lsram": 1,
+   "usram": 41,
+   "math": 31,
+   "fmaxMHz": 124.054
+  },
+  {
+   "name": "c25_tp_bsq_lossless",
+   "lut": 13466,
+   "ff": 4107,
+   "lsram": 3,
+   "usram": 17,
+   "math": 49,
+   "fmaxMHz": 106.929
+  },
+  {
+   "name": "c26_tp_bil_near_abs",
+   "lut": 23161,
+   "ff": 11585,
+   "lsram": 1,
+   "usram": 34,
+   "math": 68,
+   "fmaxMHz": 104.167
+  },
+  {
+   "name": "c27_tp_bip_full",
+   "lut": 19783,
+   "ff": 7367,
+   "lsram": 1,
+   "usram": 33,
+   "math": 25,
+   "fmaxMHz": 102.976
+  },
+  {
+   "name": "c29_tp_bip_near_stride",
+   "lut": 16252,
+   "ff": 11779,
+   "lsram": 5,
+   "usram": 38,
+   "math": 11,
+   "fmaxMHz": 123.993
+  },
+  {
+   "name": "c30_tp_bip_both_stride",
+   "lut": 18713,
+   "ff": 10721,
+   "lsram": 7,
+   "usram": 33,
+   "math": 25,
+   "fmaxMHz": 118.85
+  },
+  {
+   "name": "sa_base",
+   "lut": 11517,
+   "ff": 5460,
+   "lsram": 1,
+   "usram": 34,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_bi_m4",
+   "lut": 11872,
+   "ff": 5621,
+   "lsram": 1,
+   "usram": 40,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_bil",
+   "lut": 11585,
+   "ff": 5557,
+   "lsram": 1,
+   "usram": 36,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_block_j16",
+   "lut": 15813,
+   "ff": 6845,
+   "lsram": 1,
+   "usram": 30,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_block_j32",
+   "lut": 17067,
+   "ff": 7928,
+   "lsram": 1,
+   "usram": 30,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_block_j64",
+   "lut": 19261,
+   "ff": 10077,
+   "lsram": 1,
+   "usram": 30,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_block_j8",
+   "lut": 15158,
+   "ff": 6294,
+   "lsram": 1,
+   "usram": 30,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_bsq",
+   "lut": 11439,
+   "ff": 5819,
+   "lsram": 3,
+   "usram": 17,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_d12",
+   "lut": 13830,
+   "ff": 5117,
+   "lsram": 1,
+   "usram": 32,
+   "math": 7,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_d24",
+   "lut": 12816,
+   "ff": 6122,
+   "lsram": 1,
+   "usram": 38,
+   "math": 13,
+   "fmaxMHz": 132.521
+  },
+  {
+   "name": "sa_d32",
+   "lut": 13874,
+   "ff": 6797,
+   "lsram": 1,
+   "usram": 42,
+   "math": 16,
+   "fmaxMHz": 130.959
+  },
+  {
+   "name": "sa_d8",
+   "lut": 9852,
+   "ff": 4749,
+   "lsram": 1,
+   "usram": 30,
+   "math": 7,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_hybrid",
+   "lut": 18046,
+   "ff": 6159,
+   "lsram": 1,
+   "usram": 34,
+   "math": 30,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_large",
+   "lut": 11630,
+   "ff": 5526,
+   "lsram": 12,
+   "usram": 30,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_narrow_neighbor",
+   "lut": 11442,
+   "ff": 5457,
+   "lsram": 1,
+   "usram": 34,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_nospec",
+   "lut": 10898,
+   "ff": 4286,
+   "lsram": 3,
+   "usram": 17,
+   "math": 7,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_om10",
+   "lut": 11695,
+   "ff": 5179,
+   "lsram": 1,
+   "usram": 33,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_om19",
+   "lut": 15369,
+   "ff": 6026,
+   "lsram": 1,
+   "usram": 37,
+   "math": 25,
+   "fmaxMHz": 111.657
+  },
+  {
+   "name": "sa_om4",
+   "lut": 10863,
+   "ff": 4486,
+   "lsram": 1,
+   "usram": 30,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_out64",
+   "lut": 11477,
+   "ff": 5495,
+   "lsram": 1,
+   "usram": 34,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_out8",
+   "lut": 11459,
+   "ff": 5434,
+   "lsram": 1,
+   "usram": 34,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_p0",
+   "lut": 10934,
+   "ff": 3912,
+   "lsram": 1,
+   "usram": 30,
+   "math": 7,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_p1",
+   "lut": 10961,
+   "ff": 4704,
+   "lsram": 1,
+   "usram": 31,
+   "math": 9,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_p15",
+   "lut": 17267,
+   "ff": 10657,
+   "lsram": 1,
+   "usram": 50,
+   "math": 37,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_p3_reduced",
+   "lut": 10862,
+   "ff": 4049,
+   "lsram": 1,
+   "usram": 30,
+   "math": 7,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_p7",
+   "lut": 13382,
+   "ff": 6879,
+   "lsram": 1,
+   "usram": 40,
+   "math": 21,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_runtime",
+   "lut": 12045,
+   "ff": 5721,
+   "lsram": 1,
+   "usram": 34,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_runtime_params",
+   "lut": 19462,
+   "ff": 6737,
+   "lsram": 1,
+   "usram": 40,
+   "math": 13,
+   "fmaxMHz": null,
+   "note": "synthesis only, I/O exceeds the device"
+  },
+  {
+   "name": "sa_small",
+   "lut": 11520,
+   "ff": 5354,
+   "lsram": 0,
+   "usram": 36,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_spec",
+   "lut": 10873,
+   "ff": 3890,
+   "lsram": 3,
+   "usram": 17,
+   "math": 25,
+   "fmaxMHz": 138.141
+  },
+  {
+   "name": "sa_spec_d24",
+   "lut": 12230,
+   "ff": 4538,
+   "lsram": 4,
+   "usram": 18,
+   "math": 25,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_spec_p1",
+   "lut": 9387,
+   "ff": 3502,
+   "lsram": 2,
+   "usram": 17,
+   "math": 9,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sa_wide_column",
+   "lut": 11317,
+   "ff": 5401,
+   "lsram": 1,
+   "usram": 34,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_base",
+   "lut": 17699,
+   "ff": 12976,
+   "lsram": 3,
+   "usram": 13,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_bi_periodic",
+   "lut": 18413,
+   "ff": 13712,
+   "lsram": 1,
+   "usram": 36,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_bi_periodic_both",
+   "lut": 18430,
+   "ff": 14652,
+   "lsram": 1,
+   "usram": 36,
+   "math": 14,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_bi_periodic_d24",
+   "lut": 22565,
+   "ff": 20073,
+   "lsram": 1,
+   "usram": 42,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_both",
+   "lut": 17911,
+   "ff": 13909,
+   "lsram": 3,
+   "usram": 13,
+   "math": 14,
+   "fmaxMHz": 111.086
+  },
+  {
+   "name": "sb_lossless",
+   "lut": 15901,
+   "ff": 7190,
+   "lsram": 3,
+   "usram": 13,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_rel",
+   "lut": 17878,
+   "ff": 13928,
+   "lsram": 3,
+   "usram": 13,
+   "math": 14,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_runtime",
+   "lut": 18208,
+   "ff": 13686,
+   "lsram": 3,
+   "usram": 13,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sb_runtime_params",
+   "lut": 25127,
+   "ff": 14332,
+   "lsram": 3,
+   "usram": 13,
+   "math": 13,
+   "fmaxMHz": null,
+   "note": "synthesis only, I/O exceeds the device"
+  },
+  {
+   "name": "sb_sample_adaptive",
+   "lut": 13518,
+   "ff": 11669,
+   "lsram": 3,
+   "usram": 17,
+   "math": 13,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sc_base",
+   "lut": 20694,
+   "ff": 12858,
+   "lsram": 5,
+   "usram": 40,
+   "math": 32,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sc_nz48",
+   "lut": 20767,
+   "ff": 12976,
+   "lsram": 8,
+   "usram": 40,
+   "math": 32,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sc_nz6",
+   "lut": 20525,
+   "ff": 12620,
+   "lsram": 3,
+   "usram": 40,
+   "math": 32,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sc_reps",
+   "lut": 20721,
+   "ff": 13642,
+   "lsram": 5,
+   "usram": 40,
+   "math": 36,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sc_runtime",
+   "lut": 20684,
+   "ff": 12082,
+   "lsram": 1,
+   "usram": 34,
+   "math": 32,
+   "fmaxMHz": null
+  },
+  {
+   "name": "sc_runtime_params",
+   "lut": 28013,
+   "ff": 12999,
+   "lsram": 1,
+   "usram": 40,
+   "math": 32,
+   "fmaxMHz": null,
+   "note": "synthesis only, I/O exceeds the device"
+  },
+  {
+   "name": "sc_sample_adaptive",
+   "lut": 14101,
+   "ff": 12160,
+   "lsram": 5,
+   "usram": 40,
+   "math": 15,
+   "fmaxMHz": null
+  }
+ ]
+}

@@ -19,7 +19,8 @@ Configurations (short names, also the names of the result files):
   rc04    ocp_core, rc04_bi_m4_sample_both of tools/ocp_configs.py with the runtime configuration
 
 Usage: python lint/vivado_ooc.py [--out DIR] [--temp DIR] [--mhz MHZ] [--part PART] [--elaborate] [name ...]
-  --out        project and result directory (default C:/osh/ocp_ooc: Vivado projects need short paths on Windows)
+  --out        project and result directory (default: the environment variable OCP_OOC_OUT; one of the two is
+               required). On Windows give a short path such as C:/ooc: Vivado projects need short paths
   --temp       directory of the temporary files of Vivado: TEMP, TMP and TMPDIR of the Vivado process (default
                <out>/tmp)
   --mhz        target clock frequency (default 200)
@@ -130,13 +131,15 @@ def summary(out, names, mhz):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--out", default="C:/osh/ocp_ooc")
+    p.add_argument("--out", default=os.environ.get("OCP_OOC_OUT"))
     p.add_argument("--temp")
     p.add_argument("--mhz", type=float, default=200.0)
     p.add_argument("--part", default=PART)
     p.add_argument("--elaborate", action="store_true")
     p.add_argument("names", nargs="*")
     a = p.parse_args()
+    if not a.out:
+        p.error("no output directory: give --out DIR or set OCP_OOC_OUT (on Windows a short path such as C:/ooc)")
     names = a.names or list(CONFIGS)
     unknown = [n for n in names if n not in CONFIGS]
     if unknown:

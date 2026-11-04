@@ -538,10 +538,12 @@ and the longest low-entropy output codeword for every index, more than any image
 
 ### 8.2 Resources
 
-Resources and clock frequency of the RTL of version 0.3.0 with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a
-PolarFire MPF100T (FCG484, STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the
-place and route results for a 100 MHz constraint; the cycles per sample are those of the throughput model (section
-8.1; for c29 and c30 the small test images make the per-image skew of the stride order visible).
+Resources and clock frequency with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a PolarFire MPF100T (FCG484,
+STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the place and route results for
+a 100 MHz constraint; the cycles per sample are those of the throughput model (section 8.1; for c29 and c30 the small
+test images make the per-image skew of the stride order visible). The runs are those of the RTL of version 0.3.0,
+except c11, which was run again with the RTL of version 0.3.2: its change of the predictor (registers of the runtime
+configuration with a defined value when the generics disable them) leaves c01 and c27 identical.
 
 | Configuration | Cycles per sample | LUT | Flip-flops | LSRAM | uSRAM | Math blocks | Clock frequency |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -549,7 +551,7 @@ place and route results for a 100 MHz constraint; the cycles per sample are thos
 | c03: 20 x 10 x 8, D = 8, BSQ, lossless, P = 2 full, narrow local sums, sample-adaptive | 7.93 | 12088 | 4230 | 1 | 17 | 7 | 118 MHz |
 | c04: 24 x 12 x 12, D = 16, BIP, absolute error limit, P = 3 full, hybrid (stride order) | 3.14 | 21089 | 13797 | 3 | 41 | 36 | 118 MHz |
 | c06: 24 x 12 x 10, D = 16, BIP, absolute and relative error limits, P = 4 full, block-adaptive (stride order) | 3.78 | 19397 | 16991 | 3 | 40 | 23 | 112 MHz |
-| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, R = 64, sample-adaptive | 1.00 | 81160 | 15167 | 12 | 34 | 74 | 75 MHz |
+| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, R = 64, sample-adaptive | 1.00 | 39059 | 15181 | 12 | 34 | 74 | 79 MHz |
 | c20: 12 x 10 x 6, D = 28, BIP, lossless, P = 3 full, hybrid | 1.33 | 22222 | 7331 | 1 | 41 | 31 | 124 MHz |
 | c25: 32 x 12 x 6, D = 16, BSQ, lossless, P = 3 reduced, narrow local sums, sample-adaptive (speculative weight loop) | 1.00 | 13466 | 4107 | 3 | 17 | 49 | 107 MHz |
 | c26: 40 x 8 x 6, D = 16, BIL, absolute error limit, P = 3 reduced, narrow column-oriented local sums, hybrid (speculative weight loop) | 1.00 | 23161 | 11585 | 1 | 34 | 68 | 104 MHz |
@@ -558,8 +560,7 @@ place and route results for a 100 MHz constraint; the cycles per sample are thos
 | c30: 10 x 5 x 48, D = 16, BIP, absolute and relative error limits, P = 2 reduced, hybrid (stride order) | 1.67 | 18713 | 10721 | 7 | 33 | 25 | 119 MHz |
 
 All configurations reach 100 MHz except c11, which combines the widest values of D, Omega, P and R and reaches
-75 MHz; its predictor takes 72549 of its 81160 LUTs. Area and clock frequency of the predictor for this corner are an
-open item of the [roadmap](roadmap.md).
+79 MHz. The clock frequency of the predictor for this corner is an open item of the [roadmap](roadmap.md).
 
 The logic grows with the number of local differences C, with the widths D, Omega and R, with near-lossless
 compression, with the hybrid and the block-adaptive coder and with the runtime parameters. The math blocks grow with
@@ -583,8 +584,8 @@ and the CI checks that both give the same results for every configuration of the
 | Quantity | Model | Accuracy |
 | --- | --- | --- |
 | Memories (`memories`, `ramBits`) | Depth, data width and stored SECDED codeword width of every memory, from the generics | Exact: equal to the memories of the GHDL netlist of 126 configurations (`lint/memory_check.py`) |
-| LUT, flip-flops | Linear model over the structure of the configuration (datapath widths times their number, the optional blocks), fitted to 56 of 61 Libero synthesis runs | LUT: RMS 7.5 %, max 30.6 % over all runs; for the configurations of the table RMS 11.9 %, max 30.6 % (c11), for the ten other configurations of the table RMS 7.8 %, max 13.5 %. Flip-flops: RMS 3.7 %, max 14.4 % |
-| Clock frequency | Linear model of the clock period, fitted to 11 of the 16 place and route runs | RMS 4.4 %, max 12.8 % |
+| LUT, flip-flops | Linear model over the structure of the configuration (datapath widths times their number, the optional blocks), fitted to 56 of 61 Libero synthesis runs | LUT: RMS 5.6 %, max 16.2 % over all runs; for the configurations of the table RMS 7.0 %, max 13.5 % (c30). Flip-flops: RMS 3.7 %, max 14.4 % |
+| Clock frequency | Linear model of the clock period, fitted to 11 of the 16 place and route runs | RMS 4.1 %, max 11.9 % |
 | Throughput (`imagePeriod`, `headerBytes`, `maxImageBytes`) | Throughput model of section 8.1 | Exact: the testbench of the predictor checks it cycle by cycle |
 
 LUT, flip-flops and clock frequency hold for the target and tool of the table; the runs cover the configurations of

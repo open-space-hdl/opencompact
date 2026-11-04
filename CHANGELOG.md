@@ -15,6 +15,16 @@ interfaces is a patch release.
   compressed image stream is reset in the same clock cycle as the core. `test_reset` of `ocp_channel` checks it with
   and without the output converter.
 
+### Fixed
+
+- The predictor gives its registers of the runtime configuration and of the runtime parameters, and the fields of
+  the pipeline items they feed, constant values when `RuntimeConfig_g` and `RuntimeParams_g` disable them. Before,
+  they had no reset and no next-state assignment; synthesis removed them, but Libero mapped the predictor of the
+  widest configuration (c11) to 81160 instead of 39059 LUTs (version 0.3.0). The logic function and the registers of
+  every configuration are unchanged. User guide section 8.2 and the resource models (`tools/estimate/ocp_models.mjs`)
+  use the new c11 run; the rule is in the conventions (every register has a defined value in every configuration of
+  the generics).
+
 ## [0.3.1] - 2026-11-03
 
 ### Added

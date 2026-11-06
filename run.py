@@ -144,7 +144,8 @@ def set_simulator_options(vu):
     extra = os.environ.get("OCP_GHDL_SIM_FLAGS", "").split()
     vu.set_sim_option("ghdl.sim_flags", ["--max-stack-alloc=0"] + extra)
     vu.set_sim_option("disable_ieee_warnings", True)
-    # The idle tests run with the warnings of the IEEE packages, their post check fails on a warning after the reset
+    # The idle tests run with the warnings of the IEEE packages; their post check fails on a warning in the window
+    # that the testbench logs
     for test_bench in vu.library("opencompact").get_test_benches():
         for test in test_bench.get_tests("test_idle"):
             test.set_sim_option("disable_ieee_warnings", False)

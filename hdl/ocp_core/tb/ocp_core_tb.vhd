@@ -39,9 +39,10 @@
 --   QueueHoldBytes_g (queuehold.txt) Out_Ready is held low only after the header and some bytes of the
 --   body of a larger first image, so that the coder still takes items of that image while the header
 --   pointer of the queue has passed it
--- * test_idle: 2000 clock cycles without an image after the reset, no output; it runs with the
---   warnings of the IEEE packages, and its post check (vunit_config.py) fails on a metavalue
---   warning after the reset
+-- * test_idle: 2000 clock cycles without an image after the reset, no output; every output of the
+--   core is defined from the release of Rst on (the data of the output stream while Out_Valid is
+--   '1'). It runs with the warnings of the IEEE packages, and its post check (vunit_config.py) fails
+--   on a metavalue warning once the release lies IdleDepth_g clock cycles back
 --
 -- With RuntimeParams_g every image of the lists also has its own runtime parameters: the parameter
 -- inputs carry them with the configuration, the Act_ outputs of the parameters show the values taken
@@ -117,6 +118,8 @@ entity ocp_core_tb is
         RuntimeParams_g        : boolean  := false;
         -- Queue test: the output is held low after this many bytes of the first image (0: from the start)
         QueueHoldBytes_g       : natural  := 0;
+        -- Idle test: pipeline stages of the predictor (depth of tools/ocp_throughput.py latencies)
+        IdleDepth_g            : natural  := 0;
         -- Configuration
         XSize_g                : positive := 8;
         YSize_g                : positive := 8;
@@ -189,12 +192,15 @@ architecture sim of ocp_core_tb is
     -- signals start at their initial values, Rst '1', Clk '0', the first rising edge at ClkPeriod_c / 2)
     constant ResetCycles_c : positive := 5;
 
-    -- Idle test: the post check counts the warnings of the IEEE packages from the release of Rst after
-    -- the first reset on. The core resets synchronously (no reset generator), so every reset register
-    -- has its value from the first rising edge with Rst = '1' on and every memory address derived from
-    -- them from the second; both lie before the release, which needs no further clock edge
-    constant IdleCycles_c    : positive := 2000;
-    constant IdleCheckFrom_c : time     := ClkPeriod_c / 2 + (ResetCycles_c - 1) * ClkPeriod_c;
+    -- Idle test (CO-RS-02). The core resets synchronously (no reset generator), so every reset register
+    -- has its value from the first rising edge with Rst = '1' on, before the release of Rst after the
+    -- first reset (IdleRelease_c); from the release on the outputs of the core are checked. Datapath
+    -- fields without reset of the pipeline items may be undefined until they have passed the
+    -- IdleDepth_g stages of the predictor once; the post check counts the warnings of the IEEE packages
+    -- from then on (IdleWindow_c)
+    constant IdleCycles_c  : positive := 2000;
+    constant IdleRelease_c : time     := ClkPeriod_c / 2 + (ResetCycles_c - 1) * ClkPeriod_c;
+    constant IdleWindow_c  : time     := IdleRelease_c + IdleDepth_g * ClkPeriod_c;
 
     -- Framing of an image of a job: correct, In_Last early (on sample Pos), In_Last missing (Pos
     -- further samples to discard, the last of them with In_Last); with In_Error (CO-FR-08): on the
@@ -407,6 +413,9 @@ architecture sim of ocp_core_tb is
     -- configuration inputs around the take)
     signal Takes    : natural := 0;
     signal RtTiming : boolean := false;
+
+    -- Idle test: the outputs of the core are checked in every clock cycle from the release of Rst on
+    signal IdlePorts : boolean := false;
 
     -- Queue test: output held low (QueueTest) until the core holds back a sample for 1000 clock cycles
     -- (QueueRelease); whether that sample was the first of an image (FirstOffer: the source offers the
@@ -906,25 +915,58 @@ begin
                 checkIdle;
 
             elsif run("test_idle") then
-                -- No image after the reset: no output, and no metavalue warning of the IEEE packages (the
-                -- post check of the test in vunit_config.py) from the time logged here on. The reset
-                -- procedure ends one rising edge after the release of Rst
+                -- No image after the reset: no output, every output of the core defined from the release
+                -- of Rst on (p_idle_ports), and no metavalue warning of the IEEE packages from the window
+                -- logged here on (the post check of the test in vunit_config.py). The reset procedure ends
+                -- one rising edge after the release of Rst
+                IdlePorts <= true;
                 reset;
-                check_value(now = IdleCheckFrom_c + ClkPeriod_c, ERROR, "Rst released at " &
-                            to_string(integer'(IdleCheckFrom_c / 1 ns)) & " ns, as the metavalue window assumes");
-                log(ID_SEQUENCER, "metavalue window from " & to_string(integer'(IdleCheckFrom_c / 1 ns)) & " ns");
+                check_value(now = IdleRelease_c + ClkPeriod_c, ERROR, "Rst released at " &
+                            to_string(integer'(IdleRelease_c / 1 ns)) & " ns, as the idle checks assume");
+                log(ID_SEQUENCER, "metavalue window from " & to_string(integer'(IdleWindow_c / 1 ns)) & " ns");
 
                 for i in 1 to IdleCycles_c loop
                     wait until rising_edge(Clk);
                     check_value(Out_Valid, '0', ERROR, "no output without an image");
                 end loop;
 
+                IdlePorts <= false;
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
 
             end if;
         end loop;
 
         ocpTestEnd(runner);
+    end process;
+
+    -- Idle test (CO-RS-02): from the release of Rst on, in the middle of every clock cycle, no output of
+    -- the core is a metavalue; the data of the output stream only while Out_Valid is '1'
+    p_idle_ports : process is
+    begin
+        wait until IdlePorts;
+        wait for IdleRelease_c - now;
+
+        while IdlePorts loop
+            wait until falling_edge(Clk);
+            check_value(not is_x(std_logic_vector'(In_Ready & Lim_Ready & Out_Valid)), ERROR,
+                        "In_Ready, Lim_Ready, Out_Valid defined");
+            check_value(not is_x(std_logic_vector'(Ecc_Sec & Ecc_Ded & Ev_ImageError & Cfg_Taken)), ERROR,
+                        "Ecc_Sec, Ecc_Ded, Ev_ImageError, Cfg_Taken defined");
+            check_value(not is_x(std_logic_vector'(Act_XSize & Act_YSize & Act_ZSize)), ERROR,
+                        "Act_XSize, Act_YSize, Act_ZSize defined");
+            check_value(not is_x(std_logic_vector'(Act_AbsLimit & Act_RelLimit & Act_UserData & Act_M)), ERROR,
+                        "Act_AbsLimit, Act_RelLimit, Act_UserData, Act_M defined");
+            check_value(not is_x(std_logic_vector'(Act_WeightInterval & Act_WeightVmin & Act_WeightVmax)), ERROR,
+                        "Act_WeightInterval, Act_WeightVmin, Act_WeightVmax defined");
+            check_value(not is_x(std_logic_vector'(Act_UnaryLimit & Act_InitCountExp & Act_RescaleSize & Act_AccuInit &
+                                 Act_RefInterval)), ERROR,
+                        "Act_UnaryLimit, Act_InitCountExp, Act_RescaleSize, Act_AccuInit, Act_RefInterval defined");
+            if Out_Valid = '1' then
+                check_value(not is_x(std_logic_vector'(Out_Data & Out_Keep & Out_Last & Out_Error)), ERROR,
+                            "Out_Data, Out_Keep, Out_Last, Out_Error defined while Out_Valid is '1'");
+            end if;
+        end loop;
+
     end process;
 
     -- Image samples (little-endian 8, 16 or 32-bit containers), JobImages times per job, with the

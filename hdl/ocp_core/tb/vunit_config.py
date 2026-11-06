@@ -103,8 +103,9 @@ IDLE = [("c34_small_bsq_lossless", False), ("c35_small_bil_periodic_spec", True)
         ("c31_small_bi_periodic_abs", False), ("c22_single_pixel_hybrid", True), ("rc03_bsq_block_rel", False),
         ("rp02_bi_mnz_hybrid", True)]
 
-# Idle test: the testbench logs the start of the metavalue window, the release of Rst after its first reset, which
-# it derives from its clock period and reset length (IdleCheckFrom_c of ocp_core_tb)
+# Idle test: the testbench logs the start of the metavalue window (IdleWindow_c of ocp_core_tb): the release of Rst
+# after its first reset, derived from its clock period and reset length, plus the pipeline stages of the predictor
+# (IdleDepth_g, the depth of ocp_throughput.latencies) that the datapath fields without reset pass once
 WINDOW = re.compile(r"metavalue window from (\d+) ns")
 IEEE_WARNING = re.compile(r"NUMERIC_STD\.|metavalue detected")
 GHDL_TIME = re.compile(r"@(\d+(?:\.\d+)?)(fs|ps|ns|us|ms|sec):")
@@ -116,7 +117,7 @@ def no_metavalues(output):
     """Post check of test_idle: no warning of the IEEE packages (a metavalue in an address, an index or a
     comparison) from the start of the window logged by the testbench on, in the output of GHDL (time in the message)
     or QuestaSim (time in the next line). A warning without a recognisable time counts, and so does an output without
-    the window."""
+    the window. Prints the number of warnings and the time of the last one (the margin of the window)."""
     window = WINDOW.search(output)
     if window is None:
         print("test_idle: the output has no metavalue window")
@@ -124,14 +125,21 @@ def no_metavalues(output):
     start_ns = int(window.group(1))
     lines = output.splitlines()
     found = []
+    count, last_ns = 0, None
     for n, line in enumerate(lines):
         if not IEEE_WARNING.search(line):
             continue
         same_line = GHDL_TIME.search(line)
         next_line = lines[n + 1] if n + 1 < len(lines) else ""
         match = same_line or QUESTA_TIME.search(next_line)
-        if match is None or float(match.group(1)) * NS[match.group(2)] >= start_ns:
+        count += 1
+        if match is not None:
+            time_ns = float(match.group(1)) * NS[match.group(2)]
+            last_ns = time_ns if last_ns is None else max(last_ns, time_ns)
+        if match is None or time_ns >= start_ns:
             found.append(line.strip() if same_line else line.strip() + " " + next_line.strip())
+    print("test_idle: {} warnings of the IEEE packages, the last at {} ns; window from {} ns".format(
+        count, "-" if last_ns is None else "{:g}".format(last_ns), start_ns))
     if found:
         print("{} warnings of the IEEE packages from {} ns on, the first ones:".format(len(found), start_ns))
         print("\n".join(found[:10]))
@@ -280,7 +288,9 @@ def configure(lib):
         else:
             gen = dict(ocp_generics.generics(ocp_configs.ALL[name]),
                        GoldenDir_g=(ROOT / "tb" / "golden" / name).as_posix())
-        idle.add_config(name=name, generics=dict(gen, UseInLast_g=in_last), post_check=no_metavalues)
+        depth = ocp_throughput.latencies(gen)["depth"]
+        idle.add_config(name=name, generics=dict(gen, UseInLast_g=in_last, IdleDepth_g=depth),
+                        post_check=no_metavalues)
 
     # Bit packer: interface widths and output word sizes; without back pressure, with back pressure and with small
     # images under sink stalls (several image ends queued in the packer)

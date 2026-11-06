@@ -62,6 +62,7 @@ set by the generics (section 2.6).
 | ID | Requirement | CCSDS |
 | --- | --- | --- |
 | CO-RS-01 | A reset at any time shall abort the image in progress; the core shall compress the next image from the initial state of the standard, without initialisation of its memories. | none |
+| CO-RS-02 | After a reset and without an image, no undefined value shall reach a memory address, an index or a comparison of the core: a simulation with the warnings of the IEEE packages shall report none of them. | none |
 
 ### 2.6 Runtime configuration
 

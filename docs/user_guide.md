@@ -115,7 +115,9 @@ integrator synchronises it, for example with `olo_base_reset_gen` (`SyncTmr_g` =
 synchroniser). After the reset the core waits for the first sample
 of an image. A reset at any time aborts the image in progress (header, body or tail); the next image is compressed
 from the initial state of the standard. The memories need no initialisation: the core uses data read from a memory
-only after it has been written in the same image.
+only after it has been written in the same image. While the core waits for the first image after a reset, no
+undefined value reaches a memory address, an index or a comparison: a simulation with the warnings of the IEEE
+packages (numeric_std) reports none of them.
 
 A reset during an image also ends its output, in `ocp_core` and in `ocp_channel`. From the first rising edge of `Clk`
 with `Rst` = '1', `Out_Valid` and `Out_Last` are '0', and the words of the compressed image that the output stream has
@@ -692,3 +694,4 @@ python tools/ocp_decompress.py compressed.bin -o decoded.raw --compare image.raw
 | Defect | Affected | Effect | Correction |
 | --- | --- | --- | --- |
 | `BlockSize_g` other than 8, 16, 32 and 64 was accepted | All versions before the generic range checks | The header carries the block size code of 64 while the block-adaptive coder codes blocks of the given size, so the compressed image cannot be decompressed | The elaboration stops (CO-CF-02, section 7) |
+| Memory reads at undefined addresses before the first image | All versions up to 0.3.1 | Before the first image after a reset the statistics memory of the sample-adaptive and the hybrid coder and, in BI order, the weight memory of the predictor are read at an undefined address: a simulation with the warnings of the IEEE packages reports a metavalue warning in every clock cycle. The data read are not used; the compressed images and the hardware are not affected | The addresses are defined from the reset (CO-RS-02, section 3) |

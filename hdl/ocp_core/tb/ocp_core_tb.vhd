@@ -39,6 +39,9 @@
 --   QueueHoldBytes_g (queuehold.txt) Out_Ready is held low only after the header and some bytes of the
 --   body of a larger first image, so that the coder still takes items of that image while the header
 --   pointer of the queue has passed it
+-- * test_idle: 2000 clock cycles without an image after the reset, no output; it runs with the
+--   warnings of the IEEE packages, and its post check (vunit_config.py) fails on a metavalue
+--   warning after the reset
 --
 -- With RuntimeParams_g every image of the lists also has its own runtime parameters: the parameter
 -- inputs carry them with the configuration, the Act_ outputs of the parameters show the values taken
@@ -181,6 +184,17 @@ architecture sim of ocp_core_tb is
     constant Bytes_c     : positive := 1 + toInt(DynamicRange_g > 8) + 2 * toInt(DynamicRange_g > 16);
     constant Periodic_c  : boolean  := PeriodicUpdate_g and Fidelity_g /= "LOSSLESS";
     constant Samples_c   : positive := XSize_g * YSize_g * ZSize_g;
+
+    -- Reset: Rst is '1' for ResetCycles_c rising edges of Clk; at the start of a test from time 0 (both
+    -- signals start at their initial values, Rst '1', Clk '0', the first rising edge at ClkPeriod_c / 2)
+    constant ResetCycles_c : positive := 5;
+
+    -- Idle test: the post check counts the warnings of the IEEE packages from the release of Rst after
+    -- the first reset on. The core resets synchronously (no reset generator), so every reset register
+    -- has its value from the first rising edge with Rst = '1' on and every memory address derived from
+    -- them from the second; both lie before the release, which needs no further clock edge
+    constant IdleCycles_c    : positive := 2000;
+    constant IdleCheckFrom_c : time     := ClkPeriod_c / 2 + (ResetCycles_c - 1) * ClkPeriod_c;
 
     -- Framing of an image of a job: correct, In_Last early (on sample Pos), In_Last missing (Pos
     -- further samples to discard, the last of them with In_Last); with In_Error (CO-FR-08): on the
@@ -570,7 +584,7 @@ begin
         begin
             Rst <= '1';
 
-            for i in 1 to 5 loop
+            for i in 1 to ResetCycles_c loop
                 wait until rising_edge(Clk);
             end loop;
 
@@ -890,6 +904,22 @@ begin
                 check_value(ErrCount, 4 * toInt(UseInLast_g), ERROR, "one framing error event per image with an error");
                 check_value(SecCount + DedCount, 0, ERROR, "no memory error");
                 checkIdle;
+
+            elsif run("test_idle") then
+                -- No image after the reset: no output, and no metavalue warning of the IEEE packages (the
+                -- post check of the test in vunit_config.py) from the time logged here on. The reset
+                -- procedure ends one rising edge after the release of Rst
+                reset;
+                check_value(now = IdleCheckFrom_c + ClkPeriod_c, ERROR, "Rst released at " &
+                            to_string(integer'(IdleCheckFrom_c / 1 ns)) & " ns, as the metavalue window assumes");
+                log(ID_SEQUENCER, "metavalue window from " & to_string(integer'(IdleCheckFrom_c / 1 ns)) & " ns");
+
+                for i in 1 to IdleCycles_c loop
+                    wait until rising_edge(Clk);
+                    check_value(Out_Valid, '0', ERROR, "no output without an image");
+                end loop;
+
+                check_value(SecCount + DedCount, 0, ERROR, "no memory error");
 
             end if;
         end loop;

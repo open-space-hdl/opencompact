@@ -19,6 +19,9 @@ interfaces is a patch release.
 
 - `python tools/compliance.py --check` also fails when `docs/compliance.md` is not the matrix the script generates
   (tests in `tools/tests/test_compliance.py`).
+- The CI runs the GHDL regression in three parallel shards of about the same simulation time (`tools/ci_shard.py`)
+  and the memory check as a separate job; a guard checks that every test is in exactly one shard, and the job
+  `simulation-ghdl` succeeds only when all of them succeed.
 
 ### Fixed
 

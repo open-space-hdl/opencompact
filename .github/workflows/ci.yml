@@ -8,7 +8,45 @@ on:
   workflow_dispatch:
 
 jobs:
-  simulation-ghdl:
+  # The GHDL regression in three shards of about the same simulation time (tools/ci_shard.py)
+  ghdl-shard:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [core-runtime, core-configs, rest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install Python packages
+        # vunit_hdl 5.0.0.dev7 is an sdist whose build needs pkg_resources (setuptools < 81)
+        run: |
+          python -m pip install "setuptools<81" wheel "setuptools_scm>=8"
+          python -m pip install --no-build-isolation -r requirements.txt
+      - name: Set up GHDL
+        uses: ghdl/setup-ghdl@v1
+        with:
+          version: latest
+          backend: mcode
+      - name: Run the tests of the shard
+        run: |
+          python tools/ci_shard.py ${{ matrix.shard }} > shard.txt
+          python run.py -p 4 --xunit-xml results.xml $(cat shard.txt)
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: vunit-results-${{ matrix.shard }}
+          path: results.xml
+
+  # Every test of the regression is in exactly one shard
+  shard-guard:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -29,16 +67,48 @@ jobs:
         with:
           version: latest
           backend: mcode
-      - name: Run regression
-        run: python run.py -p 4 --xunit-xml results.xml
+      - name: The shards cover every test exactly once
+        run: python tools/ci_shard.py --check
+
+  memory-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install Python packages
+        # vunit_hdl 5.0.0.dev7 is an sdist whose build needs pkg_resources (setuptools < 81)
+        run: |
+          python -m pip install "setuptools<81" wheel "setuptools_scm>=8"
+          python -m pip install --no-build-isolation -r requirements.txt
+      - name: Set up GHDL
+        uses: ghdl/setup-ghdl@v1
+        with:
+          version: latest
+          backend: mcode
+      - name: Compile the libraries
+        run: python run.py --compile
       - name: Memories of the GHDL netlists against the resource estimate
         run: python lint/memory_check.py
-      - name: Publish test results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: vunit-results
-          path: results.xml
+
+  # The result of the GHDL regression under the name of the required check: every shard, the guard and the memory
+  # check succeeded
+  simulation-ghdl:
+    if: always()
+    needs: [ghdl-shard, shard-guard, memory-check]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every shard, the guard and the memory check succeeded
+        run: |
+          echo "shards: ${{ needs.ghdl-shard.result }}, guard: ${{ needs.shard-guard.result }}, memory check: ${{ needs.memory-check.result }}"
+          test "${{ needs.ghdl-shard.result }}" = success
+          test "${{ needs.shard-guard.result }}" = success
+          test "${{ needs.memory-check.result }}" = success
 
   linting:
     runs-on: ubuntu-24.04

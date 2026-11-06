@@ -1158,6 +1158,7 @@ begin
         -------------------------------------------------------------------------------------------
         O_v       := r.P(0);
         O_v.Valid := '0';
+        Issue_v   := false;
         if not RuntimeConfig_g then
             O_v.Nx      := (others => '0');
             O_v.XLast   := '0';
@@ -1168,7 +1169,6 @@ begin
             O_v.Vmin := 0;
             O_v.Vmax := 0;
         end if;
-        Issue_v   := false;
 
         -- Room in the output FIFO for every item in flight
         Block_v := r.Inflight + to_integer(unsigned(FifoLevel)) + 2 > FifoDepth_c;

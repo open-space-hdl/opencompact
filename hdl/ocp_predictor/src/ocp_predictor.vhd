@@ -1064,6 +1064,28 @@ begin
     begin
         v := r;
 
+        -- Without the runtime configuration and the runtime parameters their registers hold constants
+        if not RuntimeConfig_g then
+            v.Hold     := '0';
+            v.HoldData := (others => '0');
+            v.HoldEnd  := '0';
+            v.SeqBusy  := '0';
+            v.CurNx    := to_unsigned(XSize_g, XW_c);
+            v.CurXMax  := to_unsigned(XSize_g - 1, XW_c);
+            v.CurYMax  := to_unsigned(YSize_g - 1, YW_c);
+            v.CurZMax  := to_unsigned(ZSize_g - 1, ZW_c);
+            v.CurM     := to_unsigned(M_c, ZW_c);
+            v.CurMm1   := to_unsigned(M_c - 1, ZW_c);
+            v.LFix     := LfixMax_c;
+            v.LCross   := LcrossMax_c;
+            v.RunRows  := toSl(RunRows_c);
+        end if;
+        if not RuntimeParams_g then
+            v.CurTInc := 0;
+            v.CurVmin := 0;
+            v.CurVmax := 0;
+        end if;
+
         -- Defaults of the handshake signals and of the memory write ports
         In_Ready  <= '0';
         Lim_Ready <= '0';
@@ -1137,6 +1159,16 @@ begin
         O_v       := r.P(0);
         O_v.Valid := '0';
         Issue_v   := false;
+        if not RuntimeConfig_g then
+            O_v.Nx      := (others => '0');
+            O_v.XLast   := '0';
+            O_v.RunRows := '0';
+        end if;
+        if not RuntimeParams_g then
+            O_v.TInc := 0;
+            O_v.Vmin := 0;
+            O_v.Vmax := 0;
+        end if;
 
         -- Room in the output FIFO for every item in flight
         Block_v := r.Inflight + to_integer(unsigned(FifoLevel)) + 2 > FifoDepth_c;
@@ -1265,12 +1297,16 @@ begin
                     O_v.SubLast  := toSl(SubEnd_v or ZLast_v);
                     O_v.AbsLim   := r.AbsConst;
                     O_v.RelLim   := r.RelConst;
-                    O_v.Nx       := r.CurNx;
-                    O_v.XLast    := toSl(XLast_v);
-                    O_v.RunRows  := toSl(RunRows_v);
-                    O_v.TInc     := r.CurTInc;
-                    O_v.Vmin     := r.CurVmin;
-                    O_v.Vmax     := r.CurVmax;
+                    if RuntimeConfig_g then
+                        O_v.Nx      := r.CurNx;
+                        O_v.XLast   := toSl(XLast_v);
+                        O_v.RunRows := toSl(RunRows_v);
+                    end if;
+                    if RuntimeParams_g then
+                        O_v.TInc := r.CurTInc;
+                        O_v.Vmin := r.CurVmin;
+                        O_v.Vmax := r.CurVmax;
+                    end if;
                     if Bsq_c then
                         O_v.Last := toSl(ZLast_v and YLast_v and XLast_v);
                     else

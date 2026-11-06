@@ -6,7 +6,7 @@
  ],
  "dates": [
   "2026-10-28",
-  "2026-10-30"
+  "2026-11-04"
  ],
  "outWidth": 32,
  "rows": [
@@ -48,12 +48,13 @@
   },
   {
    "name": "c11_wide_d32",
-   "lut": 81160,
-   "ff": 15167,
+   "lut": 39059,
+   "ff": 15181,
    "lsram": 12,
    "usram": 34,
    "math": 74,
-   "fmaxMHz": 74.991
+   "fmaxMHz": 78.734,
+   "note": "run of 2026-11-04 with the defined registers of the predictor (version 0.3.2)"
   },
   {
    "name": "c20_hybrid_d28",

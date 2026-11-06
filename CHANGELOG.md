@@ -22,6 +22,8 @@ interfaces is a patch release.
 - The CI runs the GHDL regression in three parallel shards of about the same simulation time (`tools/ci_shard.py`)
   and the memory check as a separate job; a guard checks that every test is in exactly one shard, and the job
   `simulation-ghdl` succeeds only when all of them succeed.
+- The documentation site builds with Markdown 3.11.3: the heading anchor function of `tools/docs/hooks.py` accepts
+  the new optional argument of the toc extension, and Markdown is pinned in `tools/docs/requirements.txt`.
 
 ## [0.3.1] - 2026-11-03
 

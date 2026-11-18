@@ -332,10 +332,12 @@ an image.
 The quantizer fidelity (`Fidelity_g`) is a generic and cannot change from image to image. An image that must be
 reconstructed exactly is compressed with the error limit value 0 of every method in use: the maximum error is then 0
 (CCSDS 4.8.2.1) and every decompressed sample equals the original sample. The header of such an image declares
-near-lossless compression with the limit 0, which every CCSDS 123.0-B-2 decompressor decodes. Without damping the body
-of the compressed image equals that of the same configuration in lossless mode and only the header differs (a few
-bytes); with damping the sample representatives (CCSDS 4.9) and with them the prediction differ, so the body differs,
-but its size stays close (a few bytes in the runtime configurations of the regression).
+near-lossless compression with the limit 0, which every CCSDS 123.0-B-2 decompressor decodes. The error limit value 0
+means an exact reconstruction, not the bytes of a lossless compression. Without damping the body of the compressed image
+equals that of the same configuration in lossless mode and only the header differs (a few bytes). With damping the
+sample representatives (CCSDS 4.9) and with them the prediction differ, so the body differs too: in a check with the
+reference model, an image of a runtime configuration of the regression with damping (rc02) was 4 bytes longer than in
+lossless mode, 3 of them in the header.
 
 The header carries the values of every image: X Size, Y Size, Z Size, the sub-frame interleaving depth (BI order)
 and the absolute and relative error limit values replace the bits of the header of the maxima at fixed positions,

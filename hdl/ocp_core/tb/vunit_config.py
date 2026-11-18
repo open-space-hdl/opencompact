@@ -17,6 +17,8 @@ ocp_core_tb:
 - test_runtime, test_runtime_timing, test_runtime_range, test_runtime_queue: the runtime configurations (RUNTIME,
   RuntimeConfig_g) and the runtime parameter configurations (RUNTIME_PARAMS, RuntimeParams_g; the configurations of
   RUNTIME_PARAMS_SEQUENCE_ONLY in test_runtime, those of RUNTIME_PARAMS_QUEUE_ONLY in test_runtime_queue)
+- test_idle: the core without an image after the reset, for the configurations of IDLE; with the warnings of the
+  IEEE packages, the post check no_metavalues fails on a warning after the reset
 
 Every configuration of test_golden, test_ecc and test_reset also runs with the image framing (UseInLast_g, suffix
 _last): In_Last on the last sample of every image; without it In_Last is random and ignored.
@@ -32,6 +34,7 @@ ocp_bit_packer_tb:
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -91,6 +94,56 @@ RATE = {"c22_single_pixel_hybrid": 20, "c20_hybrid_d28": 6, "c26_tp_bil_near_abs
 
 # Runtime configurations of the timing test (TC-CO-53)
 RUNTIME_TIMING = ["rc01_bi_m1_sample", "rc04_bi_m4_sample_both"]
+
+# Idle test (TC-CO-65): configuration, image framing. Together: BSQ, BIL, BIP and BI order with sub-frames, the
+# stride order, the three coders, lossless and near-lossless compression, sample representatives with damping,
+# periodic error limits, the runtime configuration and the runtime parameters
+IDLE = [("c34_small_bsq_lossless", False), ("c35_small_bil_periodic_spec", True),
+        ("c32_small_bip_periodic_rel", False), ("c33_small_bip_stride_block", True),
+        ("c31_small_bi_periodic_abs", False), ("c22_single_pixel_hybrid", True), ("rc03_bsq_block_rel", False),
+        ("rp02_bi_mnz_hybrid", True)]
+
+# Idle test: the testbench logs the start of the metavalue window (IdleWindow_c of ocp_core_tb): the release of Rst
+# after its first reset, derived from its clock period and reset length, plus the pipeline stages of the predictor
+# (IdleDepth_g, the depth of ocp_throughput.latencies) that the datapath fields without reset pass once
+WINDOW = re.compile(r"metavalue window from (\d+) ns")
+IEEE_WARNING = re.compile(r"NUMERIC_STD\.|metavalue detected")
+GHDL_TIME = re.compile(r"@(\d+(?:\.\d+)?)(fs|ps|ns|us|ms|sec):")
+QUESTA_TIME = re.compile(r"Time: (\d+(?:\.\d+)?) (fs|ps|ns|us|ms|sec)\b")
+NS = {"fs": 1e-6, "ps": 1e-3, "ns": 1.0, "us": 1e3, "ms": 1e6, "sec": 1e9}
+
+
+def no_metavalues(output):
+    """Post check of test_idle: no warning of the IEEE packages (a metavalue in an address, an index or a
+    comparison) from the start of the window logged by the testbench on, in the output of GHDL (time in the message)
+    or QuestaSim (time in the next line). A warning without a recognisable time counts, and so does an output without
+    the window. Prints the number of warnings and the time of the last one (the margin of the window)."""
+    window = WINDOW.search(output)
+    if window is None:
+        print("test_idle: the output has no metavalue window")
+        return False
+    start_ns = int(window.group(1))
+    lines = output.splitlines()
+    found = []
+    count, last_ns = 0, None
+    for n, line in enumerate(lines):
+        if not IEEE_WARNING.search(line):
+            continue
+        same_line = GHDL_TIME.search(line)
+        next_line = lines[n + 1] if n + 1 < len(lines) else ""
+        match = same_line or QUESTA_TIME.search(next_line)
+        count += 1
+        if match is not None:
+            time_ns = float(match.group(1)) * NS[match.group(2)]
+            last_ns = time_ns if last_ns is None else max(last_ns, time_ns)
+        if match is None or time_ns >= start_ns:
+            found.append(line.strip() if same_line else line.strip() + " " + next_line.strip())
+    print("test_idle: {} warnings of the IEEE packages, the last at {} ns; window from {} ns".format(
+        count, "-" if last_ns is None else "{:g}".format(last_ns), start_ns))
+    if found:
+        print("{} warnings of the IEEE packages from {} ns on, the first ones:".format(len(found), start_ns))
+        print("\n".join(found[:10]))
+    return not found
 
 
 def runtime_generics(name, cfg, rt_list="runtime"):
@@ -224,6 +277,20 @@ def configure(lib):
                    MaxBytes_g=ocp_model.max_image_bytes(cfg),
                    AbortPos_g=",".join(str(p) for p in golden_tool.abort_positions(name, cfg)))
         framing.add_config(name=name, generics=gen)
+
+    # Idle test (TC-CO-65): with the warnings of the IEEE packages (run.py), checked by its post check
+    idle = tb.test("test_idle")
+    for name, in_last in IDLE:
+        if name in ocp_configs.RUNTIME:
+            gen = runtime_generics(name, ocp_configs.RUNTIME[name])
+        elif name in ocp_configs.RUNTIME_PARAMS:
+            gen = dict(runtime_generics(name, ocp_configs.RUNTIME_PARAMS[name]), RuntimeParams_g=True)
+        else:
+            gen = dict(ocp_generics.generics(ocp_configs.ALL[name]),
+                       GoldenDir_g=(ROOT / "tb" / "golden" / name).as_posix())
+        depth = ocp_throughput.latencies(gen)["depth"]
+        idle.add_config(name=name, generics=dict(gen, UseInLast_g=in_last, IdleDepth_g=depth),
+                        post_check=no_metavalues)
 
     # Bit packer: interface widths and output word sizes; without back pressure, with back pressure and with small
     # images under sink stalls (several image ends queued in the packer)

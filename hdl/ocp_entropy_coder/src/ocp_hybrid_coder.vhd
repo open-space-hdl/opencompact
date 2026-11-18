@@ -521,7 +521,14 @@ begin
         FifoInData   <= I_v.CwData;
         FifoInLength <= std_logic_vector(I_v.CwLen);
         FifoInLast   <= '0';
-        RdAddr       <= In_Band;
+
+        -- Statistics of the next item; a defined address without an item, the band of the input is
+        -- undefined before the first item
+        if In_Valid = '1' then
+            RdAddr <= In_Band;
+        else
+            RdAddr <= (others => '0');
+        end if;
 
         if v.P(0).Valid = '1' and I_v.Valid = '0' then
             v.Inflight := r.Inflight + 1;

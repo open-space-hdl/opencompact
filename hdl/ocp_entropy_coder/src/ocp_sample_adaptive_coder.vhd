@@ -215,6 +215,7 @@ architecture rtl of ocp_sample_adaptive_coder is
     signal r, r_next : TwoProcess_r;
 
     signal RdData       : std_logic_vector(AccW_c + CntW_c - 1 downto 0);
+    signal RdAddr       : std_logic_vector(ZW_c - 1 downto 0);
     signal WrEna        : std_logic;
     signal WrAddr       : std_logic_vector(ZW_c - 1 downto 0);
     signal WrData       : std_logic_vector(AccW_c + CntW_c - 1 downto 0);
@@ -382,6 +383,14 @@ begin
         WrAddr <= std_logic_vector(I_v.Band);
         WrData <= std_logic_vector(I_v.CntNew) & std_logic_vector(I_v.AccNew);
 
+        -- Statistics of the next item; a defined address without an item, the band of the input is
+        -- undefined before the first item
+        if In_Valid = '1' then
+            RdAddr <= In_Band;
+        else
+            RdAddr <= (others => '0');
+        end if;
+
         -- Output FIFO
         I_v          := r.P(StCw_c);
         FifoInValid  <= I_v.Valid;
@@ -454,7 +463,7 @@ begin
             Wr_Addr        => WrAddr,
             Wr_Ena         => WrEna,
             Wr_Data        => WrData,
-            Rd_Addr        => In_Band,
+            Rd_Addr        => RdAddr,
             Rd_Data        => RdData,
             Rd_Valid       => open,
             Rd_EccSec      => EccSecVec(0),

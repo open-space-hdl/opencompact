@@ -9,6 +9,9 @@ interfaces is a patch release.
 
 ### Added
 
+- User guide: the verified image sizes as an integration constraint (section 7), TMR with a synthesis tool that has
+  no built-in TMR (section 6), lossless images in a near-lossless configuration with the runtime configuration
+  (section 4.4), and the blocks of `ocp_channel` for a source without an image end mark (section 4.3).
 - The output at a reset during an image (`ocp_channel` requirement CH-RS-02, user guide sections 3 and 7): from the
   first rising edge of `Clk` with `Rst` = '1', `Out_Valid` and `Out_Last` are '0' and the words of the image that the
   output stream has not taken are discarded, so its packet ends without `Out_Last`; a block that frames the
@@ -17,6 +20,9 @@ interfaces is a patch release.
 
 ### Changed
 
+- User guide section 8.2, the calibration data and the resource models (`tools/estimate/ocp_models.mjs`): c11
+  measured with the RTL of this version, 38695 LUT and 79 MHz (with version 0.3.0: 81160 LUT and 75 MHz); the
+  errors of the estimate change by 0.1 % at most.
 - Open Logic 4.8.0-ft.2 (from 4.7.0-ft.9), the fault-tolerant fork based on Open Logic 4.8.0. The Open Logic
   sources that OpenCompact uses are identical in both tags, so no port, generic or behaviour of OpenCompact
   changes.

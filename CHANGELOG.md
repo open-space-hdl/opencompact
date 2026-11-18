@@ -17,6 +17,9 @@ interfaces is a patch release.
 
 ### Changed
 
+- User guide section 8.2, the calibration data and the resource models (`tools/estimate/ocp_models.mjs`): c11
+  measured with the RTL of this version, 38695 LUT and 79 MHz (with version 0.3.0: 81160 LUT and 75 MHz); the
+  errors of the estimate change by 0.1 % at most.
 - Open Logic 4.8.0-ft.2 (from 4.7.0-ft.9), the fault-tolerant fork based on Open Logic 4.8.0. The Open Logic
   sources that OpenCompact uses are identical in both tags, so no port, generic or behaviour of OpenCompact
   changes.

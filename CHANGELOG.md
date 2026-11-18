@@ -9,6 +9,9 @@ interfaces is a patch release.
 
 ### Added
 
+- User guide: the verified image sizes as an integration constraint (section 7), TMR with a synthesis tool that has
+  no built-in TMR (section 6), lossless images in a near-lossless configuration with the runtime configuration
+  (section 4.4), and the blocks of `ocp_channel` for a source without an image end mark (section 4.3).
 - The output at a reset during an image (`ocp_channel` requirement CH-RS-02, user guide sections 3 and 7): from the
   first rising edge of `Clk` with `Rst` = '1', `Out_Valid` and `Out_Last` are '0' and the words of the image that the
   output stream has not taken are discarded, so its packet ends without `Out_Last`; a block that frames the

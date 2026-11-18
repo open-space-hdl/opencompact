@@ -47,11 +47,11 @@ reference included).
 | Module | Requirements | Verified by a test case | Without a test case |
 | --- | --- | --- | --- |
 | `ocp_channel` | 14 | 14 | - |
-| `ocp_core` | 43 | 43 | - |
+| `ocp_core` | 44 | 44 | - |
 | `ocp_entropy_coder` | 18 | 18 | - |
 | `ocp_input_adapter` | 13 | 13 | - |
 | `ocp_mib` | 17 | 17 | - |
 | `ocp_pkg` | 5 | 5 | - |
 | `ocp_predictor` | 32 | 32 | - |
 
-Requirements: 142; without a test case: 0; test cases of the plans not run by a testbench: 0.
+Requirements: 143; without a test case: 0; test cases of the plans not run by a testbench: 0.

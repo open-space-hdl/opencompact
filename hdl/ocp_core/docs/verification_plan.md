@@ -15,13 +15,14 @@ the CNES reference software.
 
 Two further tests run on a selection of configurations: `test_ecc` injects a single and a double bit error into every
 memory of the configuration (`ErrInj_Channel`) and checks that a corrected error leaves the compressed image unchanged
-and that a double error is signalled; `test_reset` resets the core at random times of an image (header, body, tail)
-and checks the next image. The testbench of the bit packer (`ocp_bit_packer_tb`) packs random codewords of random
-images and checks every word (`test_random`), and packs an image of numbered bytes to show the position of every byte in
-the interface word (`test_byte_order`). The core testbench checks the byte order as well: byte n of a word in bits
-8n + 7 to 8n, the valid bytes contiguous from byte 0 and all bytes valid except in the last word of an image. The
-interface width changes from configuration to
-configuration (8, 16, 32 and 64 bits in turn; 32 bits for the throughput configurations).
+and that a double error is signalled; `test_reset` resets the core at random times of an image (header, body, tail) and
+checks the next image; `test_idle` runs the core without an image after the reset with the warnings of the IEEE
+packages, which the other tests switch off. The testbench of the bit packer (`ocp_bit_packer_tb`) packs random codewords
+of random images and checks every word (`test_random`), and packs an image of numbered bytes to show the position of
+every byte in the interface word (`test_byte_order`). The core testbench checks the byte order as well: byte n of a word
+in bits 8n + 7 to 8n, the valid bytes contiguous from byte 0 and all bytes valid except in the last word of an image.
+The interface width changes from configuration to configuration (8, 16, 32 and 64 bits in turn; 32 bits for the
+throughput configurations).
 
 Every configuration of `test_golden`, `test_ecc` and `test_reset` runs twice: without the image framing, with random
 values on `In_Last`, and with `UseInLast_g` and `In_Last` on the last sample of every image (suffix `_last`).
@@ -151,6 +152,7 @@ of the configuration and of the parameters.
 | TC-CO-62 (regression and `lint/synth_check.py`, before and after the runtime parameters) | With `RuntimeParams_g` false the tests of rc01 to rc05 pass on their unchanged golden data, byte for byte, and the register bits and cells of the GHDL netlist of rc01 to rc05 differ from those of version 0.2.0 only by logic without loads, listed per configuration in the verification report | CO-RP-04 |
 | TC-CO-63 (elaboration of `ocp_core`, every test and `lint/synth_check.py`) | For every value of the range of every parameter, decoding the encoding of its header field gives the value back (an elaboration assertion over the full ranges); a mutation of one decoding stops the elaboration | CO-RP-05 |
 | TC-CO-64 (`lint/synth_check.py`) | rp01 to rp03 synthesize; `RuntimeParams_g` true with `RuntimeConfig_g` false, and rp02 with initial accumulators of 5000000 (no gamma0 up to 8 keeps them below 2^(D + gamma0)), stop the elaboration with their message | CO-CF-05 |
+| `test_idle` c22, c31, c32, c33, c34, c35, rc03, rp02 (TC-CO-65) | 2000 clock cycles without an image after a reset of five cycles, with the warnings of the IEEE packages: no output word and no memory error. From the release of `Rst` on, in the middle of every clock cycle, no output of the core is a metavalue (`is_x` on the ports: the valid and ready of every stream, `Ecc_Sec`, `Ecc_Ded`, `Ev_ImageError`, `Cfg_Taken`, every `Act_` output, and the data of the output stream while `Out_Valid` is '1'). The post check of the test (`no_metavalues` in `vunit_config.py`) finds no warning of the IEEE packages in the output of the simulator (GHDL and QuestaSim) from the window logged by the testbench on. The testbench derives the window from its constants and a generic: `Clk` is '0' at time 0 with a period of 10 ns (first rising edge at 5 ns), `Rst` is '1' from time 0 for five rising edges and is released after the edge at 45 ns, and the core resets synchronously without a reset generator, so every reset register has its value from the first edge on; the datapath fields without reset of the pipeline items pass the stages of the predictor once after the release, so the window opens `IdleDepth_g` clock cycles after it, the depth of the predictor pipeline from `ocp_throughput.latencies` (the model the predictor testbench checks cycle by cycle). The testbench checks that its reset procedure ends one edge after the release, and the post check prints the time of the last warning; the verification report lists it against the depth for every configuration (the margin of the window). A warning without a time and an output without the window fail the test. In the configurations without the reads that CO-RS-02 fixed (rc03: BSQ, block-adaptive coder) the test also passes on the RTL before the fix; they are the control that the check does not fail on the burst after the release alone. Together: BSQ, BIL, BIP and BI order with sub-frames, the stride order, the three coders, lossless and near-lossless compression, sample representatives with damping, periodic error limits, the runtime configuration and the runtime parameters, four with the image framing | CO-RS-02 |
 
 ## 4. Requirement coverage
 
@@ -162,6 +164,7 @@ of the configuration and of the parameters.
 | CO-PK-01 to CO-PK-03 | all (two images per test), TC-CO-39 to TC-CO-41, TC-CO-43 (ten images per test), TC-CO-51 (size bound) |
 | CO-TP-01 | TC-CO-25 to TC-CO-28, TC-CO-39, TC-CO-50 (image period, sequences of hybrid images) |
 | CO-RS-01 | TC-CO-37, TC-CO-38, TC-CO-47 |
+| CO-RS-02 | TC-CO-65 |
 | CO-FR-01 | TC-CO-01 to TC-CO-44, TC-CO-48 (random `In_Last` and `In_Error` without `UseInLast_g`) |
 | CO-CF-01 to CO-CF-03 | TC-CO-49 |
 | CO-FR-02 to CO-FR-09 | TC-CO-46, TC-CO-47 |

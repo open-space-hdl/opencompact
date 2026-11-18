@@ -2264,8 +2264,10 @@ begin
             r <= r_next;
             if Rst = '1' then
 
+                -- The band of a stage addresses the weight memory also without an item
                 for k in 0 to NSt_c - 1 loop
                     r.P(k).Valid <= '0';
+                    r.P(k).Z     <= (others => '0');
                 end loop;
 
                 for i in 1 to SbLen_c loop

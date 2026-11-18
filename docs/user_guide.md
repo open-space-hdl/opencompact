@@ -301,6 +301,16 @@ Integration with OpenSPP: connect the receive port of the Octet String Service (
 sender marks the last SDU of an image with the CPTP User Application value 1), `UserErrorMask_g` = 22x"003000" (Data
 Loss Indicator, bit 12, with the continuity check of the APID enabled; receive buffer error, bit 13).
 
+Sources without an image end mark: `ocp_channel` always ends an image at the end mark of an SDU. A source that cannot
+mark the last SDU of an image uses the blocks of `ocp_channel` around `ocp_core` with `UseInLast_g` = false instead:
+`ocp_input_adapter` with `UserErrorMask_g` as needed (with the end mark generics at their defaults it marks every SDU,
+which the core then ignores), `ocp_core`, which ends every image after NX NY NZ samples (CO-FR-01, section 4.2),
+`olo_base_wconv_n2m` from `OutWidth_g` to the width of the output stream, and `ocp_mib` with `Ev_ImageDone` from the
+last word of every compressed image and `Ev_ImageAborted` at '0'. A faulty SDU is then counted (SDU_ERRORS) but does not
+end its image: the images stay aligned only while the source delivers exactly NX NY NZ samples per image, and a lost or
+added sample shifts every later image until a reset. With the end mark, `ocp_channel` starts the next image at the next
+end mark instead. This assembly is not tested as a whole; its blocks are.
+
 ### 4.4 Runtime configuration
 
 With `RuntimeConfig_g` = true the image dimensions NX, NY, NZ and the band-independent absolute and relative error
@@ -328,6 +338,16 @@ error limit value above 2^DA - 1 or 2^DR - 1 as that value), and a simulation as
 it. The image is compressed with the values taken, its header carries them and the `Act_` outputs show them. An
 upset of the configuration registers therefore cannot make the core address outside its memories or lose the end of
 an image.
+
+The quantizer fidelity (`Fidelity_g`) is a generic and cannot change from image to image. An image that must be
+reconstructed exactly is compressed with the error limit value 0 of every method in use: the maximum error is then 0
+(CCSDS 4.8.2.1) and every decompressed sample equals the original sample. The header of such an image declares
+near-lossless compression with the limit 0, which every CCSDS 123.0-B-2 decompressor decodes. The error limit value 0
+means an exact reconstruction, not the bytes of a lossless compression. Without damping the body of the compressed image
+equals that of the same configuration in lossless mode and only the header differs (a few bytes). With damping the
+sample representatives (CCSDS 4.9) and with them the prediction differ, so the body differs too: in a check with the
+reference model, an image of a runtime configuration of the regression with damping (rc02) was 4 bytes longer than in
+lossless mode, 3 of them in the header.
 
 The header carries the values of every image: X Size, Y Size, Z Size, the sub-frame interleaving depth (BI order)
 and the absolute and relative error limit values replace the bits of the header of the maxima at fixed positions,
@@ -435,6 +455,12 @@ The integrator:
 - protects the configuration memory of SRAM-based FPGAs by scrubbing; this is part of the FPGA design, not of the
   core.
 
+With a synthesis tool that has no built-in TMR (AMD Vivado has no counterpart of `syn_radhardlevel`), the integrator
+either triplicates the logic in a separate flow (a synthesis tool or a netlist flow that supports TMR for the target
+family) or decides at system level how much unprotected logic the mission accepts, for example with two cores that
+compress the same images and a comparison of their outputs that discards an image on a mismatch. The memories keep their
+SECDED protection in every case, since it is part of the core.
+
 The ECC paths are verified in simulation by error injection. Whether the protection as a whole meets the
 requirements of a mission is shown by a radiation test with the core in operation (TRL 5).
 
@@ -449,6 +475,7 @@ requirements of a mission is shown by a radiation test with the core in operatio
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
 | A block that frames the compressed image stream (packetizer, chunker) is reset in the same clock cycle as the core | A reset during an image ends its packet without `Out_Last` (section 3); a block that keeps its state adds the next image to the open packet |
 | TMR of the synthesis tool enabled for the core | The core protects its memories itself and relies on TMR for all other logic (section 6) |
+| Images larger than the verified range (NX, NY, NZ and M up to 64, 64, 48 and 48 in the regression; the CCSDS test data set up to 66 columns, 513 rows and 239 bands) are simulated by the integrator with the image sizes of the mission | Larger images are synthesised but not simulated (section 2.5); a defect that depends on the image size would not show in the verification of the core |
 | With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
 | `ocp_channel`: every SDU carries a whole number of samples and no other bytes (no secondary header) | Every byte is sample data; an SDU with a partial sample ends its image with an error (section 4.3) |
 | `ocp_channel`: a receiver that must identify the images with an error uses `Out_Error` or the counters | An image ended by a faulty last SDU is complete and has the bytes of a correct image (section 4.3) |

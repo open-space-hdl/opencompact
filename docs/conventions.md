@@ -22,6 +22,13 @@ document. This page lists the rules and the few OpenCompact-specific additions.
   reset and without a next-state assignment. Synthesis removes such an undefined register, but it can still change
   how the tool maps the logic around it: in one configuration (c11) Synplify mapped the unchanged predictor to twice
   the LUTs.
+- No register without a reset feeds a memory address, an index or a control decision (valid, ready, the state of
+  a state machine, a counter). Datapath registers without a reset (the data of a pipeline item, the output
+  register of an Open Logic pipeline stage) are allowed where their value is used only together with a valid
+  item; an address taken from such a register is gated with the valid of its item. Otherwise the register is
+  undefined until the first item and a simulation reports a metavalue warning in every clock cycle. `test_idle`
+  of `ocp_core` checks this at the ports and with the warnings of the IEEE packages, which all other tests switch
+  off.
 - Every data path between blocks is a valid / ready stream (AXI4-Stream handshake semantics).
 - Standard functions (FIFOs, RAMs, crossings, synchronisers) are instantiated from Open Logic, never rewritten.
   Memories use the fault-tolerant `olo_ft_*` entities.

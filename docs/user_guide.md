@@ -117,6 +117,16 @@ of an image. A reset at any time aborts the image in progress (header, body or t
 from the initial state of the standard. The memories need no initialisation: the core uses data read from a memory
 only after it has been written in the same image.
 
+From the release of `Rst` on, every memory address, every control signal and every output port of the core is
+defined, except the data of a stream whose valid is '0' (CO-RS-02). The datapath registers of the pipeline stages
+have no reset; until the first image they hold undefined values that are never used, because their stages hold no
+valid item. A simulation with the warnings of the IEEE packages (numeric_std) therefore reports a bounded burst
+of metavalue warnings after a reset: the comparisons of the datapath on these values while they pass the
+pipeline of the predictor once, at most one pipeline depth (up to about 35 clock cycles) after the release of
+`Rst`, and none after it. These warnings never come from a memory access. A change of an input of the core while
+`In_Valid` is '0', before the first image, can repeat the burst. A testbench that checks streams for metavalues
+qualifies the data with the valid, as the AXI4-Stream protocol checks do.
+
 A reset during an image also ends its output, in `ocp_core` and in `ocp_channel`. From the first rising edge of `Clk`
 with `Rst` = '1', `Out_Valid` and `Out_Last` are '0', and the words of the compressed image that the output stream has
 not taken are discarded. The packet of that image therefore ends without `Out_Last`; a word taken at the clock edge
@@ -692,3 +702,4 @@ python tools/ocp_decompress.py compressed.bin -o decoded.raw --compare image.raw
 | Defect | Affected | Effect | Correction |
 | --- | --- | --- | --- |
 | `BlockSize_g` other than 8, 16, 32 and 64 was accepted | All versions before the generic range checks | The header carries the block size code of 64 while the block-adaptive coder codes blocks of the given size, so the compressed image cannot be decompressed | The elaboration stops (CO-CF-02, section 7) |
+| Memory reads at undefined addresses before the first image | All versions up to 0.3.1 | Before the first image after a reset the statistics memory of the sample-adaptive and the hybrid coder and, in BI order, the weight memory of the predictor are read at an undefined address: a simulation with the warnings of the IEEE packages reports a metavalue warning in every clock cycle. The data read are not used; the compressed images and the hardware are not affected | The addresses are defined from the reset (CO-RS-02); what remains is the bounded burst of warnings after a reset from the datapath of the pipeline stages without a valid item (section 3) |

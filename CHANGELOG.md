@@ -37,6 +37,14 @@ interfaces is a patch release.
   every configuration are unchanged. User guide section 8.2 and the resource models (`tools/estimate/ocp_models.mjs`)
   use the new c11 run; the rule is in the conventions (every register has a defined value in every configuration of
   the generics).
+- Before the first image after a reset the sample-adaptive and the hybrid coder read their statistics memory, and
+  the predictor in BI order its weight memory, at an undefined address, so a simulation with the warnings of the
+  IEEE packages reported a metavalue warning in every clock cycle. These addresses are defined from the reset
+  (`ocp_core` requirement CO-RS-02: from the release of `Rst` on every memory address, control signal and output
+  port is defined, except the data of a stream whose valid is '0'). `test_idle` runs the core without an image in
+  eight configurations, checks every output at the ports and fails on a warning of the IEEE packages once the
+  datapath without reset has passed the pipeline of the predictor (user guide section 3). The data read at these
+  addresses were never used, so the compressed images and the hardware behaviour are unchanged.
 
 ## [0.3.1] - 2026-11-03
 

@@ -17,6 +17,9 @@ interfaces is a patch release.
 
 ### Changed
 
+- Open Logic 4.8.0-ft.2 (from 4.7.0-ft.9), the fault-tolerant fork based on Open Logic 4.8.0. The Open Logic
+  sources that OpenCompact uses are identical in both tags, so no port, generic or behaviour of OpenCompact
+  changes.
 - `python tools/compliance.py --check` also fails when `docs/compliance.md` is not the matrix the script generates
   (tests in `tools/tests/test_compliance.py`).
 - The CI runs the GHDL regression in three parallel shards of about the same simulation time (`tools/ci_shard.py`)

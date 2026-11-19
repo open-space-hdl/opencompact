@@ -2,17 +2,18 @@
 
 ## 1. Test results
 
-Run on 2026-10-27 with GHDL 6.0.0 (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with
-the AXI-Lite VVC, Open Logic 4.7.0-ft.9: `python run.py "*ocp_channel*"`. The same tests pass in QuestaSim (Questa Pro
-Microchip Edition 2024.3, time resolution 1 fs, 2026-10-26 and 2026-10-27), with code coverage and in the optimised
-run without it; the code coverage is in [coverage.md](../../../docs/coverage.md).
+Run on 2026-11-18 with GHDL 6.0.0 (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b) with the
+AXI-Lite VVC, Open Logic 4.8.0-ft.2: `python run.py "*ocp_channel*"`. The same tests pass in QuestaSim (Questa Pro
+Microchip Edition 2024.3, time resolution 1 fs, 2026-11-18 and 2026-11-19), in one run with code coverage (the RTL
+changed in this release; a run with coverage is the functional evidence and the code coverage at once); the code
+coverage is in [coverage.md](../../../docs/coverage.md).
 
 | Test | Configurations | Passed |
 | --- | --- | --- |
 | `test_golden` (TC-CH-01) | 8 | 8 |
 | `test_errors` (TC-CH-02) | 7 | 7 |
 | `test_ecc` (TC-CH-03) | 1 (two memories) | 1 |
-| `test_reset` (TC-CH-04) | 1 | 1 |
+| `test_reset` (TC-CH-04) | 2 (r09, and r24 with the output converter) | 2 |
 | `test_runtime` (TC-CH-07, TC-CH-08) | 2 (rc04; rp01 with the runtime parameters) | 2 |
 | `lint/synth_check.py` (TC-CH-05) | 8 configurations synthesize, `OutStreamWidth_g` = 24 stops the elaboration | 9 |
 

@@ -21,7 +21,9 @@
 --   every counter step are checked
 -- * test_ecc: single and double bit errors injected through ErrInj_* into memories of the core
 --   are counted in ECC_CORRECTED and ECC_UNCORRECTABLE; the image with a corrected error is correct
--- * test_reset: a reset in the middle of an image clears the counters; the next image is correct
+-- * test_reset: a reset in the middle of an image clears the counters; the packet of that image has begun
+--   and ends without Out_Last, the output carries no beat from the first clock edge of the reset until
+--   the next image, and the next image is correct
 --
 -- Documentation: hdl/ocp_channel/docs/verification_plan.md
 
@@ -291,6 +293,11 @@ architecture sim of ocp_channel_tb is
     -- Resets of the DUT: the source model starts its counters again
     signal Resets : natural := 0;
 
+    -- Output beats transferred since the start of the simulation; with ChkRstLast (test_reset, a reset in
+    -- the middle of an image) a beat transferred at a clock edge with Rst = '1' must not carry Out_Last
+    signal OutBeats   : natural := 0;
+    signal ChkRstLast : boolean := false;
+
 begin
 
     i_ti_uvvm_engine : entity uvvm_vvc_framework.ti_uvvm_engine;
@@ -440,6 +447,7 @@ begin
     -----------------------------------------------------------------------------------------------
     p_main : process is
         variable Job_v      : natural := 0;
+        variable Beats_v    : natural;
         variable Plan_v     : Plan_t;
         variable Channels_v : integer_vector(0 to 15);
         variable NCh_v      : natural;
@@ -703,17 +711,23 @@ begin
             elsif run("test_reset") then
                 job(1, (others => Normal_c));
                 chkCounters("before the reset");
-                -- A reset in the middle of an image
+                -- A reset in the middle of an image: its packet has begun, ends without Out_Last (p_reset_out
+                -- and the sink, which expects no packet after the reset) and the output stays idle until the
+                -- next image
                 JobImages <= 1;
                 JobPlan   <= (others => Normal_c);
                 Job_v     := Job_v + 1;
                 JobStart  <= Job_v;
+                Beats_v   := OutBeats;
 
                 for c in 1 to Samples_c / 2 loop
                     syncClk;
                 end loop;
 
+                check_value(OutBeats > Beats_v, ERROR, "the packet of the interrupted image has begun before the reset");
+                ChkRstLast <= true;
                 reset;
+                ChkRstLast <= false;
                 if SrcDone /= Job_v then
                     wait until SrcDone = Job_v for 10 ms;
                     check_value(SrcDone = Job_v, ERROR, "the source stops after the reset");
@@ -1105,6 +1119,29 @@ begin
             -- No packet expected: none may arrive
             Out_Ready <= '1';
             check_value(Out_Valid, '0', ERROR, "no packet expected");
+        end if;
+    end process;
+
+    -- Output during a reset (CH-RS-02): the reset is synchronous, so from the second clock edge with Rst = '1' on
+    -- the output stream carries no beat; with ChkRstLast (a reset in the middle of an image) a beat transferred at
+    -- the first edge belongs to the interrupted image and has no Out_Last
+    p_reset_out : process is
+        variable RstEdges_v : natural := 0;
+    begin
+        wait until rising_edge(Clk);
+        if Out_Valid = '1' and Out_Ready = '1' then
+            OutBeats <= OutBeats + 1;
+        end if;
+        if Rst = '1' then
+            if RstEdges_v > 0 then
+                check_value(Out_Valid, '0', ERROR, "Out_Valid '0' from the first clock edge of the reset");
+            end if;
+            if ChkRstLast and Out_Valid = '1' and Out_Ready = '1' then
+                check_value(Out_Last, '0', ERROR, "no Out_Last in the packet of the interrupted image");
+            end if;
+            RstEdges_v := RstEdges_v + 1;
+        else
+            RstEdges_v := 0;
         end if;
     end process;
 

@@ -9,7 +9,7 @@ conformance statement, the reference data, the decompression of compressed image
 
 | Library | Files | Content |
 | --- | --- | --- |
-| `olo` | All of `open-logic/src/base`, `open-logic/src/axi` and `open-logic/src/ft` in the order of `open-logic/compile_order.txt` (used: `olo_ft_ram_sdp`, `olo_ft_fifo_sync`, `olo_base_pl_stage`, `olo_base_wconv_n2m`, `olo_axi_lite_slave` and their dependencies) | Open Logic, fault-tolerant fork, tag `4.7.0-ft.9` |
+| `olo` | All of `open-logic/src/base`, `open-logic/src/axi` and `open-logic/src/ft` in the order of `open-logic/compile_order.txt` (used: `olo_ft_ram_sdp`, `olo_ft_fifo_sync`, `olo_base_pl_stage`, `olo_base_wconv_n2m`, `olo_axi_lite_slave` and their dependencies) | Open Logic, fault-tolerant fork, tag `4.8.0-ft.2` (based on Open Logic 4.8.0) |
 | `opencompact` | `hdl/<module>/src/*.vhd` of every module of `component_list.txt`, in the order of `compile_order.txt`: the modules in the order of `component_list.txt`, within a module packages first | OpenCompact; top level `ocp_core`, or `ocp_channel` (section 4.3) |
 
 All sources are VHDL-2008 and contain no vendor primitive. `tools/synth_libero.py` shows a complete synthesis and
@@ -116,6 +116,24 @@ synchroniser). After the reset the core waits for the first sample
 of an image. A reset at any time aborts the image in progress (header, body or tail); the next image is compressed
 from the initial state of the standard. The memories need no initialisation: the core uses data read from a memory
 only after it has been written in the same image.
+
+From the release of `Rst` on, every memory address, every control signal and every output port of the core is
+defined, except the data of a stream whose valid is '0' (CO-RS-02). The datapath registers of the pipeline stages
+have no reset; until the first image they hold undefined values that are never used, because their stages hold no
+valid item. A simulation with the warnings of the IEEE packages (numeric_std) therefore reports a bounded burst
+of metavalue warnings after a reset: the comparisons of the datapath on these values while they pass the
+pipeline of the predictor once, at most one pipeline depth (up to about 35 clock cycles) after the release of
+`Rst`, and none after it. These warnings never come from a memory access. A change of an input of the core while
+`In_Valid` is '0', before the first image, can repeat the burst. A testbench that checks streams for metavalues
+qualifies the data with the valid, as the AXI4-Stream protocol checks do.
+
+A reset during an image also ends its output, in `ocp_core` and in `ocp_channel`. From the first rising edge of `Clk`
+with `Rst` = '1', `Out_Valid` and `Out_Last` are '0', and the words of the compressed image that the output stream has
+not taken are discarded. The packet of that image therefore ends without `Out_Last`; a word taken at the clock edge
+at which `Rst` is first '1' belongs to it. After the reset the next word is the first word of the next compressed
+image. A block that frames the compressed image stream into packets or chunks must be reset in the same clock cycle
+as the core, for example by a reset group that resets both from one source (section 7); otherwise it adds the next
+image to the open packet.
 
 ## 4. Interfaces
 
@@ -283,6 +301,16 @@ Integration with OpenSPP: connect the receive port of the Octet String Service (
 sender marks the last SDU of an image with the CPTP User Application value 1), `UserErrorMask_g` = 22x"003000" (Data
 Loss Indicator, bit 12, with the continuity check of the APID enabled; receive buffer error, bit 13).
 
+Sources without an image end mark: `ocp_channel` always ends an image at the end mark of an SDU. A source that cannot
+mark the last SDU of an image uses the blocks of `ocp_channel` around `ocp_core` with `UseInLast_g` = false instead:
+`ocp_input_adapter` with `UserErrorMask_g` as needed (with the end mark generics at their defaults it marks every SDU,
+which the core then ignores), `ocp_core`, which ends every image after NX NY NZ samples (CO-FR-01, section 4.2),
+`olo_base_wconv_n2m` from `OutWidth_g` to the width of the output stream, and `ocp_mib` with `Ev_ImageDone` from the
+last word of every compressed image and `Ev_ImageAborted` at '0'. A faulty SDU is then counted (SDU_ERRORS) but does not
+end its image: the images stay aligned only while the source delivers exactly NX NY NZ samples per image, and a lost or
+added sample shifts every later image until a reset. With the end mark, `ocp_channel` starts the next image at the next
+end mark instead. This assembly is not tested as a whole; its blocks are.
+
 ### 4.4 Runtime configuration
 
 With `RuntimeConfig_g` = true the image dimensions NX, NY, NZ and the band-independent absolute and relative error
@@ -310,6 +338,16 @@ error limit value above 2^DA - 1 or 2^DR - 1 as that value), and a simulation as
 it. The image is compressed with the values taken, its header carries them and the `Act_` outputs show them. An
 upset of the configuration registers therefore cannot make the core address outside its memories or lose the end of
 an image.
+
+The quantizer fidelity (`Fidelity_g`) is a generic and cannot change from image to image. An image that must be
+reconstructed exactly is compressed with the error limit value 0 of every method in use: the maximum error is then 0
+(CCSDS 4.8.2.1) and every decompressed sample equals the original sample. The header of such an image declares
+near-lossless compression with the limit 0, which every CCSDS 123.0-B-2 decompressor decodes. The error limit value 0
+means an exact reconstruction, not the bytes of a lossless compression. Without damping the body of the compressed image
+equals that of the same configuration in lossless mode and only the header differs (a few bytes). With damping the
+sample representatives (CCSDS 4.9) and with them the prediction differ, so the body differs too: in a check with the
+reference model, an image of a runtime configuration of the regression with damping (rc02) was 4 bytes longer than in
+lossless mode, 3 of them in the header.
 
 The header carries the values of every image: X Size, Y Size, Z Size, the sub-frame interleaving depth (BI order)
 and the absolute and relative error limit values replace the bits of the header of the maxima at fixed positions,
@@ -417,6 +455,12 @@ The integrator:
 - protects the configuration memory of SRAM-based FPGAs by scrubbing; this is part of the FPGA design, not of the
   core.
 
+With a synthesis tool that has no built-in TMR (AMD Vivado has no counterpart of `syn_radhardlevel`), the integrator
+either triplicates the logic in a separate flow (a synthesis tool or a netlist flow that supports TMR for the target
+family) or decides at system level how much unprotected logic the mission accepts, for example with two cores that
+compress the same images and a comparison of their outputs that discards an image on a mismatch. The memories keep their
+SECDED protection in every case, since it is part of the core.
+
 The ECC paths are verified in simulation by error injection. Whether the protection as a whole meets the
 requirements of a mission is shown by a radiation test with the core in operation (TRL 5).
 
@@ -429,7 +473,9 @@ requirements of a mission is shown by a radiation test with the core in operatio
 | The elaboration stops for the parameter values of section 2 that the standard does not allow: register size below max(32, D + Omega + 2), width 1 with full prediction or neighbour-oriented local sums, vmin above vmax, periodic updating in BSQ order, M above NZ, block sizes other than 8, 16, 32 and 64, restricted code options with D above 4, rescaling counter sizes below max(4, gamma0 + 1) and accumulator initialisation values above min(D - 2, 14). The user keeps the other ranges of the standard, for example the values of the error limit and weight tables | The header fields have the widths of the standard and would carry most of these values; the compressed image would contradict its header |
 | The decompressor must know the tables that are not included in the header (table flags false) and the initial accumulators of the hybrid coder | CCSDS 5.3.3.3.2.1, 5.4.3.3.4.3 |
 | The hybrid coder needs the end of the compressed image to decode it in reverse; `Out_Last` marks it | CCSDS 5.4.3.3.1 |
+| A block that frames the compressed image stream (packetizer, chunker) is reset in the same clock cycle as the core | A reset during an image ends its packet without `Out_Last` (section 3); a block that keeps its state adds the next image to the open packet |
 | TMR of the synthesis tool enabled for the core | The core protects its memories itself and relies on TMR for all other logic (section 6) |
+| Images larger than the verified range (NX, NY, NZ and M up to 64, 64, 48 and 48 in the regression; the CCSDS test data set up to 66 columns, 513 rows and 239 bands) are simulated by the integrator with the image sizes of the mission | Larger images are synthesised but not simulated (section 2.5); a defect that depends on the image size would not show in the verification of the core |
 | With `UseInLast_g`, `In_Last` accompanies the last sample of every image | Otherwise every image is flagged and the samples up to the next `In_Last` are discarded (section 4.2) |
 | `ocp_channel`: every SDU carries a whole number of samples and no other bytes (no secondary header) | Every byte is sample data; an SDU with a partial sample ends its image with an error (section 4.3) |
 | `ocp_channel`: a receiver that must identify the images with an error uses `Out_Error` or the counters | An image ended by a faulty last SDU is complete and has the bytes of a correct image (section 4.3) |
@@ -529,10 +575,13 @@ and the longest low-entropy output codeword for every index, more than any image
 
 ### 8.2 Resources
 
-Resources and clock frequency of the RTL of version 0.3.0 with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a
-PolarFire MPF100T (FCG484, STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the
-place and route results for a 100 MHz constraint; the cycles per sample are those of the throughput model (section
-8.1; for c29 and c30 the small test images make the per-image skew of the stride order visible).
+Resources and clock frequency with Libero SoC 2025.2 (Synplify Pro and SmartTime) for a PolarFire MPF100T (FCG484,
+STD speed grade, industrial range) and a 32-bit interface. The clock frequencies are the place and route results for
+a 100 MHz constraint; the cycles per sample are those of the throughput model (section 8.1; for c29 and c30 the small
+test images make the per-image skew of the stride order visible). The runs are those of the RTL of version 0.3.0,
+except c11, which was run again on 2026-11-18 with the RTL of version 0.3.2 (with version 0.3.0: 81160 LUT and
+75 MHz). The change of the predictor in version 0.3.2 (registers of the runtime configuration with a defined value
+when the generics disable them) left c01 and c27 identical in a separate run; the other rows were not repeated.
 
 | Configuration | Cycles per sample | LUT | Flip-flops | LSRAM | uSRAM | Math blocks | Clock frequency |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -540,7 +589,7 @@ place and route results for a 100 MHz constraint; the cycles per sample are thos
 | c03: 20 x 10 x 8, D = 8, BSQ, lossless, P = 2 full, narrow local sums, sample-adaptive | 7.93 | 12088 | 4230 | 1 | 17 | 7 | 118 MHz |
 | c04: 24 x 12 x 12, D = 16, BIP, absolute error limit, P = 3 full, hybrid (stride order) | 3.14 | 21089 | 13797 | 3 | 41 | 36 | 118 MHz |
 | c06: 24 x 12 x 10, D = 16, BIP, absolute and relative error limits, P = 4 full, block-adaptive (stride order) | 3.78 | 19397 | 16991 | 3 | 40 | 23 | 112 MHz |
-| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, R = 64, sample-adaptive | 1.00 | 81160 | 15167 | 12 | 34 | 74 | 75 MHz |
+| c11: 12 x 8 x 18, D = 32, BIP, lossless, P = 15 full, Omega = 19, R = 64, sample-adaptive | 1.00 | 38695 | 15204 | 12 | 34 | 74 | 79 MHz |
 | c20: 12 x 10 x 6, D = 28, BIP, lossless, P = 3 full, hybrid | 1.33 | 22222 | 7331 | 1 | 41 | 31 | 124 MHz |
 | c25: 32 x 12 x 6, D = 16, BSQ, lossless, P = 3 reduced, narrow local sums, sample-adaptive (speculative weight loop) | 1.00 | 13466 | 4107 | 3 | 17 | 49 | 107 MHz |
 | c26: 40 x 8 x 6, D = 16, BIL, absolute error limit, P = 3 reduced, narrow column-oriented local sums, hybrid (speculative weight loop) | 1.00 | 23161 | 11585 | 1 | 34 | 68 | 104 MHz |
@@ -549,8 +598,7 @@ place and route results for a 100 MHz constraint; the cycles per sample are thos
 | c30: 10 x 5 x 48, D = 16, BIP, absolute and relative error limits, P = 2 reduced, hybrid (stride order) | 1.67 | 18713 | 10721 | 7 | 33 | 25 | 119 MHz |
 
 All configurations reach 100 MHz except c11, which combines the widest values of D, Omega, P and R and reaches
-75 MHz; its predictor takes 72549 of its 81160 LUTs. Area and clock frequency of the predictor for this corner are an
-open item of the [roadmap](roadmap.md).
+79 MHz. The clock frequency of the predictor for this corner is an open item of the [roadmap](roadmap.md).
 
 The logic grows with the number of local differences C, with the widths D, Omega and R, with near-lossless
 compression, with the hybrid and the block-adaptive coder and with the runtime parameters. The math blocks grow with
@@ -574,8 +622,8 @@ and the CI checks that both give the same results for every configuration of the
 | Quantity | Model | Accuracy |
 | --- | --- | --- |
 | Memories (`memories`, `ramBits`) | Depth, data width and stored SECDED codeword width of every memory, from the generics | Exact: equal to the memories of the GHDL netlist of 126 configurations (`lint/memory_check.py`) |
-| LUT, flip-flops | Linear model over the structure of the configuration (datapath widths times their number, the optional blocks), fitted to 56 of 61 Libero synthesis runs | LUT: RMS 7.5 %, max 30.6 % over all runs; for the configurations of the table RMS 11.9 %, max 30.6 % (c11), for the ten other configurations of the table RMS 7.8 %, max 13.5 %. Flip-flops: RMS 3.7 %, max 14.4 % |
-| Clock frequency | Linear model of the clock period, fitted to 11 of the 16 place and route runs | RMS 4.4 %, max 12.8 % |
+| LUT, flip-flops | Linear model over the structure of the configuration (datapath widths times their number, the optional blocks), fitted to 56 of 61 Libero synthesis runs | LUT: RMS 5.6 %, max 16.2 % over all runs; for the configurations of the table RMS 7.1 %, max 13.6 % (c30). Flip-flops: RMS 3.7 %, max 14.3 % |
+| Clock frequency | Linear model of the clock period, fitted to 11 of the 16 place and route runs | RMS 4.1 %, max 11.9 % |
 | Throughput (`imagePeriod`, `headerBytes`, `maxImageBytes`) | Throughput model of section 8.1 | Exact: the testbench of the predictor checks it cycle by cycle |
 
 LUT, flip-flops and clock frequency hold for the target and tool of the table; the runs cover the configurations of
@@ -682,3 +730,4 @@ python tools/ocp_decompress.py compressed.bin -o decoded.raw --compare image.raw
 | Defect | Affected | Effect | Correction |
 | --- | --- | --- | --- |
 | `BlockSize_g` other than 8, 16, 32 and 64 was accepted | All versions before the generic range checks | The header carries the block size code of 64 while the block-adaptive coder codes blocks of the given size, so the compressed image cannot be decompressed | The elaboration stops (CO-CF-02, section 7) |
+| Memory reads at undefined addresses before the first image | All versions up to 0.3.1 | Before the first image after a reset the statistics memory of the sample-adaptive and the hybrid coder and, in BI order, the weight memory of the predictor are read at an undefined address: a simulation with the warnings of the IEEE packages reports a metavalue warning in every clock cycle. The data read are not used; the compressed images and the hardware are not affected | The addresses are defined from the reset (CO-RS-02); what remains is the bounded burst of warnings after a reset from the datapath of the pipeline stages without a valid item (section 3) |

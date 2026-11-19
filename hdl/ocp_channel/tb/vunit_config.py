@@ -8,7 +8,7 @@ Configurations with D = 8, 12, 14, 16, 18, 20 and 32 (containers of 1 to 4 bytes
 128 bits, with the input converter at integer and non-integer ratios and without converter (one container per beat);
 the output converter up to 128 bits, down to 8 bits and without converter (OutWidth_g = OutStreamWidth_g). Every configuration runs
 test_golden and, without periodic error limit updating, test_errors; some with input gaps and output stalls.
-test_ecc and test_reset run one configuration.
+test_ecc runs one configuration, test_reset two (without and with the output converter).
 """
 
 import sys
@@ -34,7 +34,8 @@ CONFIGS = {
     "r24_random": (128, 32, 8, True),                  # D 18: 128 to 24 bits; output 32 to 8 bits (downsizing)
 }
 ECC = "c37_block_d32_custom"
-RESET = "r09_random"
+# test_reset without and with the output converter
+RESET = ("r09_random", "r24_random")
 # Runtime configuration (TC-CH-07): BI with sub-frames, absolute and relative error limits
 RUNTIME = ["rc04_bi_m4_sample_both"]
 # Runtime parameters (TC-CH-08): the same configuration with the parameters of every image
@@ -58,7 +59,7 @@ def configure(lib):
         if name == ECC:
             channels = ocp_throughput.ecc_channels(gen)[:2]
             tb.test("test_ecc").add_config(name=name, generics=dict(gen, EccChannels_g=",".join(map(str, channels))))
-        if name == RESET:
+        if name in RESET:
             tb.test("test_reset").add_config(name=name, generics=gen)
 
     # Runtime configuration through the AXI4-Lite port (TC-CH-07)

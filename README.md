@@ -112,6 +112,7 @@ python tools/ocp_estimate_fit.py --check    # resource models are the fit of the
 python tools/ocp_estimate_golden.py --check # golden data of the JavaScript models up to date
 node --test "tools/tests/*.test.mjs"        # JavaScript models against the Python models
 python run.py --compile-order               # compile_order.txt; the CI fails when the file changes
+python tools/ci_shard.py --check            # every test in exactly one shard of the CI regression
 ```
 
 Checks with the AMD Vivado tools (Vivado on the `PATH` or `VIVADO_PATH` set to the installation):

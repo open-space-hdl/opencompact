@@ -2,11 +2,12 @@
 
 ## 1. Test results
 
-Run on 2026-10-27 with GHDL (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open Logic
-4.7.0-ft.9: `python run.py "*ocp_core*" "*ocp_bit_packer*"`. The same tests pass in QuestaSim (Questa Pro Microchip
-Edition 2024.3, time resolution 1 fs, 2026-10-26 and 2026-10-27), with code coverage and in the optimised run without
-it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL
-6.0.0 on 2026-10-26 and 2026-10-27 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
+Run on 2026-11-18 with GHDL 6.0.0 (mcode, in the CI of the repository), VUnit 5.0.0.dev7, UVVM (commit 4f1e13b), Open
+Logic 4.8.0-ft.2: `python run.py "*ocp_core*" "*ocp_bit_packer*"`. The same tests pass in QuestaSim (Questa Pro
+Microchip Edition 2024.3, time resolution 1 fs, 2026-11-18 and 2026-11-19), in one run with code coverage (the RTL
+changed in this release; a run with coverage is the functional evidence and the code coverage at once); the code
+coverage is in [coverage.md](../../../docs/coverage.md). The tests of the CCSDS test data set ran in GHDL 6.0.0 on
+2026-11-18 (`OCP_TESTVECTORS`, selection of `tools/ocp_testvectors.py`).
 
 | Testbench | Tests | Passed |
 | --- | --- | --- |
@@ -21,6 +22,7 @@ it; the code coverage is in [coverage.md](../../../docs/coverage.md). The tests 
 | `ocp_core_tb` `test_runtime` (TC-CO-59) | 8 (rp01 to rp03, sequences of 21 images with their own runtime parameters, each also with back pressure; rp05 and rp06), each also with `UseInLast_g` | 16 |
 | `ocp_core_tb` `test_runtime_range` (TC-CO-60) | 3 (rp01 to rp03, 46, 44 and 21 images), each also with `UseInLast_g` | 6 |
 | `ocp_core_tb` `test_runtime_queue` (TC-CO-61) | 6 (rp01 to rp04; rp01 and rp03 also with the output held after the header of a larger first image, `_hold`), each also with `UseInLast_g` | 12 |
+| `ocp_core_tb` `test_idle` (TC-CO-65) | 8, four with `UseInLast_g` (section 9) | 8 |
 | `ocp_bit_packer_tb` `test_random` | 30 | 30 |
 | `ocp_bit_packer_tb` `test_byte_order` | 5 | 5 |
 | `ocp_core_tb` `test_golden` with the CCSDS test data set | 300 (75 of them with back pressure), each also with `UseInLast_g` | 600 |
@@ -406,3 +408,32 @@ the reference sample interval) and rp06 (the K field with band-varying accumulat
 | `ocp_mib` | M written in BSQ order | rp01 to rp03 `test_runtime_params` | Readback of NEXT_ORDER in rp03 |
 | `ocp_mib` | Parameters not committed | rp01 to rp03 `test_runtime_params` | `Cfg_UserData` after a valid COMMIT |
 | `ocp_mib` | SAMPLES.USER_DATA not read from `Act_UserData` | rp01 to rp03 `test_runtime_params` | SAMPLES |
+
+## 9. Idle test after the reset (TC-CO-65)
+
+Run on 2026-11-06 with GHDL 6.0.0 (mcode): `python run.py -p 1 -v "*test_idle*"`, on the fixed RTL and, as the negative
+run, with the same testbench on the predictor and the coders before the fix. The window of the post check opens
+`IdleDepth_g` clock cycles after the release of `Rst` at 45 ns, `IdleDepth_g` being the depth of the predictor pipeline
+from `ocp_throughput.latencies`. The last warning is the time printed by the post check (over all warnings of the IEEE
+packages, also those before the window).
+
+| Configuration | Depth (cycles) | Window from | Last warning before the fix | Last warning with the fix | Cycles after the release | Margin (cycles) |
+| --- | --- | --- | --- | --- | --- | --- |
+| c22_single_pixel_hybrid, `UseInLast_g` | 14 | 185 ns | 20055 ns (fail) | 135 ns (pass) | 9 | 5 |
+| c34_small_bsq_lossless | 15 | 195 ns | 20055 ns (fail) | 145 ns (pass) | 10 | 5 |
+| c32_small_bip_periodic_rel | 32 | 365 ns | 20055 ns (fail) | 325 ns (pass) | 28 | 4 |
+| c35_small_bil_periodic_spec, `UseInLast_g` | 32 | 365 ns | 20055 ns (fail) | 325 ns (pass) | 28 | 4 |
+| c31_small_bi_periodic_abs | 33 | 375 ns | 20055 ns (fail) | 335 ns (pass) | 29 | 4 |
+| c33_small_bip_stride_block, `UseInLast_g` | 33 | 375 ns | 20055 ns (fail) | 335 ns (pass) | 29 | 4 |
+| rc03_bsq_block_rel | 33 | 375 ns | 325 ns (pass) | 335 ns (pass) | 29 | 4 |
+| rp02_bi_mnz_hybrid, `UseInLast_g` | 33 | 375 ns | 20055 ns (fail) | 335 ns (pass) | 29 | 4 |
+
+Before the fix 7 of the 8 configurations fail: the statistics memory of the coders and the weight memory of the
+predictor are read at an undefined address in every clock cycle, up to the end of the simulation at 20055 ns. rc03 (BSQ,
+block-adaptive coder) has none of these reads, since the address of the weight memory is constant in BSQ order and the
+block-adaptive coder has no statistics memory, and passes on both. It is the control configuration, not a missed
+detection: it shows that the check fails only where the defect exists and not on the burst after the release alone. With
+the fix all 8 pass. In every configuration the last warning comes 4 or 5 clock cycles before the end of the predictor
+pipeline depth: the burst of the datapath without reset after the release (user guide section 3) ends within the window,
+and no warning follows. The port check finds no undefined output of the core from the release of `Rst` on, before and
+after the fix.

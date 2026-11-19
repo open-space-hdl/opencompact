@@ -173,6 +173,7 @@ def fit(cal):
     source = (f"{cal['target']}, {cal['tool']} ({', '.join(cal['synthesis'])}), {cal['outWidth']}-bit output, runs "
               f"of {cal['dates'][-1]}")
     ug_rms, ug_max, n_ug = stats(err["lut"], USER_GUIDE)
+    ug_worst = max(USER_GUIDE, key=lambda n: abs(err["lut"][n]))
     rest = [n for n in USER_GUIDE if n != "c11_wide_d32"]
     rest_rms, rest_max, _ = stats(err["lut"], rest)
     model["notes"] = [
@@ -180,7 +181,7 @@ def fit(cal):
         f"{len(fit_rows)} of {len(rows)} synthesis runs. Error against all runs: LUT {figures('lut')}; flip-flops "
         f"{figures('ff')}.",
         f"LUT of the {n_ug} configurations of user guide section 8.2: RMS {ug_rms:.1%}, max {ug_max:.1%} "
-        f"(c11_wide_d32); without c11_wide_d32 RMS {rest_rms:.1%}, max {rest_max:.1%}.",
+        f"({ug_worst}); without c11_wide_d32 RMS {rest_rms:.1%}, max {rest_max:.1%}.",
         f"Clock frequency: place and route for a 100 MHz constraint, a linear model of the clock period fitted to "
         f"{len([r for r in fit_rows if r['fmaxMHz']])} of {len(pr)} runs. Error against all runs: {figures('fmaxMHz')}.",
     ]

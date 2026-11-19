@@ -25,21 +25,21 @@ Closure rules:
 
 ## 2. Results
 
-Run on 2026-10-26 and 2026-10-27 with Open Logic 4.7.0-ft.9: 613 tests (the testbenches of the predictor and its
+Run on 2026-11-18 and 2026-11-19 with Open Logic 4.8.0-ft.2: 622 tests (the testbenches of the predictor and its
 image-start sequencer, the entropy coders, the bit packer and the core with all configurations of
 `tools/ocp_configs.py`, the runtime configurations and the runtime parameter configurations, the core configurations
-also with the image framing and the aborted images at every abort position, and the testbenches of the input adapter,
-the MIB and the channel), all passed in QuestaSim as in GHDL, with code coverage and in the optimised run without it.
-The regression ran in twelve parts by testbench; the tests added by the review of this coverage (section 3) ran in
-both modes; `vcover merge` combines the coverage databases of all parts. Numbers are covered/total bins per file; bold
-marks a metric with misses.
+also with the image framing and the aborted images at every abort position, the idle core after a reset, and the
+testbenches of the input adapter, the MIB and the channel), all passed in QuestaSim as in GHDL, in one run with code
+coverage: the RTL changed in this release, so a run with coverage is the functional evidence and the code coverage
+at once. The regression ran in twelve parts by testbench; `vcover merge` combines the coverage databases of all
+parts. Numbers are covered/total bins per file; bold marks a metric with misses.
 
 | File | Statements | Branches | Conditions | Expressions | FSM States | FSM Transitions |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ocp_pkg.vhd` | **101 / 114 (88.6 %)** | **46 / 51 (90.2 %)** | **1 / 2 (50.0 %)** | **16 / 33 (48.5 %)** | | |
-| `ocp_predictor.vhd` | **766 / 769 (99.6 %)** | **366 / 367 (99.7 %)** | **85 / 108 (78.7 %)** | **70 / 75 (93.3 %)** | | |
-| `ocp_sample_adaptive_coder.vhd` | 123 / 123 | 45 / 45 | 9 / 9 | 14 / 14 | | |
-| `ocp_hybrid_coder.vhd` | **220 / 221 (99.5 %)** | **69 / 71 (97.2 %)** | **24 / 25 (96.0 %)** | 16 / 16 | 3 / 3 | 4 / 4 |
+| `ocp_predictor.vhd` | **789 / 792 (99.6 %)** | **378 / 379 (99.7 %)** | **85 / 108 (78.7 %)** | **70 / 75 (93.3 %)** | | |
+| `ocp_sample_adaptive_coder.vhd` | 125 / 125 | 47 / 47 | 9 / 9 | 14 / 14 | | |
+| `ocp_hybrid_coder.vhd` | **221 / 222 (99.5 %)** | **71 / 73 (97.3 %)** | **24 / 25 (96.0 %)** | 16 / 16 | 3 / 3 | 4 / 4 |
 | `ocp_block_adaptive_coder.vhd` | 218 / 218 | 101 / 101 | **15 / 18 (83.3 %)** | 12 / 12 | | |
 | `ocp_cw_buffer.vhd` | 33 / 33 | 13 / 13 | 9 / 9 | 6 / 6 | | |
 | `ocp_header.vhd` | 212 / 212 | 78 / 78 | 8 / 8 | | | |
@@ -50,7 +50,7 @@ marks a metric with misses.
 | `ocp_mib.vhd` | 218 / 218 | **122 / 123 (99.2 %)** | **25 / 27 (92.6 %)** | 42 / 42 | | |
 | `ocp_channel.vhd` | 14 / 14 | 5 / 5 | 3 / 3 | **8 / 10 (80.0 %)** | | |
 | `ocp_image_start.vhd` | **53 / 54 (98.1 %)** | **31 / 32 (96.9 %)** | | 11 / 11 | 3 / 3 | **3 / 4 (75.0 %)** |
-| Total | 2388 / 2408 (99.2 %) | 1076 / 1088 (98.9 %) | 224 / 254 (88.2 %) | 224 / 248 (90.3 %) | 10 / 10 (100.0 %) | 11 / 12 (91.7 %) |
+| Total | 2414 / 2434 (99.2 %) | 1092 / 1104 (98.9 %) | 224 / 254 (88.2 %) | 224 / 248 (90.3 %) | 10 / 10 (100.0 %) | 11 / 12 (91.7 %) |
 
 Every statement and branch that runs in simulation is covered except six items (the recovery branches of the state
 machines of the tail, the image framer, the input adapter and the image-start sequencer, the wait of the flush words
